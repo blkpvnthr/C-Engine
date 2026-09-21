@@ -18,3 +18,4 @@ atlas-credentials.env
 # Local debugging backups
 *.before-*
 .env.example
+.env
