@@ -76,6 +76,7 @@ from cengine.event_bus import MarketEventBus
 from cengine.execution_policy import ExecutionPolicy
 from cengine.journal import AuditJournal
 from cengine.metrics import PortfolioMetricsCollector
+from cengine.nosql_journal import MongoDailyJournalStore
 from cengine.safety import (
     MarketGateConfig,
     MarketSafetyGate,
@@ -196,6 +197,9 @@ class EngineConfig:
     session_open_minute: int
     session_close_minute: int
     session_weekdays: tuple[int, ...]
+    mongodb_uri: str
+    mongodb_database: str
+    mongodb_timeout_ms: int
 
     alpaca_url: Optional[str] = None
 
@@ -221,6 +225,10 @@ class EngineConfig:
             self.session_close_minute,
             self.session_weekdays,
         )
+        if not self.mongodb_uri.strip() or not self.mongodb_database.strip():
+            raise EngineConfigurationError("MongoDB journal configuration is required")
+        if self.mongodb_timeout_ms <= 0:
+            raise EngineConfigurationError("MongoDB timeout must be positive")
 
         # Strategy constructors perform the detailed mathematical validation.
         StrategySetConfig(
@@ -423,7 +431,13 @@ class MarketEngine:
         self.health = EngineHealth()
         self._stop = asyncio.Event()
         self.state = EngineStateMachine()
-        self.journal = AuditJournal(config.journal_path)
+        self.nosql_journal = MongoDailyJournalStore(
+            config.mongodb_uri,
+            config.mongodb_database,
+            config.session_timezone,
+            config.mongodb_timeout_ms,
+        )
+        self.journal = AuditJournal(config.journal_path, sinks=(self.nosql_journal,))
         self.market_gate = MarketSafetyGate(
             MarketGateConfig(config.max_feed_age_ns, config.max_bar_gap_ns)
         )
@@ -615,6 +629,7 @@ class MarketEngine:
             )
 
             self.archive.close(drain=True)
+            self.journal.close()
 
     async def stop(self) -> None:
         if self._stop.is_set():
@@ -832,6 +847,16 @@ def config_from_args() -> EngineConfig:
     parser.add_argument("--session-open-minute", required=True, type=int)
     parser.add_argument("--session-close-minute", required=True, type=int)
     parser.add_argument("--session-weekdays", required=True, type=_csv_ints)
+    parser.add_argument(
+        "--mongodb-uri",
+        default=os.environ.get("CENGINE_MONGODB_URI", ""),
+        help="MongoDB URI; prefer CENGINE_MONGODB_URI to avoid shell history",
+    )
+    parser.add_argument(
+        "--mongodb-database",
+        default=os.environ.get("CENGINE_MONGODB_DATABASE", ""),
+    )
+    parser.add_argument("--mongodb-timeout-ms", required=True, type=int)
 
     parser.add_argument("--turtle-entry-lookback", required=True, type=int)
     parser.add_argument("--turtle-exit-lookback", required=True, type=int)
@@ -884,6 +909,9 @@ def config_from_args() -> EngineConfig:
         session_open_minute=args.session_open_minute,
         session_close_minute=args.session_close_minute,
         session_weekdays=args.session_weekdays,
+        mongodb_uri=args.mongodb_uri,
+        mongodb_database=args.mongodb_database,
+        mongodb_timeout_ms=args.mongodb_timeout_ms,
         alpaca_url=args.alpaca_url,
     )
 

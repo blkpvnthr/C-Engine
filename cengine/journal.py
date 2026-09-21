@@ -8,15 +8,25 @@ import os
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from threading import RLock
-from typing import Any, Iterator
+from typing import Any, Iterator, Protocol
+
+
+class JournalSink(Protocol):
+    def write(self, record: dict[str, Any]) -> None: ...
+
+    def close(self) -> None: ...
 
 
 class AuditJournal:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, sinks: tuple[JournalSink, ...] = ()) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._sequence = self._last_sequence()
         self._lock = RLock()
+        self._sinks = sinks
+        for record in self.records() or ():
+            for sink in self._sinks:
+                sink.write(record)
 
     def append(self, kind: str, timestamp_ns: int, payload: Any) -> int:
         if timestamp_ns <= 0 or not kind:
@@ -38,7 +48,13 @@ class AuditJournal:
                 handle.write(json.dumps(record, sort_keys=True, default=str) + "\n")
                 handle.flush()
                 os.fsync(handle.fileno())
+            for sink in self._sinks:
+                sink.write(record)
             return self._sequence
+
+    def close(self) -> None:
+        for sink in self._sinks:
+            sink.close()
 
     def records(self) -> Iterator[dict[str, Any]]:
         if not self.path.exists():

@@ -85,6 +85,26 @@ the audit journal, including cash, equity, buying power, realized P/L, gross
 and net exposure, pending reserved notional, open-order and position counts,
 and high-water-mark drawdown.
 
+## Daily NoSQL journal storage
+
+Install MongoDB support with `pip install -e '.[nosql]'`. Configure the URI as
+an environment variable so credentials do not enter shell history:
+
+```text
+CENGINE_MONGODB_URI=mongodb://127.0.0.1:27017/?replicaSet=rs0
+CENGINE_MONGODB_DATABASE=cengine
+```
+
+Also supply `--mongodb-timeout-ms` explicitly. Each verified journal record is
+written to a timezone-aware daily collection such as `journal_20260921`.
+Collections have a unique global-sequence index and a timestamp/kind index.
+Repeated replay is idempotent; reuse of a sequence with another checksum fails
+closed. The local checksummed JSONL file remains the write-ahead and recovery
+source. At startup it is backfilled into MongoDB before trading proceeds.
+
+For production, use a MongoDB replica set with authentication, encryption in
+transit, backups, and majority write concern configured in the connection URI.
+
 ## Replay
 
 `cengine.replay.replay()` republishes already-normalized events in stable input
