@@ -15,6 +15,5 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 atlas-credentials.env
-.env.example
 # Local debugging backups
 *.before-*
