@@ -30,3 +30,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
+
+[[tool.mypy.overrides]]
+module = ["_cengine_native", "sklearn.*"]
+ignore_missing_imports = true

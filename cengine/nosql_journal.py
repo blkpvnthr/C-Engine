@@ -41,20 +41,22 @@ class MongoDailyJournalStore:
         if timeout_ms <= 0:
             raise ValueError("MongoDB timeout must be positive")
         self._zone = ZoneInfo(timezone_name)
+        client_options: dict[str, Any] = {
+            "serverSelectionTimeoutMS": timeout_ms,
+            "connectTimeoutMS": timeout_ms,
+            "retryWrites": True,
+            "w": "majority",
+            "journal": True,
+        }
         if client_factory is None:
             try:
                 from pymongo import MongoClient
+                from pymongo.server_api import ServerApi
             except ImportError as exc:
                 raise RuntimeError("install cengine[nosql] for MongoDB journaling") from exc
             client_factory = MongoClient
-        self._client: ClientLike = client_factory(
-            uri,
-            serverSelectionTimeoutMS=timeout_ms,
-            connectTimeoutMS=timeout_ms,
-            retryWrites=True,
-            w="majority",
-            journal=True,
-        )
+            client_options["server_api"] = ServerApi("1")
+        self._client: ClientLike = client_factory(uri, **client_options)
         self._database: DatabaseLike = self._client[database]
         self._indexed: set[str] = set()
 
