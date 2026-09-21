@@ -30,6 +30,24 @@ class Position:
 
 
 @dataclass(frozen=True, slots=True)
+class BrokerPosition:
+    symbol: str
+    quantity: int
+    average_entry_price_ticks: int
+
+
+@dataclass(frozen=True, slots=True)
+class BrokerOrder:
+    client_order_id: str
+    venue_order_id: str
+    symbol: str
+    side: Side
+    quantity: int
+    filled_quantity: int
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
 class AccountSnapshot:
     cash_ticks: int
     buying_power_ticks: int
@@ -65,6 +83,8 @@ class PositionBook:
         self._positions: dict[str, Position] = {}
         self._fills: list[Fill] = []
         self._open_orders: dict[str, ManagedOrder] = {}
+        self._broker_orders: dict[str, BrokerOrder] = {}
+        self._broker_revision_ns = 0
         self._lock = RLock()
 
     def track_order(self, order: ManagedOrder) -> None:
@@ -122,6 +142,56 @@ class PositionBook:
                 return position.quantity
             return position.strategy_quantities.get(strategy_id, 0)
 
+    def replace_from_broker(
+        self,
+        positions: tuple[BrokerPosition, ...],
+        orders: tuple[BrokerOrder, ...],
+        observed_ns: int,
+    ) -> None:
+        """Replace broker-owned totals; strategy ownership is never fabricated."""
+        if observed_ns <= 0:
+            raise ValueError("broker observation timestamp must be positive")
+        with self._lock:
+            if observed_ns < self._broker_revision_ns:
+                raise ValueError("stale broker portfolio snapshot")
+            internal_symbols = set(self._positions)
+            broker_symbols = {position.symbol for position in positions}
+            for position in positions:
+                existing = self._positions.get(position.symbol)
+                ownership = {} if existing is None else dict(existing.strategy_quantities)
+                if ownership and sum(ownership.values()) != position.quantity:
+                    raise RuntimeError(
+                        f"strategy ownership diverged from broker for {position.symbol}"
+                    )
+                self._positions[position.symbol] = Position(
+                    symbol=position.symbol,
+                    quantity=position.quantity,
+                    cost_ticks=position.quantity * position.average_entry_price_ticks,
+                    strategy_quantities=ownership,
+                )
+            for symbol in internal_symbols - broker_symbols:
+                if self._positions[symbol].quantity != 0:
+                    raise RuntimeError(f"broker is missing internal position {symbol}")
+                self._positions.pop(symbol)
+            self._broker_orders = {order.client_order_id: order for order in orders}
+            self._broker_revision_ns = observed_ns
+
+    def assert_consistent(self) -> None:
+        with self._lock:
+            for client_id, managed in self._open_orders.items():
+                broker = self._broker_orders.get(client_id)
+                if broker is None:
+                    raise RuntimeError(f"internal open order absent at broker: {client_id}")
+                if managed.venue_order_id and managed.venue_order_id != broker.venue_order_id:
+                    raise RuntimeError(f"venue order mismatch for {client_id}")
+            unknown = set(self._broker_orders) - set(self._open_orders)
+            if unknown:
+                raise RuntimeError(f"unowned broker open orders: {sorted(unknown)}")
+
+    def broker_orders(self) -> tuple[BrokerOrder, ...]:
+        with self._lock:
+            return tuple(self._broker_orders.values())
+
     def fills(self) -> tuple[Fill, ...]:
         with self._lock:
             return tuple(self._fills)
@@ -129,3 +199,15 @@ class PositionBook:
     def open_orders(self) -> tuple[ManagedOrder, ...]:
         with self._lock:
             return tuple(replace(x) for x in self._open_orders.values())
+
+    def positions(self) -> tuple[Position, ...]:
+        with self._lock:
+            return tuple(
+                Position(
+                    item.symbol,
+                    item.quantity,
+                    item.cost_ticks,
+                    dict(item.strategy_quantities),
+                )
+                for item in self._positions.values()
+            )

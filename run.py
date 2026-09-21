@@ -67,10 +67,22 @@ import inspect
 import logging
 import os
 import signal
+import time
 from dataclasses import dataclass
 from typing import Awaitable, Optional, Protocol
 
+from cengine.engine_state import EngineState, EngineStateMachine
 from cengine.event_bus import MarketEventBus
+from cengine.execution_policy import ExecutionPolicy
+from cengine.journal import AuditJournal
+from cengine.metrics import PortfolioMetricsCollector
+from cengine.safety import (
+    MarketGateConfig,
+    MarketSafetyGate,
+    MarketSessionGate,
+    SessionConfig,
+)
+from cengine.strategy_state import StrategyStateBook
 from market_data.alpaca_sip_stream import (
     AlpacaSIPStream,
     BarEvent,
@@ -81,14 +93,13 @@ from market_data.alpaca_sip_stream import (
 )
 from market_data.market_data_store import DailyHDF5Writer
 from order_manager import (
+    TERMINAL_STATUSES,
     ExecutionUpdate,
     ExecutionVenue,
     NativeRiskEngine,
     OrderIntent,
     OrderManager,
-    OrderType,
     Side,
-    TimeInForce,
 )
 from strategies import (
     APOConfig,
@@ -96,6 +107,7 @@ from strategies import (
     DualMAConfig,
     SignalSide,
     StrategyCoordinator,
+    StrategyName,
     StrategySetConfig,
     TradeCandidate,
     TurtleConfig,
@@ -176,6 +188,14 @@ class EngineConfig:
     apo_exit_threshold_ticks: float
 
     native_adapter_module: str
+    journal_path: str
+    max_feed_age_ns: int
+    max_bar_gap_ns: int
+    reconciliation_interval_seconds: float
+    session_timezone: str
+    session_open_minute: int
+    session_close_minute: int
+    session_weekdays: tuple[int, ...]
 
     alpaca_url: Optional[str] = None
 
@@ -190,6 +210,17 @@ class EngineConfig:
             )
         if not self.native_adapter_module.strip():
             raise EngineConfigurationError("native_adapter_module is required")
+        if not self.journal_path.strip():
+            raise EngineConfigurationError("journal_path is required")
+        MarketGateConfig(self.max_feed_age_ns, self.max_bar_gap_ns)
+        if self.reconciliation_interval_seconds <= 0:
+            raise EngineConfigurationError("reconciliation interval must be positive")
+        SessionConfig(
+            self.session_timezone,
+            self.session_open_minute,
+            self.session_close_minute,
+            self.session_weekdays,
+        )
 
         # Strategy constructors perform the detailed mathematical validation.
         StrategySetConfig(
@@ -274,10 +305,14 @@ class CandidateRouter:
         order_manager: OrderManager,
         entry_quantity_policy: QuantityPolicy,
         exit_quantity_provider: ExitQuantityProvider,
+        execution_policy: ExecutionPolicy,
+        strategy_state: StrategyStateBook,
     ) -> None:
         self._orders = order_manager
         self._entry_quantity = entry_quantity_policy
         self._exit_quantity = exit_quantity_provider
+        self._execution_policy = execution_policy
+        self._strategy_state = strategy_state
 
     async def route(
         self,
@@ -285,6 +320,24 @@ class CandidateRouter:
     ) -> tuple[int, bool]:
         if not candidates:
             return 0, False
+
+        candidates = tuple(
+            candidate
+            for candidate in candidates
+            if self._strategy_state.can_submit(candidate.strategy.value, candidate.symbol)
+        )
+        if not candidates:
+            return 0, False
+
+        exits = tuple(
+            candidate
+            for candidate in candidates
+            if candidate.side in {SignalSide.EXIT_LONG, SignalSide.EXIT_SHORT}
+        )
+        # Risk reduction wins over new exposure. Entry signals in a batch that
+        # contains an exit are withheld; exits are never blocked by entries.
+        if exits:
+            candidates = exits
 
         buy, sell = group_candidates_by_direction(candidates)
 
@@ -338,12 +391,15 @@ class CandidateRouter:
         # a MARKET intent only when explicitly selected by this router's
         # contract. If another execution policy is desired, replace the router
         # with a versioned implementation.
+        instruction = self._execution_policy.instruction_for(candidate)
         return OrderIntent(
             symbol=candidate.symbol,
             side=side,
             quantity=quantity,
-            order_type=OrderType.MARKET,
-            time_in_force=TimeInForce.DAY,
+            order_type=instruction.order_type,
+            time_in_force=instruction.time_in_force,
+            limit_price_ticks=instruction.limit_price_ticks,
+            stop_price_ticks=instruction.stop_price_ticks,
             strategy_id=candidate.strategy.value,
             correlation_id=(
                 f"{candidate.symbol}:{candidate.timestamp_ns}:{candidate.strategy.value}"
@@ -359,17 +415,43 @@ class MarketEngine:
         config: EngineConfig,
         quantity_policy: QuantityPolicy,
         exit_quantity_provider: ExitQuantityProvider,
+        execution_policy: ExecutionPolicy,
         factor_source: Optional[ExternalFactorSource] = None,
     ) -> None:
         config.validate()
         self.config = config
         self.health = EngineHealth()
         self._stop = asyncio.Event()
+        self.state = EngineStateMachine()
+        self.journal = AuditJournal(config.journal_path)
+        self.market_gate = MarketSafetyGate(
+            MarketGateConfig(config.max_feed_age_ns, config.max_bar_gap_ns)
+        )
+        self.session_gate = MarketSessionGate(
+            SessionConfig(
+                config.session_timezone,
+                config.session_open_minute,
+                config.session_close_minute,
+                config.session_weekdays,
+            )
+        )
+        self.strategy_state = StrategyStateBook()
 
         risk_engine, venue = load_native_adapters(config.native_adapter_module)
         self.venue = venue
         self._adapter_module = importlib.import_module(config.native_adapter_module)
-        self.portfolio = getattr(getattr(self._adapter_module, "STATE", None), "positions", None)
+        runtime_state = getattr(self._adapter_module, "STATE", None)
+        self.portfolio = getattr(runtime_state, "positions", None)
+        self.metrics = (
+            PortfolioMetricsCollector(
+                runtime_state.account,
+                runtime_state.positions,
+                runtime_state.reservations,
+                runtime_state,
+            )
+            if runtime_state is not None
+            else None
+        )
 
         self.order_manager = OrderManager(
             risk_engine=risk_engine,
@@ -442,14 +524,26 @@ class MarketEngine:
             order_manager=self.order_manager,
             entry_quantity_policy=quantity_policy,
             exit_quantity_provider=exit_quantity_provider,
+            execution_policy=execution_policy,
+            strategy_state=self.strategy_state,
         )
 
     async def run(self) -> None:
         """Start archive, consumer, market stream, and optional factor source."""
+        self.state.transition(EngineState.RECONCILING, "startup broker reconciliation")
+        self.journal.append("engine_state", time.time_ns(), {"state": "reconciling"})
+        reconcile = getattr(self.venue, "startup_reconcile", None)
+        if not callable(reconcile):
+            self.kill_switch("execution venue lacks startup reconciliation")
+            raise EngineConfigurationError("execution venue lacks startup reconciliation")
+        try:
+            await reconcile()
+        except Exception as exc:
+            self.kill_switch(f"startup reconciliation failed: {exc}")
+            raise
+        self.state.transition(EngineState.READY, "broker state agrees")
         self.archive.start()
-        sync_account = getattr(self.venue, "sync_account", None)
-        if callable(sync_account):
-            await sync_account()
+        self.state.transition(EngineState.RUNNING, "all startup gates passed")
 
         consumer_task = asyncio.create_task(
             self._consume_market_events(),
@@ -458,6 +552,9 @@ class MarketEngine:
         stream_task = asyncio.create_task(
             self.stream.run_forever(),
             name="alpaca-sip-stream",
+        )
+        reconciliation_task = asyncio.create_task(
+            self._reconciliation_loop(), name="broker-reconciliation"
         )
 
         factor_task: Optional[asyncio.Task[None]] = None
@@ -470,7 +567,7 @@ class MarketEngine:
                 name="volatility-factor-source",
             )
 
-        tasks = [consumer_task, stream_task]
+        tasks = [consumer_task, stream_task, reconciliation_task]
         if factor_task is not None:
             tasks.append(factor_task)
 
@@ -523,8 +620,21 @@ class MarketEngine:
         if self._stop.is_set():
             return
 
+        if self.state.state not in {EngineState.KILLED, EngineState.STOPPING}:
+            self.state.transition(EngineState.STOPPING, "stop requested")
+        elif self.state.state is EngineState.KILLED:
+            self.state.transition(EngineState.STOPPING, "killed engine stopping")
         self._stop.set()
         await self.stream.stop()
+        self.state.transition(EngineState.STOPPED, "stopped")
+
+    def kill_switch(self, reason: str) -> None:
+        self.state.kill(reason)
+        risk = getattr(self.order_manager, "_risk_engine", None)
+        native_engine = getattr(risk, "engine", None)
+        if native_engine is not None:
+            native_engine.activate_kill_switch()
+        self.journal.append("kill_switch", time.time_ns(), {"reason": reason})
 
     async def reconcile_execution(
         self,
@@ -534,6 +644,37 @@ class MarketEngine:
         order = await self.order_manager.reconcile(update)
         if self.portfolio is not None:
             self.portfolio.apply_execution(order, update)
+        self.strategy_state.reconcile(order, update)
+        self.strategies.on_position(
+            StrategyName(order.intent.strategy_id),
+            order.intent.symbol,
+            self.strategy_state.quantity(order.intent.strategy_id, order.intent.symbol),
+        )
+        self.journal.append("execution_update", update.event_ns, update)
+
+    async def _reconciliation_loop(self) -> None:
+        reconcile_status = getattr(self.venue, "reconcile_status", None)
+        reconcile_snapshot = getattr(self.venue, "startup_reconcile", None)
+        if not callable(reconcile_status):
+            self.kill_switch("execution venue lacks runtime reconciliation")
+            raise RuntimeError("execution venue lacks runtime reconciliation")
+        while not self._stop.is_set():
+            try:
+                for order in self.order_manager.open_orders():
+                    if order.venue_order_id is None:
+                        continue
+                    update = await reconcile_status(order.venue_order_id)
+                    await self.reconcile_execution(update)
+                if not callable(reconcile_snapshot):
+                    raise RuntimeError("execution venue lacks broker snapshot reconciliation")
+                await reconcile_snapshot()
+                if self.metrics is not None:
+                    metrics = self.metrics.snapshot()
+                    self.journal.append("portfolio_metrics", metrics.timestamp_ns, metrics)
+            except Exception as exc:
+                self.kill_switch(f"runtime reconciliation failed: {exc}")
+                raise
+            await asyncio.sleep(self.config.reconciliation_interval_seconds)
 
     async def _publish_market_event(
         self,
@@ -541,6 +682,10 @@ class MarketEngine:
     ) -> None:
         # Persistence and every analytics consumer have independent streams.
         self.archive.submit(event)
+        self.market_gate.observe(
+            event.symbol, event.timestamp_ns, is_bar=isinstance(event, BarEvent)
+        )
+        self.journal.append("market_event", event.timestamp_ns, event)
         state = getattr(self._adapter_module, "STATE", None)
         if state is not None:
             state.on_market_event(event)
@@ -563,6 +708,9 @@ class MarketEngine:
                 self.strategy_events.queue.task_done()
 
     async def _process_bar(self, event: BarEvent) -> None:
+        self.state.require_ordering_enabled()
+        self.market_gate.require_fresh(event.symbol, event.received_ns)
+        self.session_gate.require_open(event.timestamp_ns)
         bar = Bar(
             symbol=event.symbol,
             timestamp_ns=event.timestamp_ns,
@@ -612,6 +760,24 @@ class MarketEngine:
             order.approved_quantity,
             order.venue_order_id,
         )
+        if self.portfolio is not None:
+            self.portfolio.track_order(order)
+        self.strategy_state.on_order(order)
+        self.journal.append(
+            "order_event",
+            max(order.last_event_ns, time.time_ns()),
+            {
+                "event": event,
+                "client_order_id": order.client_order_id,
+                "status": order.status.value,
+                "symbol": order.intent.symbol,
+                "strategy_id": order.intent.strategy_id,
+            },
+        )
+        if order.status in TERMINAL_STATUSES or order.status.value == "error":
+            state = getattr(self._adapter_module, "STATE", None)
+            if state is not None:
+                state.reservations.release(order.client_order_id)
 
     async def _stream_state_changed(self, state) -> None:
         LOGGER.info("Alpaca SIP state=%s", state.value)
@@ -622,6 +788,16 @@ def _csv_symbols(value: str) -> tuple[str, ...]:
     if not symbols:
         raise argparse.ArgumentTypeError("at least one symbol is required")
     return symbols
+
+
+def _csv_ints(value: str) -> tuple[int, ...]:
+    try:
+        values = tuple(int(part.strip()) for part in value.split(",") if part.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected comma-separated integers") from exc
+    if not values:
+        raise argparse.ArgumentTypeError("at least one integer is required")
+    return values
 
 
 def config_from_args() -> EngineConfig:
@@ -648,6 +824,14 @@ def config_from_args() -> EngineConfig:
         default=os.environ.get("ENGINE_NATIVE_ADAPTER_MODULE", ""),
         help=("Python/pybind11 module exposing build_risk_engine() and build_execution_venue()."),
     )
+    parser.add_argument("--journal-path", required=True)
+    parser.add_argument("--max-feed-age-ns", required=True, type=int)
+    parser.add_argument("--max-bar-gap-ns", required=True, type=int)
+    parser.add_argument("--reconciliation-interval-seconds", required=True, type=float)
+    parser.add_argument("--session-timezone", required=True)
+    parser.add_argument("--session-open-minute", required=True, type=int)
+    parser.add_argument("--session-close-minute", required=True, type=int)
+    parser.add_argument("--session-weekdays", required=True, type=_csv_ints)
 
     parser.add_argument("--turtle-entry-lookback", required=True, type=int)
     parser.add_argument("--turtle-exit-lookback", required=True, type=int)
@@ -692,6 +876,14 @@ def config_from_args() -> EngineConfig:
         apo_entry_threshold_ticks=args.apo_entry_threshold_ticks,
         apo_exit_threshold_ticks=args.apo_exit_threshold_ticks,
         native_adapter_module=args.native_adapter_module,
+        journal_path=args.journal_path,
+        max_feed_age_ns=args.max_feed_age_ns,
+        max_bar_gap_ns=args.max_bar_gap_ns,
+        reconciliation_interval_seconds=args.reconciliation_interval_seconds,
+        session_timezone=args.session_timezone,
+        session_open_minute=args.session_open_minute,
+        session_close_minute=args.session_close_minute,
+        session_weekdays=args.session_weekdays,
         alpaca_url=args.alpaca_url,
     )
 
@@ -701,6 +893,7 @@ async def run_engine(
     config: EngineConfig,
     quantity_policy: QuantityPolicy,
     exit_quantity_provider: ExitQuantityProvider,
+    execution_policy: ExecutionPolicy,
     factor_source: Optional[ExternalFactorSource] = None,
 ) -> None:
     """Programmatic activation entry point.
@@ -712,6 +905,7 @@ async def run_engine(
         config=config,
         quantity_policy=quantity_policy,
         exit_quantity_provider=exit_quantity_provider,
+        execution_policy=execution_policy,
         factor_source=factor_source,
     )
 

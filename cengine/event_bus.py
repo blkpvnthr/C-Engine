@@ -28,7 +28,7 @@ class MarketEventBus(Generic[T]):
             raise ValueError(f"duplicate subscriber {name!r}")
         if maxsize <= 0:
             raise ValueError("maxsize must be positive")
-        sub = Subscription(name, asyncio.Queue(maxsize=maxsize), predicate)
+        sub: Subscription[T] = Subscription(name, asyncio.Queue(maxsize=maxsize), predicate)
         self._subscriptions[name] = sub
         return sub
 

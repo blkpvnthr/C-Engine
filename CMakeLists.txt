@@ -27,19 +27,26 @@ endif()
 
 if(APPLE)
   option(CENGINE_COMPILE_METAL "Compile Metal kernels (requires full Xcode Metal tools)" OFF)
+  set(CENGINE_METAL_TOOLCHAIN "" CACHE STRING
+      "Optional xcrun toolchain identifier for the separately downloaded Metal toolchain")
   if(CENGINE_COMPILE_METAL)
     find_program(XCRUN xcrun REQUIRED)
+    if(CENGINE_METAL_TOOLCHAIN)
+      set(METAL_XCRUN_ARGS --toolchain ${CENGINE_METAL_TOOLCHAIN} -sdk macosx)
+    else()
+      set(METAL_XCRUN_ARGS -sdk macosx)
+    endif()
     set(METAL_SOURCES covariance imbalance indicators monte-carlo reductions)
     foreach(NAME IN LISTS METAL_SOURCES)
       add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.air
-        COMMAND ${XCRUN} -sdk macosx metal -c
+        COMMAND ${XCRUN} ${METAL_XCRUN_ARGS} metal -c
                 ${CMAKE_CURRENT_SOURCE_DIR}/metal/${NAME}.metal
                 -o ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.air
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/metal/${NAME}.metal)
       list(APPEND METAL_AIR ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.air)
     endforeach()
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/cengine.metallib
-      COMMAND ${XCRUN} -sdk macosx metallib ${METAL_AIR}
+      COMMAND ${XCRUN} ${METAL_XCRUN_ARGS} metallib ${METAL_AIR}
               -o ${CMAKE_CURRENT_BINARY_DIR}/cengine.metallib
       DEPENDS ${METAL_AIR})
     add_custom_target(cengine_metal ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/cengine.metallib)

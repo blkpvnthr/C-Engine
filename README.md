@@ -61,6 +61,30 @@ with explicit `QuantityPolicy` and `ExitQuantityProvider` implementations.
 `ENGINE_NATIVE_ADAPTER_MODULE=native_adapters` selects the native risk and
 paper execution adapters.
 
+Engine composition additionally requires an explicit `ExecutionPolicy` and
+the following operational settings; none receive trading defaults:
+
+```text
+--journal-path ./state/audit.jsonl
+--max-feed-age-ns <provider-appropriate limit>
+--max-bar-gap-ns <configured bar interval tolerance>
+--reconciliation-interval-seconds <broker polling interval>
+--session-timezone America/New_York
+--session-open-minute 570
+--session-close-minute 960
+--session-weekdays 0,1,2,3,4
+```
+
+Startup fetches Alpaca account, position, and open-order state. Unknown broker
+orders, missing internal positions, mismatched venue identifiers, stale
+snapshots, reversed cumulative fills, or runtime reconciliation errors trip
+the engine kill switch and prevent further order creation.
+
+Every reconciliation cycle writes checksummed `portfolio_metrics` records to
+the audit journal, including cash, equity, buying power, realized P/L, gross
+and net exposure, pending reserved notional, open-order and position counts,
+and high-water-mark drawdown.
+
 ## Replay
 
 `cengine.replay.replay()` republishes already-normalized events in stable input
@@ -77,10 +101,21 @@ blocks construction of the execution adapter:
 ALPACA_TRADING_BASE_URL=https://api.alpaca.markets
 CENGINE_ENABLE_LIVE=YES_I_ACCEPT_LIVE_TRADING_RISK
 CENGINE_LIVE_CONFIRMATION=LIVE_ORDERS_MAY_LOSE_MONEY
+CENGINE_LIVE_RECONCILIATION_CERTIFIED=PAPER_REPLAY_AND_BROKER_STATE_AGREE
 ```
 
 Keep live values out of shell profiles and deployment defaults. Paper remains
 the safe default.
+
+## Advisory portfolio research
+
+Install optional research dependencies with `pip install -e '.[research]'`.
+`RegimeMarkowitzAllocator` uses CVXPY for constrained regime-weighted
+mean/variance advice, while `NextSessionTideModel` supports explicit KNN or SVM
+training. `PortfolioRiskManager` validates resulting weights and predicted
+volatility. These components return data only: they have no `OrderManager`,
+execution-venue, or risk-approval capability and are not connected to runtime
+execution.
 
 ## Credential notice
 

@@ -579,6 +579,12 @@ class OrderManager:
 
             expected_status = update.status
 
+            if expected_status == order.status and fill_delta == 0:
+                order.last_event_ns = max(order.last_event_ns, update.event_ns)
+                order.last_venue_sequence = update.venue_sequence
+                await self._audit("reconciled_idempotent", order)
+                return self.snapshot(order.client_order_id)
+
             if (
                 order.cumulative_filled_quantity == target_quantity
                 and expected_status != OrderStatus.FILLED

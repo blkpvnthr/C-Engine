@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from .event_bus import MarketEventBus
+from .journal import AuditJournal
 
 
 def replay(events: Iterable[Any], bus: MarketEventBus[Any]) -> int:
@@ -20,4 +21,22 @@ def replay(events: Iterable[Any], bus: MarketEventBus[Any]) -> int:
         previous_sequence[symbol] = sequence
         bus.publish(event)
         count += 1
+    return count
+
+
+def replay_journal(
+    journal: AuditJournal,
+    handlers: dict[str, Callable[[dict[str, Any]], None]],
+) -> int:
+    """Replay verified records in journal order without fabricating timing."""
+    count = 0
+    expected = 1
+    for record in journal.records():
+        if record["sequence"] != expected:
+            raise ValueError(f"journal sequence gap: expected {expected}")
+        handler = handlers.get(record["kind"])
+        if handler is not None:
+            handler(record)
+        count += 1
+        expected += 1
     return count

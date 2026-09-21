@@ -118,6 +118,8 @@ class Strategy(Protocol):
 
     def on_bar(self, bar: Bar) -> tuple[TradeCandidate, ...]: ...
 
+    def on_position(self, symbol: str, quantity: int) -> None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class TurtleConfig:
@@ -155,7 +157,10 @@ class TurtleStrategy:
         config.validate()
         self.config = config
         self._bars: dict[str, deque[Bar]] = {}
-        self._signal_state: dict[str, SignalSide] = {}
+        self._positions: dict[str, int] = {}
+
+    def on_position(self, symbol: str, quantity: int) -> None:
+        self._positions[symbol.strip().upper()] = quantity
 
     @property
     def name(self) -> StrategyName:
@@ -179,9 +184,9 @@ class TurtleStrategy:
             exit_high = max(x.high_ticks for x in exit_history)
             exit_low = min(x.low_ticks for x in exit_history)
 
-            state = self._signal_state.get(symbol)
+            quantity = self._positions.get(symbol, 0)
 
-            if state == SignalSide.LONG and bar.close_ticks < exit_low:
+            if quantity > 0 and bar.close_ticks < exit_low:
                 candidates.append(
                     TradeCandidate(
                         strategy=self.name,
@@ -194,9 +199,7 @@ class TurtleStrategy:
                         reason="close broke below prior Turtle exit channel",
                     )
                 )
-                self._signal_state.pop(symbol, None)
-
-            elif state == SignalSide.SHORT and bar.close_ticks > exit_high:
+            elif quantity < 0 and bar.close_ticks > exit_high:
                 candidates.append(
                     TradeCandidate(
                         strategy=self.name,
@@ -209,9 +212,7 @@ class TurtleStrategy:
                         reason="close broke above prior Turtle exit channel",
                     )
                 )
-                self._signal_state.pop(symbol, None)
-
-            elif state is None:
+            elif quantity == 0:
                 if bar.close_ticks > entry_high:
                     candidates.append(
                         TradeCandidate(
@@ -225,8 +226,6 @@ class TurtleStrategy:
                             reason="close broke above prior Turtle entry channel",
                         )
                     )
-                    self._signal_state[symbol] = SignalSide.LONG
-
                 elif bar.close_ticks < entry_low:
                     candidates.append(
                         TradeCandidate(
@@ -240,7 +239,6 @@ class TurtleStrategy:
                             reason="close broke below prior Turtle entry channel",
                         )
                     )
-                    self._signal_state[symbol] = SignalSide.SHORT
 
         history.append(bar)
         return tuple(candidates)
@@ -272,6 +270,10 @@ class DualMAStrategy:
         self.config = config
         self._closes: dict[str, deque[int]] = {}
         self._previous_difference: dict[str, float] = {}
+        self._positions: dict[str, int] = {}
+
+    def on_position(self, symbol: str, quantity: int) -> None:
+        self._positions[symbol.strip().upper()] = quantity
 
     @property
     def name(self) -> StrategyName:
@@ -301,11 +303,12 @@ class DualMAStrategy:
             return ()
 
         if previous <= 0.0 and difference > 0.0:
+            side = SignalSide.EXIT_SHORT if self._positions.get(symbol, 0) < 0 else SignalSide.LONG
             return (
                 TradeCandidate(
                     strategy=self.name,
                     symbol=symbol,
-                    side=SignalSide.LONG,
+                    side=side,
                     timestamp_ns=bar.timestamp_ns,
                     reference_price_ticks=bar.close_ticks,
                     signal_value=difference,
@@ -316,11 +319,12 @@ class DualMAStrategy:
             )
 
         if previous >= 0.0 and difference < 0.0:
+            side = SignalSide.EXIT_LONG if self._positions.get(symbol, 0) > 0 else SignalSide.SHORT
             return (
                 TradeCandidate(
                     strategy=self.name,
                     symbol=symbol,
-                    side=SignalSide.SHORT,
+                    side=side,
                     timestamp_ns=bar.timestamp_ns,
                     reference_price_ticks=bar.close_ticks,
                     signal_value=difference,
@@ -379,7 +383,7 @@ class APOMeanReversionStrategy:
         self._fast_ema: dict[str, float] = {}
         self._slow_ema: dict[str, float] = {}
         self._samples: dict[str, int] = {}
-        self._signal_state: dict[str, SignalSide] = {}
+        self._positions: dict[str, int] = {}
 
         self._fast_alpha = 2.0 / (config.fast_period + 1.0)
         self._slow_alpha = 2.0 / (config.slow_period + 1.0)
@@ -387,6 +391,9 @@ class APOMeanReversionStrategy:
     @property
     def name(self) -> StrategyName:
         return StrategyName.APO_MEAN_REVERSION
+
+    def on_position(self, symbol: str, quantity: int) -> None:
+        self._positions[symbol.strip().upper()] = quantity
 
     def on_bar(self, bar: Bar) -> tuple[TradeCandidate, ...]:
         bar.validate()
@@ -411,11 +418,10 @@ class APOMeanReversionStrategy:
             return ()
 
         apo = fast - slow
-        state = self._signal_state.get(symbol)
+        quantity = self._positions.get(symbol, 0)
 
-        if state == SignalSide.LONG:
+        if quantity > 0:
             if apo >= -self.config.exit_threshold_ticks:
-                self._signal_state.pop(symbol, None)
                 return (
                     TradeCandidate(
                         strategy=self.name,
@@ -431,9 +437,8 @@ class APOMeanReversionStrategy:
                 )
             return ()
 
-        if state == SignalSide.SHORT:
+        if quantity < 0:
             if apo <= self.config.exit_threshold_ticks:
-                self._signal_state.pop(symbol, None)
                 return (
                     TradeCandidate(
                         strategy=self.name,
@@ -450,7 +455,6 @@ class APOMeanReversionStrategy:
             return ()
 
         if apo <= -self.config.entry_threshold_ticks:
-            self._signal_state[symbol] = SignalSide.LONG
             return (
                 TradeCandidate(
                     strategy=self.name,
@@ -466,7 +470,6 @@ class APOMeanReversionStrategy:
             )
 
         if apo >= self.config.entry_threshold_ticks:
-            self._signal_state[symbol] = SignalSide.SHORT
             return (
                 TradeCandidate(
                     strategy=self.name,
@@ -539,6 +542,13 @@ class StrategyCoordinator:
             timestamp_ns=bar.timestamp_ns,
             candidates=tuple(candidates),
         )
+
+    def on_position(self, strategy: StrategyName, symbol: str, quantity: int) -> None:
+        for instance in self._strategies:
+            if instance.name is strategy:
+                instance.on_position(symbol, quantity)
+                return
+        raise KeyError(strategy)
 
 
 @dataclass(frozen=True, slots=True)

@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import time
 from dataclasses import dataclass, field
+from threading import RLock
 from typing import Any
 
 import _cengine_native as native
 
 from cengine.execution import AlpacaExecutionVenue
 from cengine.portfolio import AccountState, PositionBook
+from cengine.reservations import RiskReservation, RiskReservationBook
 from market_data.alpaca_sip_stream import QuoteEvent, TradeEvent
 from order_manager import OrderIntent, RiskDecision, Side
 
@@ -21,12 +23,19 @@ class RuntimeState:
     positions: PositionBook = field(default_factory=PositionBook)
     quotes: dict[str, QuoteEvent] = field(default_factory=dict)
     trades: dict[str, TradeEvent] = field(default_factory=dict)
+    reservations: RiskReservationBook = field(default_factory=RiskReservationBook)
 
     def on_market_event(self, event: Any) -> None:
         if isinstance(event, QuoteEvent):
             self.quotes[event.symbol] = event
         elif isinstance(event, TradeEvent):
             self.trades[event.symbol] = event
+
+    def price_ticks(self, symbol: str) -> int:
+        quote = self.quotes.get(symbol)
+        if quote is None:
+            raise RuntimeError(f"authoritative quote unavailable for {symbol}")
+        return quote.bid_price_ticks + (quote.ask_price_ticks - quote.bid_price_ticks) // 2
 
 
 STATE = RuntimeState()
@@ -38,8 +47,13 @@ class NativeRiskAdapter:
     def __init__(self, state: RuntimeState = STATE) -> None:
         self.state = state
         self.engine = native.RiskEngine()
+        self._lock = RLock()
 
     def evaluate(self, intent: OrderIntent) -> RiskDecision:
+        with self._lock:
+            return self._evaluate_locked(intent)
+
+    def _evaluate_locked(self, intent: OrderIntent) -> RiskDecision:
         quote = self.state.quotes.get(intent.symbol)
         decided_ns = time.time_ns()
         if quote is None:
@@ -75,22 +89,43 @@ class NativeRiskAdapter:
             market.last_ticks = trade.price_ticks
         request.market = market
         native_account = native.RiskAccountState()
-        native_account.position = self.state.positions.quantity(intent.symbol)
+        native_account.position = self.state.reservations.projected_position(
+            intent.symbol, self.state.positions.quantity(intent.symbol)
+        )
         native_account.cash_ticks = account.cash_ticks
         native_account.buying_power_ticks = account.buying_power_ticks
-        native_account.gross_exposure_ticks = sum(
-            abs(p.intent.quantity * (p.intent.limit_price_ticks or request.price_ticks))
-            for p in self.state.positions.open_orders()
-        )
+        native_account.gross_exposure_ticks = self.state.reservations.gross_notional_ticks()
+        for position in self.state.positions.positions():
+            position_quote = self.state.quotes.get(position.symbol)
+            if position_quote is None and position.quantity:
+                return RiskDecision(
+                    False,
+                    self._decision_id(intent),
+                    self.policy_version,
+                    decided_ns,
+                    f"authoritative quote unavailable for position {position.symbol}",
+                )
+            if position_quote is not None:
+                midpoint = (
+                    position_quote.bid_price_ticks
+                    + (position_quote.ask_price_ticks - position_quote.bid_price_ticks) // 2
+                )
+                native_account.gross_exposure_ticks += abs(position.quantity * midpoint)
         request.account = native_account
         open_state = native.OpenOrderRiskState()
-        open_orders = self.state.positions.open_orders()
-        open_state.count = len(open_orders)
-        open_state.total_remaining_quantity = sum(x.remaining_quantity() for x in open_orders)
+        reservations = self.state.reservations.snapshot()
+        open_state.count = len(reservations)
+        open_state.total_remaining_quantity = sum(x.quantity for x in reservations)
+        open_state.total_buy_notional_ticks = sum(
+            x.quantity * x.price_ticks for x in reservations if x.side is Side.BUY
+        )
+        open_state.total_sell_notional_ticks = sum(
+            x.quantity * x.price_ticks for x in reservations if x.side is Side.SELL
+        )
         request.open_orders = open_state
         request.now_ns = max(intent.created_ns, quote.received_ns, decided_ns)
         result = self.engine.evaluate(request)
-        return RiskDecision(
+        decision = RiskDecision(
             bool(result.accepted),
             self._decision_id(intent),
             self.policy_version,
@@ -98,6 +133,17 @@ class NativeRiskAdapter:
             result.message,
             intent.quantity if result.accepted else None,
         )
+        if decision.approved:
+            self.state.reservations.reserve(
+                RiskReservation(
+                    intent.client_order_id,
+                    intent.symbol,
+                    intent.side,
+                    intent.quantity,
+                    request.price_ticks,
+                )
+            )
+        return decision
 
     @staticmethod
     def _decision_id(intent: OrderIntent) -> str:
@@ -109,4 +155,4 @@ def build_risk_engine() -> NativeRiskAdapter:
 
 
 def build_execution_venue() -> AlpacaExecutionVenue:
-    return AlpacaExecutionVenue(account_state=STATE.account)
+    return AlpacaExecutionVenue(account_state=STATE.account, position_book=STATE.positions)
