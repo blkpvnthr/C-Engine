@@ -68,15 +68,17 @@ import logging
 import os
 import signal
 import time
+from collections import deque
 from dataclasses import dataclass
-from typing import Awaitable, Optional, Protocol
+from typing import Any, Awaitable, Callable, Optional, Protocol
 
 from cengine.engine_state import EngineState, EngineStateMachine
 from cengine.event_bus import MarketEventBus
-from cengine.execution_policy import ExecutionPolicy
+from cengine.execution_policy import ConfiguredExecutionPolicy, ExecutionPolicy
 from cengine.journal import AuditJournal
-from cengine.metrics import PortfolioMetricsCollector
+from cengine.metrics import PortfolioMetrics, PortfolioMetricsCollector
 from cengine.nosql_journal import MongoDailyJournalStore
+from cengine.portfolio import AccountState, PositionBook
 from cengine.safety import (
     MarketGateConfig,
     MarketSafetyGate,
@@ -97,10 +99,13 @@ from order_manager import (
     TERMINAL_STATUSES,
     ExecutionUpdate,
     ExecutionVenue,
+    ManagedOrder,
     NativeRiskEngine,
     OrderIntent,
     OrderManager,
+    OrderType,
     Side,
+    TimeInForce,
 )
 from strategies import (
     APOConfig,
@@ -257,6 +262,17 @@ class EngineHealth:
     conflicting_batches: int = 0
     order_intents_submitted: int = 0
     order_failures: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionReport:
+    """Read-only snapshot of one bar's strategy decision and its routing outcome."""
+
+    symbol: str
+    timestamp_ns: int
+    candidates: tuple[TradeCandidate, ...]
+    submitted: int
+    conflicted: bool
 
 
 def load_native_adapters(
@@ -425,11 +441,21 @@ class MarketEngine:
         exit_quantity_provider: ExitQuantityProvider,
         execution_policy: ExecutionPolicy,
         factor_source: Optional[ExternalFactorSource] = None,
+        bar_observer: Optional[Callable[["Bar"], None]] = None,
+        on_decision: Optional[Callable[["DecisionReport"], None]] = None,
+        on_metrics: Optional[Callable[[PortfolioMetrics], None]] = None,
+        on_order_event: Optional[Callable[[str, ManagedOrder], None]] = None,
     ) -> None:
         config.validate()
         self.config = config
         self.health = EngineHealth()
         self._stop = asyncio.Event()
+        # Observe-only telemetry hooks. They never influence routing, sizing,
+        # risk, or execution; they only surface what the engine already decided.
+        self._bar_observer = bar_observer
+        self._on_decision = on_decision
+        self._on_metrics = on_metrics
+        self._on_order_event = on_order_event
         self.state = EngineStateMachine()
         self.nosql_journal = MongoDailyJournalStore(
             config.mongodb_uri,
@@ -686,6 +712,8 @@ class MarketEngine:
                 if self.metrics is not None:
                     metrics = self.metrics.snapshot()
                     self.journal.append("portfolio_metrics", metrics.timestamp_ns, metrics)
+                    if self._on_metrics is not None:
+                        self._on_metrics(metrics)
             except Exception as exc:
                 self.kill_switch(f"runtime reconciliation failed: {exc}")
                 raise
@@ -736,6 +764,12 @@ class MarketEngine:
             volume=event.volume,
         )
 
+        # Feed observers (e.g. an ATR estimator used by the sizing policy) with
+        # the completed bar before strategies act on it. This is read-only
+        # telemetry input; it never alters strategy or risk behaviour.
+        if self._bar_observer is not None:
+            self._bar_observer(bar)
+
         batch = self.strategies.on_bar(bar)
         self.health.bars_processed += 1
         self.health.strategy_candidates += len(batch.candidates)
@@ -758,6 +792,17 @@ class MarketEngine:
         if conflicted:
             self.health.conflicting_batches += 1
 
+        if self._on_decision is not None:
+            self._on_decision(
+                DecisionReport(
+                    symbol=batch.symbol,
+                    timestamp_ns=batch.timestamp_ns,
+                    candidates=batch.candidates,
+                    submitted=submitted,
+                    conflicted=conflicted,
+                )
+            )
+
     async def _audit_order(
         self,
         event: str,
@@ -775,6 +820,8 @@ class MarketEngine:
             order.approved_quantity,
             order.venue_order_id,
         )
+        if self._on_order_event is not None:
+            self._on_order_event(event, order)
         if self.portfolio is not None:
             self.portfolio.track_order(order)
         self.strategy_state.on_order(order)
@@ -796,6 +843,206 @@ class MarketEngine:
 
     async def _stream_state_changed(self, state) -> None:
         LOGGER.info("Alpaca SIP state=%s", state.value)
+
+
+class ATRTracker:
+    """Wilder Average True Range in price ticks, from completed bars only.
+
+    True range and its running average are computed strictly from bars already
+    delivered to :meth:`observe`. No future information is used, so the value
+    read while sizing a signal bar reflects volatility up to and including that
+    closed bar.
+    """
+
+    def __init__(self, period: int) -> None:
+        if period < 1:
+            raise ValueError("ATR period must be positive")
+        self._period = period
+        self._prev_close: dict[str, int] = {}
+        self._window: dict[str, deque[int]] = {}
+        self._atr: dict[str, float] = {}
+
+    def observe(self, bar: "Bar") -> None:
+        symbol = bar.symbol.strip().upper()
+        prev_close = self._prev_close.get(symbol)
+        if prev_close is None:
+            true_range = bar.high_ticks - bar.low_ticks
+        else:
+            true_range = max(
+                bar.high_ticks - bar.low_ticks,
+                abs(bar.high_ticks - prev_close),
+                abs(bar.low_ticks - prev_close),
+            )
+        self._prev_close[symbol] = bar.close_ticks
+
+        if symbol in self._atr:
+            # Wilder smoothing once the seed average exists.
+            self._atr[symbol] = (
+                self._atr[symbol] * (self._period - 1) + true_range
+            ) / self._period
+            return
+
+        window = self._window.setdefault(symbol, deque(maxlen=self._period))
+        window.append(true_range)
+        if len(window) == self._period:
+            self._atr[symbol] = sum(window) / self._period
+
+    def atr_ticks(self, symbol: str) -> Optional[int]:
+        value = self._atr.get(symbol.strip().upper())
+        if value is None:
+            return None
+        return max(1, int(value))
+
+
+class VolatilityScaledQuantityPolicy:
+    """Proposes entry quantity from a volatility (ATR) risk budget.
+
+    quantity = floor((equity * risk_fraction) / ATR_ticks)
+
+    The proposal is bounded by current buying power so it is fundable, then
+    handed to the native C++ RiskEngine, which independently approves, reduces,
+    or rejects it. This class proposes; it never approves. When volatility or
+    account equity is not yet observable it falls back to a small, explicit
+    floor rather than fabricating a volatility estimate or returning zero
+    (zero would abort the batch).
+    """
+
+    def __init__(
+        self,
+        *,
+        account: AccountState,
+        atr: ATRTracker,
+        risk_fraction: float,
+        fallback_shares: int,
+    ) -> None:
+        if not 0.0 < risk_fraction < 1.0:
+            raise ValueError("risk_fraction must be in (0, 1)")
+        if fallback_shares < 1:
+            raise ValueError("fallback_shares must be >= 1")
+        self._account = account
+        self._atr = atr
+        self._risk_fraction = risk_fraction
+        self._fallback = fallback_shares
+
+    def quantity_for(self, candidate: TradeCandidate) -> int:
+        atr_ticks = self._atr.atr_ticks(candidate.symbol)
+        try:
+            account = self._account.snapshot()
+        except RuntimeError:
+            account = None
+
+        if atr_ticks is None or account is None or account.equity_ticks <= 0:
+            LOGGER.warning(
+                "volatility sizing unavailable symbol=%s atr_ticks=%s "
+                "equity_known=%s; proposing fallback=%d",
+                candidate.symbol,
+                atr_ticks,
+                account is not None,
+                self._fallback,
+            )
+            return self._fallback
+
+        risk_budget_ticks = int(account.equity_ticks * self._risk_fraction)
+        atr_quantity = max(1, risk_budget_ticks // atr_ticks)
+
+        price_ticks = candidate.reference_price_ticks
+        if price_ticks > 0 and account.buying_power_ticks > 0:
+            affordable = account.buying_power_ticks // price_ticks
+            if affordable >= 1:
+                return min(atr_quantity, affordable)
+
+        # Native risk remains authoritative and will bound an unaffordable
+        # proposal; we still never propose a non-positive quantity.
+        return atr_quantity
+
+
+class StrategyOwnedExitProvider:
+    """Closes exactly the quantity the exiting strategy currently owns.
+
+    Ownership is fill-derived from the authoritative :class:`PositionBook`. No
+    quantity is invented; if the strategy owns nothing the returned zero fails
+    the batch closed, consistent with the engine's fail-closed reconciliation.
+    """
+
+    def __init__(self, positions: PositionBook) -> None:
+        self._positions = positions
+
+    def quantity_to_close(self, candidate: TradeCandidate) -> int:
+        owned = self._positions.quantity(candidate.symbol, candidate.strategy.value)
+        return abs(owned)
+
+
+def _fmt_usd(ticks: int) -> str:
+    """Ticks are integer cents (see AlpacaExecutionVenue._price_to_ticks)."""
+    return f"${ticks / 100:,.2f}"
+
+
+class ConsoleDecisionStream:
+    """Human-readable live stream of decisions, orders, and portfolio metrics.
+
+    Pure telemetry: it renders what the engine already decided. It holds no
+    trading authority and mutates no engine state.
+    """
+
+    def __init__(self, stream=None) -> None:
+        import sys
+
+        self._out = stream if stream is not None else sys.stdout
+
+    def _emit(self, tag: str, message: str) -> None:
+        stamp = time.strftime("%H:%M:%S")
+        print(f"{stamp} {tag:<8} {message}", file=self._out, flush=True)
+
+    def banner(self, config: EngineConfig, *, live: bool) -> None:
+        mode = "LIVE" if live else "PAPER"
+        self._emit("ENGINE", f"starting [{mode}] symbols={','.join(config.symbols)}")
+        self._emit(
+            "ENGINE",
+            f"session={config.session_timezone} "
+            f"{config.session_open_minute}->{config.session_close_minute} "
+            f"reconcile={config.reconciliation_interval_seconds:g}s "
+            f"adapter={config.native_adapter_module}",
+        )
+
+    def on_decision(self, report: DecisionReport) -> None:
+        for candidate in report.candidates:
+            self._emit(
+                "DECISION",
+                f"{candidate.symbol:<6} {candidate.strategy.value:<18} "
+                f"{candidate.side.value:<10} ref={_fmt_usd(candidate.reference_price_ticks)} "
+                f":: {candidate.reason}",
+            )
+        outcome = (
+            "CONFLICT (batch withheld)"
+            if report.conflicted
+            else f"submitted={report.submitted}"
+        )
+        self._emit(
+            "ROUTE",
+            f"{report.symbol:<6} candidates={len(report.candidates)} {outcome}",
+        )
+
+    def on_order_event(self, event: str, order: ManagedOrder) -> None:
+        self._emit(
+            "ORDER",
+            f"{event:<10} {order.intent.symbol:<6} {order.intent.strategy_id:<18} "
+            f"{order.intent.side.value:<4} qty={order.intent.quantity} "
+            f"approved={order.approved_quantity} filled={order.cumulative_filled_quantity} "
+            f"status={order.status.value} venue={order.venue_order_id}",
+        )
+
+    def on_metrics(self, metrics: PortfolioMetrics) -> None:
+        self._emit(
+            "METRICS",
+            f"equity={_fmt_usd(metrics.equity_ticks)} "
+            f"cash={_fmt_usd(metrics.cash_ticks)} "
+            f"buying_power={_fmt_usd(metrics.buying_power_ticks)} "
+            f"net_exp={_fmt_usd(metrics.net_exposure_ticks)} "
+            f"gross_exp={_fmt_usd(metrics.gross_exposure_ticks)} "
+            f"realized_pnl={_fmt_usd(metrics.realized_pnl_ticks)} "
+            f"positions={metrics.position_count} open_orders={metrics.open_order_count} "
+            f"drawdown={metrics.drawdown_bps}bps",
+        )
 
 
 def _csv_symbols(value: str) -> tuple[str, ...]:
@@ -916,6 +1163,110 @@ def config_from_args() -> EngineConfig:
     )
 
 
+# Executable equity universe: the NBBO order-book symbols only. VIX/VXN enter
+# the engine as NormalizedIndex volatility factors through the IndexFactorBridge
+# and are never treated as tradeable equities (see the module authority note).
+DEFAULT_SYMBOLS: tuple[str, ...] = ("QQQ", "SQQQ")
+
+
+def _load_env_file(path: str) -> None:
+    """Populate os.environ from a KEY=VALUE file without overriding real env."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+def _mirror_env(primary: str, secondary: str) -> None:
+    """Ensure two env names that carry the same secret share a value."""
+    if os.environ.get(primary) and not os.environ.get(secondary):
+        os.environ[secondary] = os.environ[primary]
+    elif os.environ.get(secondary) and not os.environ.get(primary):
+        os.environ[primary] = os.environ[secondary]
+
+
+def load_runtime_env() -> None:
+    """Load local credential files and reconcile equivalent variable names.
+
+    Real process environment always wins over file contents. Alpaca's market
+    data stream reads APCA_API_KEY_ID/APCA_API_SECRET_KEY while the trading
+    venue reads ALPACA_API_KEY/ALPACA_SECRET_KEY; either pair is accepted and
+    mirrored to the other. Atlas onboarding writes MONGODB_URI, which is
+    mirrored to the engine's CENGINE_MONGODB_URI.
+    """
+    for path in (".env", "atlas-credentials.env"):
+        _load_env_file(path)
+    _mirror_env("ALPACA_API_KEY", "APCA_API_KEY_ID")
+    _mirror_env("ALPACA_SECRET_KEY", "APCA_API_SECRET_KEY")
+    _mirror_env("MONGODB_URI", "CENGINE_MONGODB_URI")
+
+
+def _env_str(name: str, default: str) -> str:
+    value = os.environ.get(name)
+    return value if value is not None and value.strip() else default
+
+
+def _env_int(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    return int(value) if value is not None and value.strip() else default
+
+
+def _env_float(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    return float(value) if value is not None and value.strip() else default
+
+
+def config_from_env() -> EngineConfig:
+    """Build an EngineConfig from environment variables with operational defaults.
+
+    Only *operational* defaults are supplied here (paths, session hours, feed
+    tolerances, strategy periods). Trading sizing is never defaulted in the
+    config; it is an injected policy. Every value is overridable via env.
+    """
+    symbols_raw = os.environ.get("CENGINE_SYMBOLS", "")
+    symbols = _csv_symbols(symbols_raw) if symbols_raw.strip() else DEFAULT_SYMBOLS
+
+    return EngineConfig(
+        symbols=symbols,
+        market_data_root=_env_str("CENGINE_MARKET_DATA_ROOT", "./state/market_data"),
+        archive_provider_label=_env_str("CENGINE_ARCHIVE_PROVIDER_LABEL", "alpaca-sip"),
+        turtle_entry_lookback=_env_int("CENGINE_TURTLE_ENTRY_LOOKBACK", 20),
+        turtle_exit_lookback=_env_int("CENGINE_TURTLE_EXIT_LOOKBACK", 10),
+        dual_ma_fast_period=_env_int("CENGINE_DUAL_MA_FAST_PERIOD", 20),
+        dual_ma_slow_period=_env_int("CENGINE_DUAL_MA_SLOW_PERIOD", 50),
+        apo_fast_period=_env_int("CENGINE_APO_FAST_PERIOD", 12),
+        apo_slow_period=_env_int("CENGINE_APO_SLOW_PERIOD", 26),
+        apo_entry_threshold_ticks=_env_float("CENGINE_APO_ENTRY_THRESHOLD_TICKS", 25.0),
+        apo_exit_threshold_ticks=_env_float("CENGINE_APO_EXIT_THRESHOLD_TICKS", 5.0),
+        native_adapter_module=_env_str("ENGINE_NATIVE_ADAPTER_MODULE", "native_adapters"),
+        journal_path=_env_str("CENGINE_JOURNAL_PATH", "./state/audit.jsonl"),
+        # Minute bars are timestamped at bar-open and delivered after bar-close,
+        # so feed age must tolerate more than one bar interval. Bar-gap tolerance
+        # absorbs low-liquidity minutes without silently accepting a dead feed.
+        max_feed_age_ns=_env_int("CENGINE_MAX_FEED_AGE_NS", 180_000_000_000),
+        max_bar_gap_ns=_env_int("CENGINE_MAX_BAR_GAP_NS", 900_000_000_000),
+        reconciliation_interval_seconds=_env_float(
+            "CENGINE_RECONCILIATION_INTERVAL_SECONDS", 15.0
+        ),
+        session_timezone=_env_str("CENGINE_SESSION_TIMEZONE", "America/New_York"),
+        session_open_minute=_env_int("CENGINE_SESSION_OPEN_MINUTE", 570),
+        session_close_minute=_env_int("CENGINE_SESSION_CLOSE_MINUTE", 960),
+        session_weekdays=_csv_ints(_env_str("CENGINE_SESSION_WEEKDAYS", "0,1,2,3,4")),
+        mongodb_uri=os.environ.get("CENGINE_MONGODB_URI", ""),
+        mongodb_database=_env_str("CENGINE_MONGODB_DATABASE", "cengine"),
+        mongodb_timeout_ms=_env_int("CENGINE_MONGODB_TIMEOUT_MS", 5000),
+        alpaca_url=os.environ.get("CENGINE_ALPACA_URL") or None,
+    )
+
+
 async def run_engine(
     *,
     config: EngineConfig,
@@ -923,11 +1274,16 @@ async def run_engine(
     exit_quantity_provider: ExitQuantityProvider,
     execution_policy: ExecutionPolicy,
     factor_source: Optional[ExternalFactorSource] = None,
+    bar_observer: Optional[Callable[["Bar"], None]] = None,
+    on_decision: Optional[Callable[["DecisionReport"], None]] = None,
+    on_metrics: Optional[Callable[[PortfolioMetrics], None]] = None,
+    on_order_event: Optional[Callable[[str, ManagedOrder], None]] = None,
 ) -> None:
     """Programmatic activation entry point.
 
     Position sizing and exit inventory lookup are mandatory injected policies
-    because this bootstrap must not invent quantities.
+    because this bootstrap must not invent quantities. The optional observer
+    hooks are read-only telemetry and never influence engine decisions.
     """
     engine = MarketEngine(
         config=config,
@@ -935,6 +1291,10 @@ async def run_engine(
         exit_quantity_provider=exit_quantity_provider,
         execution_policy=execution_policy,
         factor_source=factor_source,
+        bar_observer=bar_observer,
+        on_decision=on_decision,
+        on_metrics=on_metrics,
+        on_order_event=on_order_event,
     )
 
     loop = asyncio.get_running_loop()
@@ -952,28 +1312,95 @@ async def run_engine(
 
 
 def main() -> None:
-    """CLI validates infrastructure but refuses to invent sizing policy.
+    """No-argument composition root: run the paper engine and stream live.
 
-    Use run_engine(...) from the application composition root after injecting
-    an explicit QuantityPolicy and ExitQuantityProvider.
+    Reads configuration from the environment (:func:`config_from_env`) with safe
+    operational defaults, injects an explicit volatility-scaled sizing policy
+    and a strategy-owned exit provider, and streams decisions, order events, and
+    portfolio metrics to stdout.
+
+    This is a composition root, not the engine inventing anything: sizing is a
+    proposal that the native C++ RiskEngine independently approves, reduces, or
+    rejects, and exit quantity is the strategy's own fill-derived inventory.
+    Paper trading is the enforced default; the live endpoint stays gated.
     """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
-    config = config_from_args()
+    load_runtime_env()
+    config = config_from_env()
     config.validate()
 
-    # Validate the native authority boundary before reporting readiness.
-    load_native_adapters(config.native_adapter_module)
+    missing = [
+        name for name in ("ALPACA_API_KEY", "ALPACA_SECRET_KEY") if not os.environ.get(name)
+    ]
+    if missing:
+        raise EngineConfigurationError(
+            "Alpaca paper credentials are required: set "
+            + ", ".join(missing)
+            + ". Copy .env.example to .env and fill it, or export them. "
+            "(APCA_API_KEY_ID / APCA_API_SECRET_KEY are accepted equivalently.)"
+        )
+    if not config.mongodb_uri.strip():
+        raise EngineConfigurationError(
+            "MongoDB journaling is required: set CENGINE_MONGODB_URI, or provide "
+            "MONGODB_URI via atlas-credentials.env."
+        )
 
-    raise EngineConfigurationError(
-        "engine infrastructure is configured, but CLI activation requires "
-        "explicit QuantityPolicy and ExitQuantityProvider implementations. "
-        "Call run_engine(...) from your composition root; no quantity will "
-        "be invented by engine.py."
+    # Validate the native authority boundary and obtain authoritative state.
+    load_native_adapters(config.native_adapter_module)
+    adapter = importlib.import_module(config.native_adapter_module)
+    state = getattr(adapter, "STATE", None)
+    if state is None:
+        raise EngineConfigurationError(
+            f"native adapter {config.native_adapter_module!r} must expose STATE "
+            "with account/positions for the no-argument composition root"
+        )
+
+    risk_fraction = _env_float("CENGINE_RISK_FRACTION", 0.02)
+    atr_period = _env_int("CENGINE_ATR_PERIOD", 14)
+    fallback_shares = _env_int("CENGINE_ATR_FALLBACK_SHARES", 1)
+
+    atr = ATRTracker(atr_period)
+    quantity_policy = VolatilityScaledQuantityPolicy(
+        account=state.account,
+        atr=atr,
+        risk_fraction=risk_fraction,
+        fallback_shares=fallback_shares,
     )
+    exit_provider = StrategyOwnedExitProvider(state.positions)
+    execution_policy = ConfiguredExecutionPolicy(OrderType.MARKET, TimeInForce.DAY)
+
+    live = (
+        os.environ.get("ALPACA_TRADING_BASE_URL", "").rstrip("/")
+        == "https://api.alpaca.markets"
+    )
+    stream = ConsoleDecisionStream()
+    stream.banner(config, live=live)
+    LOGGER.info(
+        "sizing=volatility-scaled risk_fraction=%.4f atr_period=%d fallback_shares=%d",
+        risk_fraction,
+        atr_period,
+        fallback_shares,
+    )
+
+    try:
+        asyncio.run(
+            run_engine(
+                config=config,
+                quantity_policy=quantity_policy,
+                exit_quantity_provider=exit_provider,
+                execution_policy=execution_policy,
+                bar_observer=atr.observe,
+                on_decision=stream.on_decision,
+                on_metrics=stream.on_metrics,
+                on_order_event=stream.on_order_event,
+            )
+        )
+    except KeyboardInterrupt:
+        LOGGER.info("interrupted; shutting down")
 
 
 if __name__ == "__main__":
