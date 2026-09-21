@@ -1,4 +1,4 @@
-#include "volatility_factor_book.hpp"
+#include "volatility.hpp"
 
 #include <algorithm>
 #include <limits>

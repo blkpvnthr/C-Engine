@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+build*/
+.venv/
+dist/
+*.egg-info/
+*.so
+*.dylib
+*.air
+*.metallib
+*.h5
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

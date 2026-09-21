@@ -1,7 +1,7 @@
 #pragma once
 
-#include "orderbook.hpp"
-#include "volatility_factor_book.hpp"
+#include "orderbook/orderbook.hpp"
+#include "volatility/volatility.hpp"
 
 #include <cstddef>
 #include <cstdint>

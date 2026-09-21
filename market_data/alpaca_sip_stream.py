@@ -45,19 +45,18 @@ import ssl
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from enum import Enum
 from typing import Awaitable, Callable, Iterable, Optional, Sequence
 
-from market_data_store import DailyHDF5Writer, MarketDataStoreError
+from .market_data_store import DailyHDF5Writer, MarketDataStoreError
 
 try:
     import websockets
     from websockets.exceptions import ConnectionClosed
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError(
-        "Missing dependency 'websockets'. Install with: "
-        "python -m pip install websockets"
+        "Missing dependency 'websockets'. Install with: python -m pip install websockets"
     ) from exc
 
 
@@ -252,11 +251,7 @@ class IndexFactorBridge:
         if previous is not None:
             if event.timestamp_ns < previous.timestamp_ns:
                 raise ValueError(f"out-of-sequence {normalized} timestamp")
-            if (
-                event.sequence > 0
-                and previous.sequence > 0
-                and event.sequence <= previous.sequence
-            ):
+            if event.sequence > 0 and previous.sequence > 0 and event.sequence <= previous.sequence:
                 raise ValueError(f"out-of-sequence {normalized} sequence")
 
         self._states[normalized] = VolatilityFactorState(
@@ -311,9 +306,7 @@ class Subscription:
             raise ValueError("at least one symbol is required")
 
         if not (self.quotes or self.trades or self.bars):
-            raise ValueError(
-                "at least one channel must be enabled"
-            )
+            raise ValueError("at least one channel must be enabled")
 
         for symbol in self.symbols:
             _validate_symbol(symbol)
@@ -362,15 +355,10 @@ def _validate_symbol(symbol: str) -> None:
     if len(symbol) > 32:
         raise ValueError(f"symbol is too long: {symbol!r}")
 
-    allowed = set(
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "0123456789.-_/"
-    )
+    allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_/")
 
     if any(ch not in allowed for ch in symbol):
-        raise ValueError(
-            f"unsupported symbol characters: {symbol!r}"
-        )
+        raise ValueError(f"unsupported symbol characters: {symbol!r}")
 
 
 def _normalize_symbols(
@@ -400,18 +388,12 @@ def _price_to_ticks(
     try:
         price = Decimal(str(value))
     except (InvalidOperation, ValueError) as exc:
-        raise ValueError(
-            f"invalid price value: {value!r}"
-        ) from exc
+        raise ValueError(f"invalid price value: {value!r}") from exc
 
     if not price.is_finite() or price <= 0:
-        raise ValueError(
-            f"price must be finite and positive: {value!r}"
-        )
+        raise ValueError(f"price must be finite and positive: {value!r}")
 
-    ticks = (
-        price * Decimal(scale)
-    ).quantize(
+    ticks = (price * Decimal(scale)).quantize(
         Decimal("1"),
         rounding=ROUND_HALF_UP,
     )
@@ -419,9 +401,7 @@ def _price_to_ticks(
     result = int(ticks)
 
     if result <= 0:
-        raise ValueError(
-            f"price converted to invalid tick value: {value!r}"
-        )
+        raise ValueError(f"price converted to invalid tick value: {value!r}")
 
     return result
 
@@ -445,9 +425,7 @@ def _rfc3339_ns(value: str) -> int:
         raise ValueError("timestamp is empty")
 
     if not value.endswith("Z"):
-        raise ValueError(
-            f"expected UTC RFC-3339 timestamp: {value!r}"
-        )
+        raise ValueError(f"expected UTC RFC-3339 timestamp: {value!r}")
 
     body = value[:-1]
 
@@ -463,14 +441,9 @@ def _rfc3339_ns(value: str) -> int:
 
     seconds = int(dt.timestamp())
 
-    fraction_digits = "".join(
-        ch for ch in fraction if ch.isdigit()
-    )
+    fraction_digits = "".join(ch for ch in fraction if ch.isdigit())
 
-    nanoseconds = int(
-        (fraction_digits[:9]).ljust(9, "0")
-        or "0"
-    )
+    nanoseconds = int((fraction_digits[:9]).ljust(9, "0") or "0")
 
     return seconds * 1_000_000_000 + nanoseconds
 
@@ -530,22 +503,15 @@ class AlpacaSIPStream:
         )
         self._subscription.validate()
 
-        self._api_key = (
-            api_key
-            if api_key is not None
-            else os.environ.get("APCA_API_KEY_ID", "")
-        )
+        self._api_key = api_key if api_key is not None else os.environ.get("APCA_API_KEY_ID", "")
 
         self._api_secret = (
-            api_secret
-            if api_secret is not None
-            else os.environ.get("APCA_API_SECRET_KEY", "")
+            api_secret if api_secret is not None else os.environ.get("APCA_API_SECRET_KEY", "")
         )
 
         if not self._api_key or not self._api_secret:
             raise ValueError(
-                "Alpaca credentials are required. Set "
-                "APCA_API_KEY_ID and APCA_API_SECRET_KEY."
+                "Alpaca credentials are required. Set APCA_API_KEY_ID and APCA_API_SECRET_KEY."
             )
 
         if price_scale <= 0:
@@ -558,19 +524,13 @@ class AlpacaSIPStream:
             raise ValueError("connect_timeout must be positive")
 
         if heartbeat_timeout <= 0:
-            raise ValueError(
-                "heartbeat_timeout must be positive"
-            )
+            raise ValueError("heartbeat_timeout must be positive")
 
         if backoff_initial <= 0:
-            raise ValueError(
-                "backoff_initial must be positive"
-            )
+            raise ValueError("backoff_initial must be positive")
 
         if backoff_max < backoff_initial:
-            raise ValueError(
-                "backoff_max must be >= backoff_initial"
-            )
+            raise ValueError("backoff_max must be >= backoff_initial")
 
         self._url = url
         self._price_scale = price_scale
@@ -647,12 +607,8 @@ class AlpacaSIPStream:
             trades_received=self._trades_received,
             bars_received=self._bars_received,
             malformed_messages=self._malformed_messages,
-            last_message_monotonic_ns=(
-                self._last_message_monotonic_ns
-            ),
-            last_event_timestamp_ns=(
-                self._last_event_timestamp_ns
-            ),
+            last_message_monotonic_ns=(self._last_message_monotonic_ns),
+            last_event_timestamp_ns=(self._last_event_timestamp_ns),
         )
 
     # -------------------------------------------------------------------------
@@ -676,9 +632,7 @@ class AlpacaSIPStream:
                 if self._stop_event.is_set():
                     break
 
-                raise AlpacaStreamError(
-                    "market-data stream ended unexpectedly"
-                )
+                raise AlpacaStreamError("market-data stream ended unexpectedly")
 
             except asyncio.CancelledError:
                 raise
@@ -691,9 +645,7 @@ class AlpacaSIPStream:
                 # Credential, entitlement, and connection-limit failures are
                 # not transient network failures. Reconnecting in a tight loop
                 # would only make the situation worse.
-                await self._set_state(
-                    ConnectionState.DISCONNECTED
-                )
+                await self._set_state(ConnectionState.DISCONNECTED)
                 raise
 
             except Exception as exc:
@@ -704,15 +656,12 @@ class AlpacaSIPStream:
                     self._reconnects += 1
 
                 LOGGER.warning(
-                    "Alpaca SIP stream disconnected: %s; "
-                    "retrying in %.2fs",
+                    "Alpaca SIP stream disconnected: %s; retrying in %.2fs",
                     type(exc).__name__,
                     backoff,
                 )
 
-                await self._set_state(
-                    ConnectionState.DISCONNECTED
-                )
+                await self._set_state(ConnectionState.DISCONNECTED)
 
                 jitter = random.uniform(
                     0.0,
@@ -737,14 +686,10 @@ class AlpacaSIPStream:
 
             first_connection = False
 
-        await self._set_state(
-            ConnectionState.DISCONNECTED
-        )
+        await self._set_state(ConnectionState.DISCONNECTED)
 
     async def stop(self) -> None:
-        await self._set_state(
-            ConnectionState.STOPPING
-        )
+        await self._set_state(ConnectionState.STOPPING)
 
         self._stop_event.set()
 
@@ -769,9 +714,7 @@ class AlpacaSIPStream:
     async def _connect_and_consume(self) -> None:
         self._connection_attempts += 1
 
-        await self._set_state(
-            ConnectionState.CONNECTING
-        )
+        await self._set_state(ConnectionState.CONNECTING)
 
         ssl_context = ssl.create_default_context()
 
@@ -790,21 +733,15 @@ class AlpacaSIPStream:
 
             await self._expect_connected(socket)
 
-            await self._set_state(
-                ConnectionState.CONNECTED
-            )
+            await self._set_state(ConnectionState.CONNECTED)
 
             await self._authenticate(socket)
 
-            await self._set_state(
-                ConnectionState.AUTHENTICATED
-            )
+            await self._set_state(ConnectionState.AUTHENTICATED)
 
             await self._subscribe(socket)
 
-            await self._set_state(
-                ConnectionState.SUBSCRIBED
-            )
+            await self._set_state(ConnectionState.SUBSCRIBED)
 
             await self._consume(socket)
 
@@ -818,14 +755,9 @@ class AlpacaSIPStream:
 
         messages = self._decode_frame(raw)
 
-        if not any(
-            msg.get("T") == "success" and
-            msg.get("msg") == "connected"
-            for msg in messages
-        ):
+        if not any(msg.get("T") == "success" and msg.get("msg") == "connected" for msg in messages):
             raise AlpacaStreamError(
-                f"unexpected Alpaca welcome message: "
-                f"{self._redacted(messages)!r}"
+                f"unexpected Alpaca welcome message: {self._redacted(messages)!r}"
             )
 
     # -------------------------------------------------------------------------
@@ -852,27 +784,20 @@ class AlpacaSIPStream:
         messages = self._decode_frame(raw)
 
         for message in messages:
-            if (
-                message.get("T") == "success" and
-                message.get("msg") == "authenticated"
-            ):
+            if message.get("T") == "success" and message.get("msg") == "authenticated":
                 return
 
             if message.get("T") == "error":
                 self._raise_server_error(message)
 
-        raise AlpacaAuthenticationError(
-            "Alpaca did not confirm authentication"
-        )
+        raise AlpacaAuthenticationError("Alpaca did not confirm authentication")
 
     # -------------------------------------------------------------------------
     # SUBSCRIPTION
     # -------------------------------------------------------------------------
 
     async def _subscribe(self, socket) -> None:
-        request: dict[str, object] = {
-            "action": "subscribe"
-        }
+        request: dict[str, object] = {"action": "subscribe"}
 
         symbols = list(self._subscription.symbols)
 
@@ -930,17 +855,13 @@ class AlpacaSIPStream:
             if not enabled:
                 continue
 
-            received = set(
-                str(symbol)
-                for symbol in message.get(channel, [])
-            )
+            received = set(str(symbol) for symbol in message.get(channel, []))
 
             missing = expected - received
 
             if missing:
                 raise AlpacaSubscriptionError(
-                    f"Alpaca did not subscribe {channel} "
-                    f"for: {sorted(missing)!r}"
+                    f"Alpaca did not subscribe {channel} for: {sorted(missing)!r}"
                 )
 
     # -------------------------------------------------------------------------
@@ -955,15 +876,11 @@ class AlpacaSIPStream:
                     timeout=self._heartbeat_timeout,
                 )
             except asyncio.TimeoutError as exc:
-                raise AlpacaStreamError(
-                    "market-data receive timeout"
-                ) from exc
+                raise AlpacaStreamError("market-data receive timeout") from exc
             except ConnectionClosed:
                 raise
 
-            self._last_message_monotonic_ns = (
-                time.monotonic_ns()
-            )
+            self._last_message_monotonic_ns = time.monotonic_ns()
 
             messages = self._decode_frame(raw)
 
@@ -987,9 +904,7 @@ class AlpacaSIPStream:
                 )
 
                 if self._on_quote is not None:
-                    await _maybe_await(
-                        self._on_quote(event)
-                    )
+                    await _maybe_await(self._on_quote(event))
 
                 return
 
@@ -1003,9 +918,7 @@ class AlpacaSIPStream:
                 )
 
                 if self._on_trade is not None:
-                    await _maybe_await(
-                        self._on_trade(event)
-                    )
+                    await _maybe_await(self._on_trade(event))
 
                 return
 
@@ -1019,9 +932,7 @@ class AlpacaSIPStream:
                 )
 
                 if self._on_bar is not None:
-                    await _maybe_await(
-                        self._on_bar(event)
-                    )
+                    await _maybe_await(self._on_bar(event))
 
                 return
 
@@ -1061,9 +972,7 @@ class AlpacaSIPStream:
         symbol = str(message["S"]).upper()
         _validate_symbol(symbol)
 
-        timestamp_ns = _rfc3339_ns(
-            str(message["t"])
-        )
+        timestamp_ns = _rfc3339_ns(str(message["t"]))
 
         return QuoteEvent(
             symbol=symbol,
@@ -1073,21 +982,14 @@ class AlpacaSIPStream:
                 self._price_scale,
             ),
             bid_size=int(message["bs"]),
-            bid_exchange=str(
-                message.get("bx", "")
-            ),
+            bid_exchange=str(message.get("bx", "")),
             ask_price_ticks=_price_to_ticks(
                 message["ap"],
                 self._price_scale,
             ),
             ask_size=int(message["as"]),
-            ask_exchange=str(
-                message.get("ax", "")
-            ),
-            conditions=tuple(
-                str(value)
-                for value in message.get("c", [])
-            ),
+            ask_exchange=str(message.get("ax", "")),
+            conditions=tuple(str(value) for value in message.get("c", [])),
             tape=str(message.get("z", "")),
             sequence=self._next_ingestion_sequence(),
             received_ns=time.time_ns(),
@@ -1100,16 +1002,12 @@ class AlpacaSIPStream:
         symbol = str(message["S"]).upper()
         _validate_symbol(symbol)
 
-        timestamp_ns = _rfc3339_ns(
-            str(message["t"])
-        )
+        timestamp_ns = _rfc3339_ns(str(message["t"]))
 
         size = int(message["s"])
 
         if size <= 0:
-            raise ValueError(
-                "trade size must be positive"
-            )
+            raise ValueError("trade size must be positive")
 
         return TradeEvent(
             symbol=symbol,
@@ -1121,10 +1019,7 @@ class AlpacaSIPStream:
                 self._price_scale,
             ),
             size=size,
-            conditions=tuple(
-                str(value)
-                for value in message.get("c", [])
-            ),
+            conditions=tuple(str(value) for value in message.get("c", [])),
             tape=str(message.get("z", "")),
             sequence=self._next_ingestion_sequence(),
             received_ns=time.time_ns(),
@@ -1137,9 +1032,7 @@ class AlpacaSIPStream:
         symbol = str(message["S"]).upper()
         _validate_symbol(symbol)
 
-        timestamp_ns = _rfc3339_ns(
-            str(message["t"])
-        )
+        timestamp_ns = _rfc3339_ns(str(message["t"]))
 
         return BarEvent(
             symbol=symbol,
@@ -1179,34 +1072,20 @@ class AlpacaSIPStream:
         message: dict[str, object],
     ) -> None:
         code = int(message.get("code", 0))
-        text = str(
-            message.get("msg", "unknown Alpaca error")
-        )
+        text = str(message.get("msg", "unknown Alpaca error"))
 
         if code == 406:
-            raise AlpacaConnectionLimitError(
-                f"Alpaca connection limit exceeded: {text}"
-            )
+            raise AlpacaConnectionLimitError(f"Alpaca connection limit exceeded: {text}")
 
         if code in {401, 402, 403}:
             lowered = text.lower()
 
-            if (
-                "subscription" in lowered or
-                "feed" in lowered or
-                "permit" in lowered
-            ):
-                raise AlpacaEntitlementError(
-                    f"Alpaca SIP entitlement rejected: {text}"
-                )
+            if "subscription" in lowered or "feed" in lowered or "permit" in lowered:
+                raise AlpacaEntitlementError(f"Alpaca SIP entitlement rejected: {text}")
 
-            raise AlpacaAuthenticationError(
-                f"Alpaca authentication rejected: {text}"
-            )
+            raise AlpacaAuthenticationError(f"Alpaca authentication rejected: {text}")
 
-        raise AlpacaStreamError(
-            f"Alpaca stream error {code}: {text}"
-        )
+        raise AlpacaStreamError(f"Alpaca stream error {code}: {text}")
 
     # -------------------------------------------------------------------------
     # FRAME DECODING / REDACTION
@@ -1220,9 +1099,7 @@ class AlpacaSIPStream:
             raw = raw.decode("utf-8")
 
         if not isinstance(raw, str):
-            raise ValueError(
-                "unexpected WebSocket frame type"
-            )
+            raise ValueError("unexpected WebSocket frame type")
 
         decoded = json.loads(raw)
 
@@ -1230,17 +1107,13 @@ class AlpacaSIPStream:
             decoded = [decoded]
 
         if not isinstance(decoded, list):
-            raise ValueError(
-                "Alpaca frame must decode to object array"
-            )
+            raise ValueError("Alpaca frame must decode to object array")
 
         output: list[dict[str, object]] = []
 
         for item in decoded:
             if not isinstance(item, dict):
-                raise ValueError(
-                    "Alpaca message must be an object"
-                )
+                raise ValueError("Alpaca message must be an object")
 
             output.append(item)
 
@@ -1256,7 +1129,8 @@ class AlpacaSIPStream:
             return {
                 key: (
                     "<redacted>"
-                    if key.lower() in {
+                    if key.lower()
+                    in {
                         "key",
                         "secret",
                         "token",
@@ -1268,10 +1142,7 @@ class AlpacaSIPStream:
             }
 
         if isinstance(value, list):
-            return [
-                AlpacaSIPStream._redacted(item)
-                for item in value
-            ]
+            return [AlpacaSIPStream._redacted(item) for item in value]
 
         return value
 
@@ -1289,9 +1160,7 @@ class AlpacaSIPStream:
         self._state = state
 
         if self._on_state is not None:
-            await _maybe_await(
-                self._on_state(state)
-            )
+            await _maybe_await(self._on_state(state))
 
 
 # =============================================================================
@@ -1316,9 +1185,9 @@ class MarketDataQueue:
         if maxsize <= 0:
             raise ValueError("maxsize must be positive")
 
-        self._queue: asyncio.Queue[
-            QuoteEvent | TradeEvent | BarEvent | IndexEvent
-        ] = asyncio.Queue(maxsize=maxsize)
+        self._queue: asyncio.Queue[QuoteEvent | TradeEvent | BarEvent | IndexEvent] = asyncio.Queue(
+            maxsize=maxsize
+        )
 
         self.dropped_events = 0
 
@@ -1410,10 +1279,7 @@ DEFAULT_UNIVERSE = (
 async def _example() -> None:
     logging.basicConfig(
         level=logging.INFO,
-        format=(
-            "%(asctime)s %(levelname)s "
-            "%(name)s %(message)s"
-        ),
+        format=("%(asctime)s %(levelname)s %(name)s %(message)s"),
     )
 
     queue = MarketDataQueue()
@@ -1431,9 +1297,7 @@ async def _example() -> None:
     )
 
     # A licensed external index source can publish VIX/VXN here.
-    volatility = IndexFactorBridge(
-        on_index=lambda event: fanout.publish(event)
-    )
+    _volatility = IndexFactorBridge(on_index=lambda event: fanout.publish(event))
 
     def enqueue(
         event: QuoteEvent | TradeEvent | BarEvent | IndexEvent,

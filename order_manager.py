@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Awaitable, Callable, Optional, Protocol, TypeVar
 from uuid import uuid4
@@ -97,62 +97,78 @@ class OrderStatus(str, Enum):
     ERROR = "error"
 
 
-TERMINAL_STATUSES = frozenset({
-    OrderStatus.RISK_REJECTED,
-    OrderStatus.FILLED,
-    OrderStatus.CANCELED,
-    OrderStatus.REJECTED,
-    OrderStatus.EXPIRED,
-})
+TERMINAL_STATUSES = frozenset(
+    {
+        OrderStatus.RISK_REJECTED,
+        OrderStatus.FILLED,
+        OrderStatus.CANCELED,
+        OrderStatus.REJECTED,
+        OrderStatus.EXPIRED,
+    }
+)
 
 _ALLOWED_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
-    OrderStatus.CREATED: frozenset({
-        OrderStatus.RISK_PENDING,
-        OrderStatus.ERROR,
-    }),
-    OrderStatus.RISK_PENDING: frozenset({
-        OrderStatus.RISK_REJECTED,
-        OrderStatus.APPROVED,
-        OrderStatus.ERROR,
-    }),
+    OrderStatus.CREATED: frozenset(
+        {
+            OrderStatus.RISK_PENDING,
+            OrderStatus.ERROR,
+        }
+    ),
+    OrderStatus.RISK_PENDING: frozenset(
+        {
+            OrderStatus.RISK_REJECTED,
+            OrderStatus.APPROVED,
+            OrderStatus.ERROR,
+        }
+    ),
     OrderStatus.RISK_REJECTED: frozenset(),
-    OrderStatus.APPROVED: frozenset({
-        OrderStatus.SUBMITTING,
-        OrderStatus.ERROR,
-    }),
-    OrderStatus.SUBMITTING: frozenset({
-        OrderStatus.SUBMITTED,
-        OrderStatus.PARTIALLY_FILLED,
-        OrderStatus.FILLED,
-        OrderStatus.REJECTED,
-        OrderStatus.ERROR,
-    }),
-    OrderStatus.SUBMITTED: frozenset({
-        OrderStatus.PARTIALLY_FILLED,
-        OrderStatus.FILLED,
-        OrderStatus.CANCEL_PENDING,
-        OrderStatus.CANCELED,
-        OrderStatus.REJECTED,
-        OrderStatus.EXPIRED,
-        OrderStatus.ERROR,
-    }),
-    OrderStatus.PARTIALLY_FILLED: frozenset({
-        OrderStatus.PARTIALLY_FILLED,
-        OrderStatus.FILLED,
-        OrderStatus.CANCEL_PENDING,
-        OrderStatus.CANCELED,
-        OrderStatus.REJECTED,
-        OrderStatus.EXPIRED,
-        OrderStatus.ERROR,
-    }),
+    OrderStatus.APPROVED: frozenset(
+        {
+            OrderStatus.SUBMITTING,
+            OrderStatus.ERROR,
+        }
+    ),
+    OrderStatus.SUBMITTING: frozenset(
+        {
+            OrderStatus.SUBMITTED,
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+            OrderStatus.REJECTED,
+            OrderStatus.ERROR,
+        }
+    ),
+    OrderStatus.SUBMITTED: frozenset(
+        {
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+            OrderStatus.CANCEL_PENDING,
+            OrderStatus.CANCELED,
+            OrderStatus.REJECTED,
+            OrderStatus.EXPIRED,
+            OrderStatus.ERROR,
+        }
+    ),
+    OrderStatus.PARTIALLY_FILLED: frozenset(
+        {
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+            OrderStatus.CANCEL_PENDING,
+            OrderStatus.CANCELED,
+            OrderStatus.REJECTED,
+            OrderStatus.EXPIRED,
+            OrderStatus.ERROR,
+        }
+    ),
     OrderStatus.FILLED: frozenset(),
-    OrderStatus.CANCEL_PENDING: frozenset({
-        OrderStatus.PARTIALLY_FILLED,
-        OrderStatus.FILLED,
-        OrderStatus.CANCELED,
-        OrderStatus.REJECTED,
-        OrderStatus.ERROR,
-    }),
+    OrderStatus.CANCEL_PENDING: frozenset(
+        {
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+            OrderStatus.CANCELED,
+            OrderStatus.REJECTED,
+            OrderStatus.ERROR,
+        }
+    ),
     OrderStatus.CANCELED: frozenset(),
     OrderStatus.REJECTED: frozenset(),
     OrderStatus.EXPIRED: frozenset(),
@@ -189,23 +205,15 @@ class OrderIntent:
 
         if self.order_type in {OrderType.LIMIT, OrderType.STOP_LIMIT}:
             if self.limit_price_ticks is None or self.limit_price_ticks <= 0:
-                raise ValueError(
-                    "positive limit_price_ticks required for limit orders"
-                )
+                raise ValueError("positive limit_price_ticks required for limit orders")
         elif self.limit_price_ticks is not None:
-            raise ValueError(
-                "limit_price_ticks is only valid for LIMIT/STOP_LIMIT"
-            )
+            raise ValueError("limit_price_ticks is only valid for LIMIT/STOP_LIMIT")
 
         if self.order_type in {OrderType.STOP, OrderType.STOP_LIMIT}:
             if self.stop_price_ticks is None or self.stop_price_ticks <= 0:
-                raise ValueError(
-                    "positive stop_price_ticks required for stop orders"
-                )
+                raise ValueError("positive stop_price_ticks required for stop orders")
         elif self.stop_price_ticks is not None:
-            raise ValueError(
-                "stop_price_ticks is only valid for STOP/STOP_LIMIT"
-            )
+            raise ValueError("stop_price_ticks is only valid for STOP/STOP_LIMIT")
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,17 +236,11 @@ class RiskDecision:
             raise ValueError("risk decided_ns must be positive")
 
         if self.approved:
-            qty = (
-                intent.quantity
-                if self.approved_quantity is None
-                else self.approved_quantity
-            )
+            qty = intent.quantity if self.approved_quantity is None else self.approved_quantity
             if qty <= 0:
                 raise ValueError("approved quantity must be positive")
             if qty > intent.quantity:
-                raise ValueError(
-                    "risk engine cannot increase requested quantity"
-                )
+                raise ValueError("risk engine cannot increase requested quantity")
 
 
 @dataclass(frozen=True, slots=True)
@@ -318,8 +320,7 @@ class NativeRiskEngine(Protocol):
     def evaluate(
         self,
         intent: OrderIntent,
-    ) -> RiskDecision | Awaitable[RiskDecision]:
-        ...
+    ) -> RiskDecision | Awaitable[RiskDecision]: ...
 
 
 class ExecutionVenue(Protocol):
@@ -328,16 +329,14 @@ class ExecutionVenue(Protocol):
     def submit(
         self,
         intent: OrderIntent,
-    ) -> ExecutionAck | Awaitable[ExecutionAck]:
-        ...
+    ) -> ExecutionAck | Awaitable[ExecutionAck]: ...
 
     def cancel(
         self,
         *,
         client_order_id: str,
         venue_order_id: str,
-    ) -> None | Awaitable[None]:
-        ...
+    ) -> None | Awaitable[None]: ...
 
 
 AuditHandler = Callable[
@@ -416,9 +415,7 @@ class OrderManager:
             await self._audit("risk_pending", order)
 
             try:
-                decision = await _maybe_await(
-                    self._risk_engine.evaluate(normalized)
-                )
+                decision = await _maybe_await(self._risk_engine.evaluate(normalized))
                 decision.validate_for(normalized)
             except Exception:
                 self._transition(order, OrderStatus.ERROR)
@@ -433,9 +430,7 @@ class OrderManager:
                 order.rejection_reason = decision.reason
                 self._transition(order, OrderStatus.RISK_REJECTED)
                 await self._audit("risk_rejected", order)
-                raise RiskRejected(
-                    decision.reason or "native risk engine rejected order"
-                )
+                raise RiskRejected(decision.reason or "native risk engine rejected order")
 
             approved_quantity = (
                 normalized.quantity
@@ -457,9 +452,7 @@ class OrderManager:
             await self._audit("submitting", order)
 
             try:
-                ack = await _maybe_await(
-                    self._venue.submit(approved_intent)
-                )
+                ack = await _maybe_await(self._venue.submit(approved_intent))
                 ack.validate()
             except Exception:
                 self._transition(order, OrderStatus.ERROR)
@@ -469,20 +462,15 @@ class OrderManager:
             if ack.client_order_id != order.client_order_id:
                 self._transition(order, OrderStatus.ERROR)
                 await self._audit("client_id_mismatch", order)
-                raise ReconciliationError(
-                    "execution venue returned a different client_order_id"
-                )
+                raise ReconciliationError("execution venue returned a different client_order_id")
 
             if (
                 ack.venue_order_id in self._venue_to_client
-                and self._venue_to_client[ack.venue_order_id]
-                != order.client_order_id
+                and self._venue_to_client[ack.venue_order_id] != order.client_order_id
             ):
                 self._transition(order, OrderStatus.ERROR)
                 await self._audit("venue_id_collision", order)
-                raise ReconciliationError(
-                    f"venue_order_id collision: {ack.venue_order_id}"
-                )
+                raise ReconciliationError(f"venue_order_id collision: {ack.venue_order_id}")
 
             order.venue_order_id = ack.venue_order_id
             order.last_event_ns = max(order.last_event_ns, ack.accepted_ns)
@@ -503,9 +491,7 @@ class OrderManager:
                 return self.snapshot(client_order_id)
 
             if not order.venue_order_id:
-                raise InvalidOrderTransition(
-                    "cannot cancel before venue acknowledgement"
-                )
+                raise InvalidOrderTransition("cannot cancel before venue acknowledgement")
 
             self._transition(order, OrderStatus.CANCEL_PENDING)
             await self._audit("cancel_pending", order)
@@ -534,14 +520,10 @@ class OrderManager:
 
         async with lock:
             if order.venue_order_id is None:
-                raise ReconciliationError(
-                    "received execution update before venue acknowledgement"
-                )
+                raise ReconciliationError("received execution update before venue acknowledgement")
 
             if update.venue_order_id != order.venue_order_id:
-                raise ReconciliationError(
-                    "execution update venue_order_id does not match order"
-                )
+                raise ReconciliationError("execution update venue_order_id does not match order")
 
             if (
                 update.venue_sequence is not None
@@ -552,46 +534,25 @@ class OrderManager:
                 # state rather than applying it twice.
                 return self.snapshot(order.client_order_id)
 
-            if (
-                update.venue_sequence is None
-                and update.event_ns < order.last_event_ns
-            ):
-                raise ReconciliationError(
-                    "out-of-order execution update without venue sequence"
-                )
+            if update.venue_sequence is None and update.event_ns < order.last_event_ns:
+                raise ReconciliationError("out-of-order execution update without venue sequence")
 
-            target_quantity = (
-                order.approved_quantity or order.intent.quantity
-            )
+            target_quantity = order.approved_quantity or order.intent.quantity
 
             if update.cumulative_filled_quantity > target_quantity:
-                raise ReconciliationError(
-                    "venue cumulative fill exceeds approved quantity"
-                )
+                raise ReconciliationError("venue cumulative fill exceeds approved quantity")
 
-            if (
-                update.cumulative_filled_quantity
-                < order.cumulative_filled_quantity
-            ):
-                raise ReconciliationError(
-                    "venue cumulative fill moved backwards"
-                )
+            if update.cumulative_filled_quantity < order.cumulative_filled_quantity:
+                raise ReconciliationError("venue cumulative fill moved backwards")
 
-            fill_delta = (
-                update.cumulative_filled_quantity
-                - order.cumulative_filled_quantity
-            )
+            fill_delta = update.cumulative_filled_quantity - order.cumulative_filled_quantity
 
             if update.last_fill_quantity > fill_delta:
-                raise ReconciliationError(
-                    "last_fill_quantity exceeds cumulative fill delta"
-                )
+                raise ReconciliationError("last_fill_quantity exceeds cumulative fill delta")
 
             if fill_delta > 0:
                 if update.last_fill_price_ticks is None:
-                    raise ReconciliationError(
-                        "new fill requires last_fill_price_ticks"
-                    )
+                    raise ReconciliationError("new fill requires last_fill_price_ticks")
 
                 previous_qty = order.cumulative_filled_quantity
                 previous_avg = order.average_fill_price_ticks or 0.0
@@ -606,17 +567,13 @@ class OrderManager:
                     )
 
                 total_notional_ticks = (
-                    previous_avg * previous_qty
-                    + update.last_fill_price_ticks * fill_delta
+                    previous_avg * previous_qty + update.last_fill_price_ticks * fill_delta
                 )
                 order.average_fill_price_ticks = (
-                    total_notional_ticks
-                    / update.cumulative_filled_quantity
+                    total_notional_ticks / update.cumulative_filled_quantity
                 )
 
-            order.cumulative_filled_quantity = (
-                update.cumulative_filled_quantity
-            )
+            order.cumulative_filled_quantity = update.cumulative_filled_quantity
             order.last_event_ns = max(order.last_event_ns, update.event_ns)
             order.last_venue_sequence = update.venue_sequence
 
@@ -626,27 +583,18 @@ class OrderManager:
                 order.cumulative_filled_quantity == target_quantity
                 and expected_status != OrderStatus.FILLED
             ):
-                raise ReconciliationError(
-                    "fully filled quantity requires FILLED venue status"
-                )
+                raise ReconciliationError("fully filled quantity requires FILLED venue status")
 
             if (
                 expected_status == OrderStatus.FILLED
                 and order.cumulative_filled_quantity != target_quantity
             ):
-                raise ReconciliationError(
-                    "FILLED status requires approved quantity to be filled"
-                )
+                raise ReconciliationError("FILLED status requires approved quantity to be filled")
 
-            if (
-                expected_status == OrderStatus.PARTIALLY_FILLED
-                and not (
-                    0 < order.cumulative_filled_quantity < target_quantity
-                )
+            if expected_status == OrderStatus.PARTIALLY_FILLED and not (
+                0 < order.cumulative_filled_quantity < target_quantity
             ):
-                raise ReconciliationError(
-                    "PARTIALLY_FILLED requires a nonzero partial quantity"
-                )
+                raise ReconciliationError("PARTIALLY_FILLED requires a nonzero partial quantity")
 
             self._transition(order, expected_status)
 
@@ -691,9 +639,7 @@ class OrderManager:
         if new_status == order.status:
             if new_status == OrderStatus.PARTIALLY_FILLED:
                 return
-            raise InvalidOrderTransition(
-                f"duplicate transition {order.status.value}"
-            )
+            raise InvalidOrderTransition(f"duplicate transition {order.status.value}")
 
         allowed = _ALLOWED_TRANSITIONS[order.status]
         if new_status not in allowed:
@@ -712,9 +658,7 @@ class OrderManager:
             return
 
         # Pass a snapshot so audit consumers cannot mutate manager state.
-        await _maybe_await(
-            self._on_audit(event, replace(order))
-        )
+        await _maybe_await(self._on_audit(event, replace(order)))
 
 
 __all__ = [

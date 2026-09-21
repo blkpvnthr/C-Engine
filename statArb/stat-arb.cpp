@@ -1,4 +1,4 @@
-#include "statarb_engine.hpp"
+#include "stat-arb.hpp"
 
 #include <algorithm>
 #include <cmath>

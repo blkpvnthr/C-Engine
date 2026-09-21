@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 import h5py
 import numpy as np
 
-
 SCHEMA_VERSION = 2
 DEFAULT_PRICE_SCALE = 10_000
 DEFAULT_CHUNK_ROWS = 4096
@@ -24,60 +23,70 @@ NY_TZ = ZoneInfo("America/New_York")
 
 _UTF8 = h5py.string_dtype(encoding="utf-8")
 
-QUOTE_DTYPE = np.dtype([
-    ("sequence", "<u8"),
-    ("timestamp_ns", "<u8"),
-    ("received_ns", "<u8"),
-    ("bid_price_ticks", "<i8"),
-    ("bid_size", "<u8"),
-    ("ask_price_ticks", "<i8"),
-    ("ask_size", "<u8"),
-    ("bid_exchange", _UTF8),
-    ("ask_exchange", _UTF8),
-    ("conditions", _UTF8),
-    ("tape", _UTF8),
-])
+QUOTE_DTYPE = np.dtype(
+    [
+        ("sequence", "<u8"),
+        ("timestamp_ns", "<u8"),
+        ("received_ns", "<u8"),
+        ("bid_price_ticks", "<i8"),
+        ("bid_size", "<u8"),
+        ("ask_price_ticks", "<i8"),
+        ("ask_size", "<u8"),
+        ("bid_exchange", _UTF8),
+        ("ask_exchange", _UTF8),
+        ("conditions", _UTF8),
+        ("tape", _UTF8),
+    ]
+)
 
-TRADE_DTYPE = np.dtype([
-    ("sequence", "<u8"),
-    ("timestamp_ns", "<u8"),
-    ("received_ns", "<u8"),
-    ("trade_id", "<u8"),
-    ("price_ticks", "<i8"),
-    ("size", "<u8"),
-    ("exchange", _UTF8),
-    ("conditions", _UTF8),
-    ("tape", _UTF8),
-])
+TRADE_DTYPE = np.dtype(
+    [
+        ("sequence", "<u8"),
+        ("timestamp_ns", "<u8"),
+        ("received_ns", "<u8"),
+        ("trade_id", "<u8"),
+        ("price_ticks", "<i8"),
+        ("size", "<u8"),
+        ("exchange", _UTF8),
+        ("conditions", _UTF8),
+        ("tape", _UTF8),
+    ]
+)
 
-BAR_DTYPE = np.dtype([
-    ("sequence", "<u8"),
-    ("timestamp_ns", "<u8"),
-    ("received_ns", "<u8"),
-    ("open_ticks", "<i8"),
-    ("high_ticks", "<i8"),
-    ("low_ticks", "<i8"),
-    ("close_ticks", "<i8"),
-    ("volume", "<u8"),
-    ("trade_count", "<u8"),
-    ("vwap_ticks", "<i8"),
-    ("has_vwap", "u1"),
-])
+BAR_DTYPE = np.dtype(
+    [
+        ("sequence", "<u8"),
+        ("timestamp_ns", "<u8"),
+        ("received_ns", "<u8"),
+        ("open_ticks", "<i8"),
+        ("high_ticks", "<i8"),
+        ("low_ticks", "<i8"),
+        ("close_ticks", "<i8"),
+        ("volume", "<u8"),
+        ("trade_count", "<u8"),
+        ("vwap_ticks", "<i8"),
+        ("has_vwap", "u1"),
+    ]
+)
 
-FACTOR_DTYPE = np.dtype([
-    ("sequence", "<u8"),
-    ("timestamp_ns", "<u8"),
-    ("received_ns", "<u8"),
-    ("value_ticks", "<i8"),
-    ("provider", _UTF8),
-])
+FACTOR_DTYPE = np.dtype(
+    [
+        ("sequence", "<u8"),
+        ("timestamp_ns", "<u8"),
+        ("received_ns", "<u8"),
+        ("value_ticks", "<i8"),
+        ("provider", _UTF8),
+    ]
+)
 
-ANALYTICS_SUMMARY_DTYPE = np.dtype([
-    ("timestamp_ns", "<u8"),
-    ("model_version", _UTF8),
-    ("name", _UTF8),
-    ("value", "<f8"),
-])
+ANALYTICS_SUMMARY_DTYPE = np.dtype(
+    [
+        ("timestamp_ns", "<u8"),
+        ("model_version", _UTF8),
+        ("name", _UTF8),
+        ("value", "<f8"),
+    ]
+)
 
 
 class MarketDataStoreError(RuntimeError):
@@ -220,8 +229,7 @@ class DailyHDF5Writer:
             self._queue.put_nowait(event)
         except queue.Full as exc:
             raise PersistenceQueueFull(
-                "HDF5 persistence queue is full; refusing to silently drop "
-                "market data"
+                "HDF5 persistence queue is full; refusing to silently drop market data"
             ) from exc
 
         self.stats.submitted += 1
@@ -262,9 +270,7 @@ class DailyHDF5Writer:
 
     def raise_if_failed(self) -> None:
         if self._failure is not None:
-            raise MarketDataStoreError(
-                f"HDF5 writer failed: {self._failure}"
-            ) from self._failure
+            raise MarketDataStoreError(f"HDF5 writer failed: {self._failure}") from self._failure
 
     def __enter__(self) -> "DailyHDF5Writer":
         self.start()
@@ -307,10 +313,7 @@ class DailyHDF5Writer:
 
     def _periodic_flush(self) -> None:
         now = time.monotonic()
-        if (
-            self._h5 is not None
-            and now - self._last_flush_monotonic >= self.flush_interval_seconds
-        ):
+        if self._h5 is not None and now - self._last_flush_monotonic >= self.flush_interval_seconds:
             self._h5.flush()
             self.stats.flushes += 1
             self._last_flush_monotonic = now
@@ -384,19 +387,22 @@ class DailyHDF5Writer:
                 f"/equities/{symbol}/quotes",
                 QUOTE_DTYPE,
             )
-            self._append_row(ds, (
-                int(event.sequence),
-                timestamp_ns,
-                int(event.received_ns),
-                int(event.bid_price_ticks),
-                int(event.bid_size),
-                int(event.ask_price_ticks),
-                int(event.ask_size),
-                str(event.bid_exchange),
-                str(event.ask_exchange),
-                ",".join(event.conditions),
-                str(event.tape),
-            ))
+            self._append_row(
+                ds,
+                (
+                    int(event.sequence),
+                    timestamp_ns,
+                    int(event.received_ns),
+                    int(event.bid_price_ticks),
+                    int(event.bid_size),
+                    int(event.ask_price_ticks),
+                    int(event.ask_size),
+                    str(event.bid_exchange),
+                    str(event.ask_exchange),
+                    ",".join(event.conditions),
+                    str(event.tape),
+                ),
+            )
             return
 
         if event_type == "TradeEvent":
@@ -404,17 +410,20 @@ class DailyHDF5Writer:
                 f"/equities/{symbol}/trades",
                 TRADE_DTYPE,
             )
-            self._append_row(ds, (
-                int(event.sequence),
-                timestamp_ns,
-                int(event.received_ns),
-                int(event.trade_id),
-                int(event.price_ticks),
-                int(event.size),
-                str(event.exchange),
-                ",".join(event.conditions),
-                str(event.tape),
-            ))
+            self._append_row(
+                ds,
+                (
+                    int(event.sequence),
+                    timestamp_ns,
+                    int(event.received_ns),
+                    int(event.trade_id),
+                    int(event.price_ticks),
+                    int(event.size),
+                    str(event.exchange),
+                    ",".join(event.conditions),
+                    str(event.tape),
+                ),
+            )
             return
 
         if event_type == "BarEvent":
@@ -423,46 +432,48 @@ class DailyHDF5Writer:
                 BAR_DTYPE,
             )
             has_vwap = event.vwap_ticks is not None
-            self._append_row(ds, (
-                int(event.sequence),
-                timestamp_ns,
-                int(event.received_ns),
-                int(event.open_ticks),
-                int(event.high_ticks),
-                int(event.low_ticks),
-                int(event.close_ticks),
-                int(event.volume),
-                int(event.trade_count),
-                int(event.vwap_ticks or 0),
-                int(has_vwap),
-            ))
+            self._append_row(
+                ds,
+                (
+                    int(event.sequence),
+                    timestamp_ns,
+                    int(event.received_ns),
+                    int(event.open_ticks),
+                    int(event.high_ticks),
+                    int(event.low_ticks),
+                    int(event.close_ticks),
+                    int(event.volume),
+                    int(event.trade_count),
+                    int(event.vwap_ticks or 0),
+                    int(has_vwap),
+                ),
+            )
             return
 
         if event_type == "IndexEvent":
             if symbol not in {"VIX", "VXN"}:
-                raise ValueError(
-                    f"unsupported factor {symbol!r}; expected VIX or VXN"
-                )
+                raise ValueError(f"unsupported factor {symbol!r}; expected VIX or VXN")
             ds = self._dataset(
                 f"/factors/{symbol}/observations",
                 FACTOR_DTYPE,
             )
-            self._append_row(ds, (
-                int(event.sequence),
-                timestamp_ns,
-                int(event.received_ns),
-                int(event.value_ticks),
-                str(event.provider),
-            ))
+            self._append_row(
+                ds,
+                (
+                    int(event.sequence),
+                    timestamp_ns,
+                    int(event.received_ns),
+                    int(event.value_ticks),
+                    str(event.provider),
+                ),
+            )
             return
 
         raise TypeError(f"unsupported market-data event type: {event_type}")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Create a daily HDF5 market-data container."
-    )
+    parser = argparse.ArgumentParser(description="Create a daily HDF5 market-data container.")
     parser.add_argument(
         "date",
         help="Trading date in YYYY-MM-DD format.",

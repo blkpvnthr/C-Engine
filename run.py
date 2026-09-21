@@ -68,26 +68,24 @@ import logging
 import os
 import signal
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Optional, Protocol
+from typing import Awaitable, Optional, Protocol
 
-from alpaca_sip_stream import (
+from cengine.event_bus import MarketEventBus
+from market_data.alpaca_sip_stream import (
     AlpacaSIPStream,
     BarEvent,
     IndexEvent,
     IndexFactorBridge,
-    MarketDataFanout,
-    MarketDataQueue,
     QuoteEvent,
     TradeEvent,
 )
-from market_data_store import DailyHDF5Writer
+from market_data.market_data_store import DailyHDF5Writer
 from order_manager import (
     ExecutionUpdate,
     ExecutionVenue,
     NativeRiskEngine,
     OrderIntent,
     OrderManager,
-    OrderStatus,
     OrderType,
     Side,
     TimeInForce,
@@ -104,7 +102,6 @@ from strategies import (
     build_strategy_coordinator,
     group_candidates_by_direction,
 )
-
 
 LOGGER = logging.getLogger("market_engine")
 
@@ -129,8 +126,7 @@ class QuantityPolicy(Protocol):
     def quantity_for(
         self,
         candidate: TradeCandidate,
-    ) -> int | Awaitable[int]:
-        ...
+    ) -> int | Awaitable[int]: ...
 
 
 class ExitQuantityProvider(Protocol):
@@ -139,8 +135,7 @@ class ExitQuantityProvider(Protocol):
     def quantity_to_close(
         self,
         candidate: TradeCandidate,
-    ) -> int | Awaitable[int]:
-        ...
+    ) -> int | Awaitable[int]: ...
 
 
 class ExternalFactorSource(Protocol):
@@ -154,8 +149,7 @@ class ExternalFactorSource(Protocol):
         self,
         bridge: IndexFactorBridge,
         stop_event: asyncio.Event,
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 async def _maybe_await(value):
@@ -195,9 +189,7 @@ class EngineConfig:
                 "archive_provider_label must explicitly identify provenance"
             )
         if not self.native_adapter_module.strip():
-            raise EngineConfigurationError(
-                "native_adapter_module is required"
-            )
+            raise EngineConfigurationError("native_adapter_module is required")
 
         # Strategy constructors perform the detailed mathematical validation.
         StrategySetConfig(
@@ -247,21 +239,15 @@ def load_native_adapters(
     venue_factory = getattr(module, "build_execution_venue", None)
 
     if not callable(risk_factory):
-        raise EngineConfigurationError(
-            f"{module_name!r} must expose build_risk_engine()"
-        )
+        raise EngineConfigurationError(f"{module_name!r} must expose build_risk_engine()")
     if not callable(venue_factory):
-        raise EngineConfigurationError(
-            f"{module_name!r} must expose build_execution_venue()"
-        )
+        raise EngineConfigurationError(f"{module_name!r} must expose build_execution_venue()")
 
     risk_engine = risk_factory()
     venue = venue_factory()
 
     if risk_engine is None or venue is None:
-        raise EngineConfigurationError(
-            "native adapter factories must return concrete objects"
-        )
+        raise EngineConfigurationError("native adapter factories must return concrete objects")
 
     return risk_engine, venue
 
@@ -330,17 +316,9 @@ class CandidateRouter:
         candidate: TradeCandidate,
     ) -> OrderIntent:
         if candidate.side in {SignalSide.LONG, SignalSide.SHORT}:
-            quantity = int(
-                await _maybe_await(
-                    self._entry_quantity.quantity_for(candidate)
-                )
-            )
+            quantity = int(await _maybe_await(self._entry_quantity.quantity_for(candidate)))
         else:
-            quantity = int(
-                await _maybe_await(
-                    self._exit_quantity.quantity_to_close(candidate)
-                )
-            )
+            quantity = int(await _maybe_await(self._exit_quantity.quantity_to_close(candidate)))
 
         if quantity <= 0:
             raise EngineConfigurationError(
@@ -368,9 +346,7 @@ class CandidateRouter:
             time_in_force=TimeInForce.DAY,
             strategy_id=candidate.strategy.value,
             correlation_id=(
-                f"{candidate.symbol}:"
-                f"{candidate.timestamp_ns}:"
-                f"{candidate.strategy.value}"
+                f"{candidate.symbol}:{candidate.timestamp_ns}:{candidate.strategy.value}"
             ),
             created_ns=candidate.timestamp_ns,
         )
@@ -390,9 +366,10 @@ class MarketEngine:
         self.health = EngineHealth()
         self._stop = asyncio.Event()
 
-        risk_engine, venue = load_native_adapters(
-            config.native_adapter_module
-        )
+        risk_engine, venue = load_native_adapters(config.native_adapter_module)
+        self.venue = venue
+        self._adapter_module = importlib.import_module(config.native_adapter_module)
+        self.portfolio = getattr(getattr(self._adapter_module, "STATE", None), "positions", None)
 
         self.order_manager = OrderManager(
             risk_engine=risk_engine,
@@ -416,23 +393,25 @@ class MarketEngine:
                 exit_threshold_ticks=config.apo_exit_threshold_ticks,
             ),
         )
-        self.strategies: StrategyCoordinator = (
-            build_strategy_coordinator(strategy_config)
-        )
+        self.strategies: StrategyCoordinator = build_strategy_coordinator(strategy_config)
 
         self.archive = DailyHDF5Writer(
             root=config.market_data_root,
             provider=config.archive_provider_label,
         )
-        self.live_queue = MarketDataQueue()
-        self.fanout = MarketDataFanout(
-            live_queue=self.live_queue,
-            archive=self.archive,
-        )
+        self.event_bus: MarketEventBus[MarketEvent] = MarketEventBus()
+        self.strategy_events = self.event_bus.subscribe("strategies")
+        for subscriber in (
+            "order_book",
+            "market_depth",
+            "liquidity",
+            "volatility",
+            "stat_arb",
+            "metal",
+        ):
+            self.event_bus.subscribe(subscriber)
 
-        self.factor_bridge = IndexFactorBridge(
-            on_index=self._publish_market_event
-        )
+        self.factor_bridge = IndexFactorBridge(on_index=self._publish_market_event)
         self.factor_source = factor_source
 
         stream_kwargs = dict(
@@ -459,6 +438,9 @@ class MarketEngine:
     async def run(self) -> None:
         """Start archive, consumer, market stream, and optional factor source."""
         self.archive.start()
+        sync_account = getattr(self.venue, "sync_account", None)
+        if callable(sync_account):
+            await sync_account()
 
         consumer_task = asyncio.create_task(
             self._consume_market_events(),
@@ -497,9 +479,7 @@ class MarketEngine:
             # If a task returned normally while the engine was not asked to
             # stop, treat that as an unexpected engine termination.
             if not self._stop.is_set():
-                raise RuntimeError(
-                    "engine component stopped unexpectedly"
-                )
+                raise RuntimeError("engine component stopped unexpectedly")
         finally:
             await self.stop()
 
@@ -526,19 +506,24 @@ class MarketEngine:
         update: ExecutionUpdate,
     ) -> None:
         """Entry point for authoritative broker/order-book execution updates."""
-        await self.order_manager.reconcile(update)
+        order = await self.order_manager.reconcile(update)
+        if self.portfolio is not None:
+            self.portfolio.apply_execution(order, update)
 
     async def _publish_market_event(
         self,
         event: MarketEvent,
     ) -> None:
-        # MarketDataFanout archives first and then publishes to the latency-
-        # oriented live queue. Archival queue saturation is surfaced as a fault.
-        self.fanout.publish(event)
+        # Persistence and every analytics consumer have independent streams.
+        self.archive.submit(event)
+        state = getattr(self._adapter_module, "STATE", None)
+        if state is not None:
+            state.on_market_event(event)
+        self.event_bus.publish(event)
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():
-            event = await self.live_queue.get()
+            event = await self.strategy_events.queue.get()
 
             try:
                 self.health.market_events_processed += 1
@@ -550,7 +535,7 @@ class MarketEngine:
                 # analytics through future fan-out subscribers. Strategy
                 # definitions in strategies.py are bar-based.
             finally:
-                self.live_queue.task_done()
+                self.strategy_events.queue.task_done()
 
     async def _process_bar(self, event: BarEvent) -> None:
         bar = Bar(
@@ -571,9 +556,7 @@ class MarketEngine:
             return
 
         try:
-            submitted, conflicted = await self.router.route(
-                batch.candidates
-            )
+            submitted, conflicted = await self.router.route(batch.candidates)
         except Exception:
             self.health.order_failures += 1
             LOGGER.exception(
@@ -610,20 +593,14 @@ class MarketEngine:
 
 
 def _csv_symbols(value: str) -> tuple[str, ...]:
-    symbols = tuple(
-        part.strip().upper()
-        for part in value.split(",")
-        if part.strip()
-    )
+    symbols = tuple(part.strip().upper() for part in value.split(",") if part.strip())
     if not symbols:
         raise argparse.ArgumentTypeError("at least one symbol is required")
     return symbols
 
 
 def config_from_args() -> EngineConfig:
-    parser = argparse.ArgumentParser(
-        description="Activate the complete market engine."
-    )
+    parser = argparse.ArgumentParser(description="Activate the complete market engine.")
 
     parser.add_argument(
         "--symbols",
@@ -644,10 +621,7 @@ def config_from_args() -> EngineConfig:
     parser.add_argument(
         "--native-adapter-module",
         default=os.environ.get("ENGINE_NATIVE_ADAPTER_MODULE", ""),
-        help=(
-            "Python/pybind11 module exposing build_risk_engine() and "
-            "build_execution_venue()."
-        ),
+        help=("Python/pybind11 module exposing build_risk_engine() and build_execution_venue()."),
     )
 
     parser.add_argument("--turtle-entry-lookback", required=True, type=int)

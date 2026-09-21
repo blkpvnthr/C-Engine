@@ -63,18 +63,17 @@ TRADING_NATIVE_MODULE if a different extension-module name is used.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, replace
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 from importlib import import_module
 from itertools import count
-import os
 from random import Random
 from threading import RLock
 from time import time_ns
 from types import ModuleType
 from typing import Any, Iterable, Mapping, Protocol, Sequence
-
 
 # ============================================================================
 # CONSTANTS
@@ -241,9 +240,7 @@ class LiveIndex:
 
     def validate(self) -> None:
         if self.symbol not in VOLATILITY_FACTORS:
-            raise ValueError(
-                f"unsupported volatility factor: {self.symbol!r}"
-            )
+            raise ValueError(f"unsupported volatility factor: {self.symbol!r}")
         if self.timestamp_ns <= 0:
             raise ValueError("index timestamp_ns must be positive")
         if self.received_ns <= 0:
@@ -337,19 +334,13 @@ class LiquidityConfig:
         if self.min_quantity <= 0:
             raise ValueError("min_quantity must be positive")
         if self.max_quantity < self.min_quantity:
-            raise ValueError(
-                "max_quantity must be >= min_quantity"
-            )
+            raise ValueError("max_quantity must be >= min_quantity")
         if self.levels <= 0:
             raise ValueError("levels must be positive")
         if self.inside_offset_ticks < 0:
-            raise ValueError(
-                "inside_offset_ticks cannot be negative"
-            )
+            raise ValueError("inside_offset_ticks cannot be negative")
         if self.level_spacing_ticks <= 0:
-            raise ValueError(
-                "level_spacing_ticks must be positive"
-            )
+            raise ValueError("level_spacing_ticks must be positive")
 
 
 # ============================================================================
@@ -377,7 +368,6 @@ class AlpacaTradeLike(Protocol):
     exchange: str
     price_ticks: int
     size: int
-
 
 
 class IndexEventLike(Protocol):
@@ -468,31 +458,21 @@ def load_native_module(
     alpaca_sip_stream.py / process environment.
     """
 
-    name = (
-        module_name
-        or os.environ.get(
-            "TRADING_NATIVE_MODULE",
-            DEFAULT_NATIVE_MODULE,
-        )
+    name = module_name or os.environ.get(
+        "TRADING_NATIVE_MODULE",
+        DEFAULT_NATIVE_MODULE,
     )
 
     try:
         module = import_module(name)
     except Exception as exc:
-        raise NativeBindingError(
-            f"could not import native trading module {name!r}"
-        ) from exc
+        raise NativeBindingError(f"could not import native trading module {name!r}") from exc
 
-    missing = [
-        attr
-        for attr in _REQUIRED_NATIVE_ATTRIBUTES
-        if not hasattr(module, attr)
-    ]
+    missing = [attr for attr in _REQUIRED_NATIVE_ATTRIBUTES if not hasattr(module, attr)]
 
     if missing:
         raise NativeBindingError(
-            "native module is missing required bindings: "
-            + ", ".join(missing)
+            "native module is missing required bindings: " + ", ".join(missing)
         )
 
     return module
@@ -517,11 +497,7 @@ class NativeMarketBridge:
         *,
         native_module: ModuleType | Any | None = None,
     ) -> None:
-        self.native = (
-            native_module
-            if native_module is not None
-            else load_native_module()
-        )
+        self.native = native_module if native_module is not None else load_native_module()
         self.registry = registry
         self._sequence = count(1)
         self._lock = RLock()
@@ -533,18 +509,12 @@ class NativeMarketBridge:
         *,
         native_module: ModuleType | Any | None = None,
     ) -> "NativeMarketBridge":
-        native = (
-            native_module
-            if native_module is not None
-            else load_native_module()
-        )
+        native = native_module if native_module is not None else load_native_module()
 
         registry = native.OrderBookRegistry()
 
         normalized_symbols = _normalize_symbols(symbols)
-        forbidden = sorted(
-            set(normalized_symbols).intersection(VOLATILITY_FACTORS)
-        )
+        forbidden = sorted(set(normalized_symbols).intersection(VOLATILITY_FACTORS))
         if forbidden:
             raise NonExecutableFactorError(
                 "VIX/VXN are read-only statistical factors and cannot "
@@ -588,14 +558,11 @@ class NativeMarketBridge:
 
         update.sequence = quote.sequence
 
-        accepted = bool(
-            self.registry.on_market_quote(update)
-        )
+        accepted = bool(self.registry.on_market_quote(update))
 
         if not accepted:
             raise MarketDataRejected(
-                f"native market book rejected quote "
-                f"{quote.symbol} sequence={quote.sequence}"
+                f"native market book rejected quote {quote.symbol} sequence={quote.sequence}"
             )
 
         return True
@@ -621,14 +588,11 @@ class NativeMarketBridge:
         update.size = trade.size
         update.sequence = trade.sequence
 
-        accepted = bool(
-            self.registry.on_market_trade(update)
-        )
+        accepted = bool(self.registry.on_market_trade(update))
 
         if not accepted:
             raise MarketDataRejected(
-                f"native market book rejected trade "
-                f"{trade.symbol} sequence={trade.sequence}"
+                f"native market book rejected trade {trade.symbol} sequence={trade.sequence}"
             )
 
         return True
@@ -639,9 +603,7 @@ class NativeMarketBridge:
         engine = self.registry.get(normalized)
 
         if engine is None:
-            raise KeyError(
-                f"symbol is not registered: {normalized}"
-            )
+            raise KeyError(f"symbol is not registered: {normalized}")
 
         return engine
 
@@ -660,18 +622,13 @@ def _normalize_symbol(symbol: str) -> str:
     if not normalized:
         raise ValueError("symbol cannot be empty")
 
-    allowed = set(
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "0123456789.-_/"
-    )
+    allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_/")
 
     if len(normalized) > 32:
         raise ValueError("symbol is too long")
 
     if any(ch not in allowed for ch in normalized):
-        raise ValueError(
-            f"unsupported symbol characters: {normalized!r}"
-        )
+        raise ValueError(f"unsupported symbol characters: {normalized!r}")
 
     return normalized
 
@@ -710,10 +667,7 @@ def coerce_quote(
         ask_price_ticks=int(event.ask_price_ticks),
         ask_size=int(event.ask_size),
         ask_exchange=str(event.ask_exchange),
-        sequence=(
-            int(getattr(event, "sequence", 0))
-            or sequence
-        ),
+        sequence=(int(getattr(event, "sequence", 0)) or sequence),
     )
 
     result.validate()
@@ -733,10 +687,7 @@ def coerce_trade(
         exchange=str(event.exchange),
         price_ticks=int(event.price_ticks),
         size=int(event.size),
-        sequence=(
-            int(getattr(event, "sequence", 0))
-            or sequence
-        ),
+        sequence=(int(getattr(event, "sequence", 0)) or sequence),
     )
 
     result.validate()
@@ -783,17 +734,13 @@ class VolatilityFactorBook:
 
             if previous is not None:
                 if live.timestamp_ns < previous.timestamp_ns:
-                    raise MarketDataRejected(
-                        f"stale {live.symbol} factor timestamp"
-                    )
+                    raise MarketDataRejected(f"stale {live.symbol} factor timestamp")
                 if (
                     live.sequence > 0
                     and previous.sequence > 0
                     and live.sequence <= previous.sequence
                 ):
-                    raise MarketDataRejected(
-                        f"out-of-sequence {live.symbol} factor update"
-                    )
+                    raise MarketDataRejected(f"out-of-sequence {live.symbol} factor update")
 
             self._states[live.symbol] = live
             self._updated_ns = time_ns()
@@ -803,9 +750,7 @@ class VolatilityFactorBook:
     def latest(self, symbol: str) -> LiveIndex | None:
         normalized = _normalize_symbol(symbol)
         if normalized not in VOLATILITY_FACTORS:
-            raise KeyError(
-                f"not a configured volatility factor: {normalized}"
-            )
+            raise KeyError(f"not a configured volatility factor: {normalized}")
         with self._lock:
             return self._states.get(normalized)
 
@@ -850,9 +795,7 @@ def _native_side(
             if hasattr(enum_type, name):
                 return getattr(enum_type, name)
 
-    raise NativeBindingError(
-        "native Side enum does not expose Buy/Sell"
-    )
+    raise NativeBindingError("native Side enum does not expose Buy/Sell")
 
 
 def _native_status_to_python(
@@ -863,18 +806,12 @@ def _native_status_to_python(
     if name is None:
         name = str(status)
 
-    token = (
-        str(name)
-        .split(".")[-1]
-        .replace("_", "")
-        .lower()
-    )
+    token = str(name).split(".")[-1].replace("_", "").lower()
 
     mapping = {
         "new": LiquidityOrderStatus.NEW,
         "accepted": LiquidityOrderStatus.ACTIVE,
-        "partiallyfilled":
-            LiquidityOrderStatus.PARTIALLY_FILLED,
+        "partiallyfilled": LiquidityOrderStatus.PARTIALLY_FILLED,
         "filled": LiquidityOrderStatus.FILLED,
         "cancelled": LiquidityOrderStatus.CANCELLED,
         "canceled": LiquidityOrderStatus.CANCELLED,
@@ -928,44 +865,23 @@ class LiquidityProvider:
                 "LiquidityProvider cannot create orders for it"
             )
 
-        self.native = (
-            native_module
-            if native_module is not None
-            else load_native_module()
-        )
+        self.native = native_module if native_module is not None else load_native_module()
 
         self.engine = engine
 
-        self.config = (
-            config
-            if config is not None
-            else LiquidityConfig()
-        )
+        self.config = config if config is not None else LiquidityConfig()
         self.config.validate()
 
-        self._native_tick_size = (
-            tick_size_to_native_ticks(
-                self.config.tick_size
-            )
-        )
+        self._native_tick_size = tick_size_to_native_ticks(self.config.tick_size)
 
         # IDs should ultimately be issued by a process-wide authority shared
         # with strategy orders. An injected generator is supported so the
         # application can enforce that invariant.
-        self._id_source = (
-            iter(id_generator)
-            if id_generator is not None
-            else count(id_start)
-        )
+        self._id_source = iter(id_generator) if id_generator is not None else count(id_start)
 
-        self._rng = Random(
-            self.config.random_seed
-        )
+        self._rng = Random(self.config.random_seed)
 
-        self._orders: dict[
-            int,
-            LiquidityOrder
-        ] = {}
+        self._orders: dict[int, LiquidityOrder] = {}
 
         self._active_ids: set[int] = set()
 
@@ -982,9 +898,7 @@ class LiquidityProvider:
             order_id = int(next(self._id_source))
 
         if order_id <= 0:
-            raise InvalidLiquidityOrder(
-                "order IDs must be positive"
-            )
+            raise InvalidLiquidityOrder("order IDs must be positive")
 
         return order_id
 
@@ -1000,19 +914,13 @@ class LiquidityProvider:
             quantity,
             int,
         ):
-            raise InvalidLiquidityOrder(
-                "quantity must be an integer"
-            )
+            raise InvalidLiquidityOrder("quantity must be an integer")
 
         if quantity < self.config.min_quantity:
-            raise InvalidLiquidityOrder(
-                "quantity is below configured minimum"
-            )
+            raise InvalidLiquidityOrder("quantity is below configured minimum")
 
         if quantity > self.config.max_quantity:
-            raise InvalidLiquidityOrder(
-                "quantity exceeds configured maximum"
-            )
+            raise InvalidLiquidityOrder("quantity exceeds configured maximum")
 
     def _validate_price_ticks(
         self,
@@ -1022,22 +930,13 @@ class LiquidityProvider:
             price_ticks,
             int,
         ):
-            raise InvalidLiquidityOrder(
-                "price_ticks must be an integer"
-            )
+            raise InvalidLiquidityOrder("price_ticks must be an integer")
 
         if price_ticks <= 0:
-            raise InvalidLiquidityOrder(
-                "price_ticks must be positive"
-            )
+            raise InvalidLiquidityOrder("price_ticks must be positive")
 
-        if (
-            price_ticks % self._native_tick_size
-            != 0
-        ):
-            raise InvalidLiquidityOrder(
-                "price does not align to configured tick size"
-            )
+        if price_ticks % self._native_tick_size != 0:
+            raise InvalidLiquidityOrder("price does not align to configured tick size")
 
     # ------------------------------------------------------------------------
     # CREATE / SUBMIT
@@ -1062,23 +961,15 @@ class LiquidityProvider:
         """
 
         if not isinstance(side, Side):
-            raise InvalidLiquidityOrder(
-                "side must be Side.BUY or Side.SELL"
-            )
+            raise InvalidLiquidityOrder("side must be Side.BUY or Side.SELL")
 
         self._validate_quantity(quantity)
         self._validate_price_ticks(price_ticks)
 
-        oid = (
-            self._next_order_id()
-            if order_id is None
-            else int(order_id)
-        )
+        oid = self._next_order_id() if order_id is None else int(order_id)
 
         if oid <= 0:
-            raise InvalidLiquidityOrder(
-                "order_id must be positive"
-            )
+            raise InvalidLiquidityOrder("order_id must be positive")
 
         now = time_ns()
 
@@ -1142,9 +1033,7 @@ class LiquidityProvider:
         *,
         levels: int | None = None,
         quantity: int | None = None,
-    ) -> list[
-        tuple[LiquidityOrder, tuple[Any, ...]]
-    ]:
+    ) -> list[tuple[LiquidityOrder, tuple[Any, ...]]]:
         """
         Reprice optional synthetic liquidity around current observed NBBO.
 
@@ -1157,18 +1046,11 @@ class LiquidityProvider:
         live = coerce_quote(quote)
 
         if live.symbol != self.symbol:
-            raise ValueError(
-                f"quote symbol mismatch: "
-                f"{live.symbol} != {self.symbol}"
-            )
+            raise ValueError(f"quote symbol mismatch: {live.symbol} != {self.symbol}")
 
         self._last_quote = live
 
-        level_count = (
-            self.config.levels
-            if levels is None
-            else int(levels)
-        )
+        level_count = self.config.levels if levels is None else int(levels)
 
         if level_count <= 0:
             raise ValueError("levels must be positive")
@@ -1179,9 +1061,7 @@ class LiquidityProvider:
         if self.config.replace_on_quote:
             self.cancel_all_active()
 
-        results: list[
-            tuple[LiquidityOrder, tuple[Any, ...]]
-        ] = []
+        results: list[tuple[LiquidityOrder, tuple[Any, ...]]] = []
 
         for level in range(level_count):
             level_qty = (
@@ -1193,26 +1073,13 @@ class LiquidityProvider:
                 )
             )
 
-            distance = (
-                self.config.inside_offset_ticks
-                + level
-                * self.config.level_spacing_ticks
-            )
+            distance = self.config.inside_offset_ticks + level * self.config.level_spacing_ticks
 
-            distance_ticks = (
-                distance
-                * self._native_tick_size
-            )
+            distance_ticks = distance * self._native_tick_size
 
-            buy_price = (
-                live.bid_price_ticks
-                - distance_ticks
-            )
+            buy_price = live.bid_price_ticks - distance_ticks
 
-            sell_price = (
-                live.ask_price_ticks
-                + distance_ticks
-            )
+            sell_price = live.ask_price_ticks + distance_ticks
 
             if buy_price > 0:
                 if (
@@ -1255,18 +1122,12 @@ class LiquidityProvider:
         tuple[Any, ...],
     ]:
         if market_price_ticks <= 0:
-            raise InvalidLiquidityOrder(
-                "market_price_ticks must be positive"
-            )
+            raise InvalidLiquidityOrder("market_price_ticks must be positive")
 
         if max_ticks_away <= 0:
-            raise InvalidLiquidityOrder(
-                "max_ticks_away must be positive"
-            )
+            raise InvalidLiquidityOrder("max_ticks_away must be positive")
 
-        side = self._rng.choice(
-            [Side.BUY, Side.SELL]
-        )
+        side = self._rng.choice([Side.BUY, Side.SELL])
 
         quantity = self._rng.randint(
             self.config.min_quantity,
@@ -1278,26 +1139,15 @@ class LiquidityProvider:
             max_ticks_away,
         )
 
-        distance = (
-            steps
-            * self._native_tick_size
-        )
+        distance = steps * self._native_tick_size
 
         if side is Side.BUY:
-            price_ticks = (
-                market_price_ticks
-                - distance
-            )
+            price_ticks = market_price_ticks - distance
         else:
-            price_ticks = (
-                market_price_ticks
-                + distance
-            )
+            price_ticks = market_price_ticks + distance
 
         if price_ticks <= 0:
-            raise InvalidLiquidityOrder(
-                "generated price is non-positive"
-            )
+            raise InvalidLiquidityOrder("generated price is non-positive")
 
         return self.create_order(
             side,
@@ -1319,24 +1169,16 @@ class LiquidityProvider:
         LiquidityOrder,
         tuple[Any, ...],
     ]:
-        self._validate_price_ticks(
-            new_price_ticks
-        )
-        self._validate_quantity(
-            new_total_quantity
-        )
+        self._validate_price_ticks(new_price_ticks)
+        self._validate_quantity(new_total_quantity)
 
         current = self.lookup_order(order_id)
 
         if current is None:
-            raise LiquidityOrderNotFound(
-                f"unknown liquidity order {order_id}"
-            )
+            raise LiquidityOrderNotFound(f"unknown liquidity order {order_id}")
 
         if current.is_terminal:
-            raise LiquidityOrderNotFound(
-                f"liquidity order {order_id} is terminal"
-            )
+            raise LiquidityOrderNotFound(f"liquidity order {order_id} is terminal")
 
         executions = tuple(
             self.engine.amend(
@@ -1373,17 +1215,13 @@ class LiquidityProvider:
         current = self.lookup_order(order_id)
 
         if current is None:
-            raise LiquidityOrderNotFound(
-                f"unknown liquidity order {order_id}"
-            )
+            raise LiquidityOrderNotFound(f"unknown liquidity order {order_id}")
 
         if current.is_terminal:
             return current
 
         try:
-            native_order = self.engine.cancel(
-                int(order_id)
-            )
+            native_order = self.engine.cancel(int(order_id))
         except Exception:
             # The order may already have filled due to a crossing internal
             # order. Refresh before deciding this is a hard cancellation fault.
@@ -1418,9 +1256,7 @@ class LiquidityProvider:
 
         for order_id in active:
             try:
-                cancelled.append(
-                    self.cancel(order_id)
-                )
+                cancelled.append(self.cancel(order_id))
             except LiquidityOrderNotFound:
                 continue
             except Exception:
@@ -1456,14 +1292,10 @@ class LiquidityProvider:
             current = self._orders.get(order_id)
 
         if current is None:
-            raise LiquidityOrderNotFound(
-                f"unknown liquidity order {order_id}"
-            )
+            raise LiquidityOrderNotFound(f"unknown liquidity order {order_id}")
 
         native_book = self.engine.simulated_book()
-        native_order = native_book.get(
-            int(order_id)
-        )
+        native_order = native_book.get(int(order_id))
 
         if native_order is not None:
             result = self._metadata_from_native_order(
@@ -1475,13 +1307,9 @@ class LiquidityProvider:
                 self._orders[order_id] = result
 
                 if result.is_terminal:
-                    self._active_ids.discard(
-                        order_id
-                    )
+                    self._active_ids.discard(order_id)
                 else:
-                    self._active_ids.add(
-                        order_id
-                    )
+                    self._active_ids.add(order_id)
 
             return result
 
@@ -1502,12 +1330,8 @@ class LiquidityProvider:
         filled_delta = 0
 
         for execution in executions:
-            maker_id = int(
-                getattr(execution, "maker_id", 0)
-            )
-            taker_id = int(
-                getattr(execution, "taker_id", 0)
-            )
+            maker_id = int(getattr(execution, "maker_id", 0))
+            taker_id = int(getattr(execution, "taker_id", 0))
 
             if order_id in (maker_id, taker_id):
                 filled_delta += int(
@@ -1530,29 +1354,15 @@ class LiquidityProvider:
             # Disappearance with no complete execution evidence can occur after
             # explicit cancellation. Preserve a known cancellation, otherwise
             # mark UNKNOWN rather than falsely claiming a fill.
-            if (
-                current.status
-                is LiquidityOrderStatus.CANCELLED
-            ):
-                status = (
-                    LiquidityOrderStatus.CANCELLED
-                )
-                remaining = (
-                    current.quantity
-                    - current.filled_quantity
-                )
+            if current.status is LiquidityOrderStatus.CANCELLED:
+                status = LiquidityOrderStatus.CANCELLED
+                remaining = current.quantity - current.filled_quantity
             elif filled > current.filled_quantity:
-                status = (
-                    LiquidityOrderStatus.PARTIALLY_FILLED
-                )
-                remaining = (
-                    current.quantity - filled
-                )
+                status = LiquidityOrderStatus.PARTIALLY_FILLED
+                remaining = current.quantity - filled
             else:
                 status = LiquidityOrderStatus.UNKNOWN
-                remaining = (
-                    current.quantity - filled
-                )
+                remaining = current.quantity - filled
 
         result = replace(
             current,
@@ -1594,18 +1404,10 @@ class LiquidityProvider:
         return replace(
             current,
             quantity=int(native_order.quantity),
-            price_ticks=int(
-                native_order.price_ticks
-            ),
-            status=_native_status_to_python(
-                native_order.status
-            ),
-            filled_quantity=int(
-                native_order.filled_quantity
-            ),
-            remaining_quantity=int(
-                native_order.remaining_quantity
-            ),
+            price_ticks=int(native_order.price_ticks),
+            status=_native_status_to_python(native_order.status),
+            filled_quantity=int(native_order.filled_quantity),
+            remaining_quantity=int(native_order.remaining_quantity),
             updated_ns=time_ns(),
         )
 
@@ -1618,9 +1420,7 @@ class LiquidityProvider:
         order_id: int,
     ) -> LiquidityOrder | None:
         with self._lock:
-            return self._orders.get(
-                int(order_id)
-            )
+            return self._orders.get(int(order_id))
 
     def active_orders(
         self,
@@ -1628,8 +1428,7 @@ class LiquidityProvider:
         with self._lock:
             return tuple(
                 self._orders[order_id]
-                for order_id
-                in sorted(self._active_ids)
+                for order_id in sorted(self._active_ids)
                 if order_id in self._orders
             )
 
@@ -1637,10 +1436,7 @@ class LiquidityProvider:
         self,
     ) -> tuple[LiquidityOrder, ...]:
         with self._lock:
-            return tuple(
-                self._orders[key]
-                for key in sorted(self._orders)
-            )
+            return tuple(self._orders[key] for key in sorted(self._orders))
 
     def market_snapshot(self) -> Any:
         return self.engine.market_snapshot()
@@ -1649,9 +1445,7 @@ class LiquidityProvider:
         self,
         max_levels: int = 0,
     ) -> Any:
-        return self.engine.simulated_snapshot(
-            int(max_levels)
-        )
+        return self.engine.simulated_snapshot(int(max_levels))
 
 
 # ============================================================================
@@ -1696,11 +1490,7 @@ class LiquidityService:
     ) -> None:
         self.market_bridge = market_bridge
         self.providers = dict(providers)
-        self.factor_book = (
-            factor_book
-            if factor_book is not None
-            else VolatilityFactorBook()
-        )
+        self.factor_book = factor_book if factor_book is not None else VolatilityFactorBook()
         self.auto_quote_liquidity = bool(auto_quote_liquidity)
 
     @classmethod
@@ -1715,22 +1505,12 @@ class LiquidityService:
     ) -> "LiquidityService":
         normalized = _normalize_symbols(symbols)
 
-        executable = tuple(
-            symbol
-            for symbol in normalized
-            if symbol not in VOLATILITY_FACTORS
-        )
+        executable = tuple(symbol for symbol in normalized if symbol not in VOLATILITY_FACTORS)
 
         if not executable:
-            raise ValueError(
-                "at least one executable equity symbol is required"
-            )
+            raise ValueError("at least one executable equity symbol is required")
 
-        native = (
-            native_module
-            if native_module is not None
-            else load_native_module()
-        )
+        native = native_module if native_module is not None else load_native_module()
 
         bridge = NativeMarketBridge.create(
             executable,
@@ -1740,28 +1520,21 @@ class LiquidityService:
         # Process-wide monotonic source shared across all LPs.
         shared_ids = count(shared_id_start)
 
-        providers: dict[
-            str,
-            LiquidityProvider
-        ] = {}
+        providers: dict[str, LiquidityProvider] = {}
 
         for symbol in executable:
-            providers[symbol] = (
-                LiquidityProvider(
-                    symbol,
-                    bridge.engine(symbol),
-                    native_module=native,
-                    config=liquidity_config,
-                    id_generator=shared_ids,
-                )
+            providers[symbol] = LiquidityProvider(
+                symbol,
+                bridge.engine(symbol),
+                native_module=native,
+                config=liquidity_config,
+                id_generator=shared_ids,
             )
 
         return cls(
             bridge,
             providers,
-            auto_quote_liquidity=(
-                auto_quote_liquidity
-            ),
+            auto_quote_liquidity=(auto_quote_liquidity),
         )
 
     def provider(
@@ -1773,9 +1546,7 @@ class LiquidityService:
         try:
             return self.providers[normalized]
         except KeyError as exc:
-            raise KeyError(
-                f"symbol is not configured: {normalized}"
-            ) from exc
+            raise KeyError(f"symbol is not configured: {normalized}") from exc
 
     def on_quote(
         self,
@@ -1788,16 +1559,12 @@ class LiquidityService:
         live = coerce_quote(event)
 
         # Market observation reaches C++ first.
-        self.market_bridge.on_quote(
-            live
-        )
+        self.market_bridge.on_quote(live)
 
         # Synthetic quoting is explicitly optional. Live SIP observation alone
         # should not mutate our simulated order book.
         if self.auto_quote_liquidity:
-            self.provider(
-                live.symbol
-            ).provide_liquidity(live)
+            self.provider(live.symbol).provide_liquidity(live)
 
     def on_trade(
         self,
@@ -1807,9 +1574,7 @@ class LiquidityService:
         Callback suitable for AlpacaSIPStream(on_trade=...).
         """
 
-        self.market_bridge.on_trade(
-            event
-        )
+        self.market_bridge.on_trade(event)
 
     def on_index(
         self,
@@ -1835,16 +1600,8 @@ class LiquidityService:
 
     def cancel_all(
         self,
-    ) -> dict[
-        str,
-        tuple[LiquidityOrder, ...]
-    ]:
-        return {
-            symbol:
-                provider.cancel_all_active()
-            for symbol, provider
-            in self.providers.items()
-        }
+    ) -> dict[str, tuple[LiquidityOrder, ...]]:
+        return {symbol: provider.cancel_all_active() for symbol, provider in self.providers.items()}
 
 
 # ============================================================================
@@ -1874,15 +1631,12 @@ def build_alpaca_sip_stream(
             )
         except ImportError as exc:
             raise RuntimeError(
-                "alpaca_sip_stream.py must be importable "
-                "to build the live SIP stream"
+                "alpaca_sip_stream.py must be importable to build the live SIP stream"
             ) from exc
 
         stream_class = AlpacaSIPStream
 
-    symbols = tuple(
-        sorted(service.providers)
-    )
+    symbols = tuple(sorted(service.providers))
 
     return stream_class(
         symbols,
@@ -1915,8 +1669,7 @@ def bind_index_factor_bridge(
                 from alpaca_sip_stream import IndexFactorBridge
             except ImportError as exc:
                 raise RuntimeError(
-                    "updated market-data module with IndexFactorBridge "
-                    "must be importable"
+                    "updated market-data module with IndexFactorBridge must be importable"
                 ) from exc
 
         bridge_class = IndexFactorBridge

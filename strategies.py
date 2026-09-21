@@ -73,12 +73,15 @@ class Bar:
             raise ValueError("symbol is required")
         if self.timestamp_ns <= 0:
             raise ValueError("timestamp_ns must be positive")
-        if min(
-            self.open_ticks,
-            self.high_ticks,
-            self.low_ticks,
-            self.close_ticks,
-        ) <= 0:
+        if (
+            min(
+                self.open_ticks,
+                self.high_ticks,
+                self.low_ticks,
+                self.close_ticks,
+            )
+            <= 0
+        ):
             raise ValueError("OHLC prices must be positive")
         if self.low_ticks > self.high_ticks:
             raise ValueError("low_ticks cannot exceed high_ticks")
@@ -111,11 +114,9 @@ class TradeCandidate:
 
 class Strategy(Protocol):
     @property
-    def name(self) -> StrategyName:
-        ...
+    def name(self) -> StrategyName: ...
 
-    def on_bar(self, bar: Bar) -> tuple[TradeCandidate, ...]:
-        ...
+    def on_bar(self, bar: Bar) -> tuple[TradeCandidate, ...]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,9 +130,7 @@ class TurtleConfig:
         if self.exit_lookback < 1:
             raise ValueError("exit_lookback must be >= 1")
         if self.exit_lookback >= self.entry_lookback:
-            raise ValueError(
-                "exit_lookback must be shorter than entry_lookback"
-            )
+            raise ValueError("exit_lookback must be shorter than entry_lookback")
 
 
 class TurtleStrategy:
@@ -176,7 +175,7 @@ class TurtleStrategy:
             entry_high = max(x.high_ticks for x in history)
             entry_low = min(x.low_ticks for x in history)
 
-            exit_history = list(history)[-self.config.exit_lookback:]
+            exit_history = list(history)[-self.config.exit_lookback :]
             exit_high = max(x.high_ticks for x in exit_history)
             exit_low = min(x.low_ticks for x in exit_history)
 
@@ -291,7 +290,7 @@ class DualMAStrategy:
             return ()
 
         values = list(closes)
-        fast = fsum(values[-self.config.fast_period:]) / self.config.fast_period
+        fast = fsum(values[-self.config.fast_period :]) / self.config.fast_period
         slow = fsum(values) / self.config.slow_period
         difference = fast - slow
 
@@ -353,9 +352,7 @@ class APOConfig:
         if self.exit_threshold_ticks < 0:
             raise ValueError("exit_threshold_ticks cannot be negative")
         if self.exit_threshold_ticks >= self.entry_threshold_ticks:
-            raise ValueError(
-                "exit_threshold_ticks must be below entry_threshold_ticks"
-            )
+            raise ValueError("exit_threshold_ticks must be below entry_threshold_ticks")
 
 
 class APOMeanReversionStrategy:
@@ -402,14 +399,8 @@ class APOMeanReversionStrategy:
             self._samples[symbol] = 1
             return ()
 
-        fast = (
-            self._fast_alpha * close
-            + (1.0 - self._fast_alpha) * self._fast_ema[symbol]
-        )
-        slow = (
-            self._slow_alpha * close
-            + (1.0 - self._slow_alpha) * self._slow_ema[symbol]
-        )
+        fast = self._fast_alpha * close + (1.0 - self._fast_alpha) * self._fast_ema[symbol]
+        slow = self._slow_alpha * close + (1.0 - self._slow_alpha) * self._slow_ema[symbol]
 
         self._fast_ema[symbol] = fast
         self._slow_ema[symbol] = slow
@@ -534,8 +525,7 @@ class StrategyCoordinator:
         previous = self._last_timestamp.get(symbol)
         if previous is not None and bar.timestamp_ns <= previous:
             raise ValueError(
-                f"non-monotonic bar timestamp for {symbol}: "
-                f"{bar.timestamp_ns} <= {previous}"
+                f"non-monotonic bar timestamp for {symbol}: {bar.timestamp_ns} <= {previous}"
             )
 
         self._last_timestamp[symbol] = bar.timestamp_ns
@@ -566,11 +556,13 @@ def build_strategy_coordinator(
     Configuration is mandatory; this function intentionally supplies no
     trading-period or threshold defaults.
     """
-    return StrategyCoordinator((
-        TurtleStrategy(config.turtle),
-        DualMAStrategy(config.dual_ma),
-        APOMeanReversionStrategy(config.apo),
-    ))
+    return StrategyCoordinator(
+        (
+            TurtleStrategy(config.turtle),
+            DualMAStrategy(config.dual_ma),
+            APOMeanReversionStrategy(config.apo),
+        )
+    )
 
 
 def candidate_direction(candidate: TradeCandidate) -> int:
