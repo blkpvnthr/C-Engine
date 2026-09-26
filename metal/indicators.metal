@@ -21,15 +21,26 @@ kernel void exponential_moving_average_ticks(
     constant uint& count [[buffer(2)]],
     constant uint& alpha_numerator [[buffer(3)]],
     constant uint& alpha_denominator [[buffer(4)]],
-    uint i [[thread_position_in_grid]]) {
-    if (i >= count || alpha_denominator == 0 || alpha_numerator > alpha_denominator) return;
-    if (i == 0) { output[0] = prices[0]; return; }
-    // This recurrence must be dispatched serially or in ordered passes by the host.
-    output[i] = (long(alpha_numerator) * prices[i] +
-                 long(alpha_denominator - alpha_numerator) * output[i - 1]) /
-                long(alpha_denominator);
-}
+    uint tid [[thread_position_in_grid]]) {
 
+    // EMA is recursive: output[i] depends on output[i - 1].
+    // Only one GPU thread performs the ordered recurrence.
+    if (tid != 0 ||
+        count == 0 ||
+        alpha_denominator == 0 ||
+        alpha_numerator > alpha_denominator) {
+        return;
+    }
+
+    output[0] = prices[0];
+
+    for (uint i = 1; i < count; ++i) {
+        output[i] =
+            (long(alpha_numerator) * prices[i] +
+             long(alpha_denominator - alpha_numerator) * output[i - 1]) /
+            long(alpha_denominator);
+    }
+}
 kernel void average_price_oscillator_ticks(
     device const long* fast_ema [[buffer(0)]],
     device const long* slow_ema [[buffer(1)]],
