@@ -47,11 +47,26 @@ def test_engine_kill_switch_blocks_ordering():
 
 def test_reordered_and_missing_bars_trip_gates():
     gate = MarketSafetyGate(MarketGateConfig(max_feed_age_ns=10, max_bar_gap_ns=5))
-    gate.observe("AAPL", 10, is_bar=True)
+    gate.observe("AAPL", 10, channel="bar")
     with pytest.raises(RuntimeError, match="out-of-order"):
-        gate.observe("AAPL", 9)
+        gate.observe("AAPL", 9, channel="bar")
     with pytest.raises(RuntimeError, match="missing-bar"):
-        gate.observe("AAPL", 20, is_bar=True)
+        gate.observe("AAPL", 20, channel="bar")
+
+
+def test_interleaved_channels_do_not_trip_ordering_gate():
+    # A real SIP feed multiplexes quotes and trades whose cross-channel
+    # timestamps are not mutually monotonic. Ordering is enforced per channel,
+    # so this interleaving must be accepted, while freshness reflects the
+    # newest observation across all channels for the symbol.
+    gate = MarketSafetyGate(MarketGateConfig(max_feed_age_ns=1_000, max_bar_gap_ns=1_000))
+    gate.observe("QQQ", 100, channel="quote")
+    gate.observe("QQQ", 99, channel="trade")  # earlier trade, different channel: OK
+    gate.observe("QQQ", 101, channel="quote")
+    gate.observe("QQQ", 100, channel="trade")
+    gate.require_fresh("QQQ", 101)  # freshest across channels
+    with pytest.raises(RuntimeError, match="out-of-order"):
+        gate.observe("QQQ", 100, channel="quote")  # backwards within the quote channel
 
 
 def test_reservations_are_atomic_under_concurrency():

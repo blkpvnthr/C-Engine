@@ -75,6 +75,7 @@ from typing import Any, Awaitable, Callable, Optional, Protocol
 from cengine.engine_state import EngineState, EngineStateMachine
 from cengine.event_bus import MarketEventBus
 from cengine.execution_policy import ConfiguredExecutionPolicy, ExecutionPolicy
+from cengine.integrity import verify_source_integrity
 from cengine.journal import AuditJournal
 from cengine.metrics import PortfolioMetrics, PortfolioMetricsCollector
 from cengine.nosql_journal import MongoDailyJournalStore
@@ -725,10 +726,27 @@ class MarketEngine:
     ) -> None:
         # Persistence and every analytics consumer have independent streams.
         self.archive.submit(event)
-        self.market_gate.observe(
-            event.symbol, event.timestamp_ns, is_bar=isinstance(event, BarEvent)
-        )
-        self.journal.append("market_event", event.timestamp_ns, event)
+        # SIP multiplexes independent channels; the gate enforces monotonicity
+        # per (symbol, channel), never across channels (quotes and trades
+        # interleave with non-monotonic cross-channel timestamps). Index factor
+        # observations (VIX/VXN) get their own channel and are never executable.
+        if isinstance(event, BarEvent):
+            channel = "bar"
+        elif isinstance(event, QuoteEvent):
+            channel = "quote"
+        elif isinstance(event, TradeEvent):
+            channel = "trade"
+        else:
+            channel = "index"
+        self.market_gate.observe(event.symbol, event.timestamp_ns, channel=channel)
+        # High-frequency quote/trade ticks persist to HDF5 (the archive) and
+        # drive the gate/strategies, but are NOT written to the audit journal:
+        # journaling every tick performs a synchronous fsync + majority-write
+        # Atlas round-trip on the event loop and saturates it at live SIP rates.
+        # The audit journal records decision-relevant events only (bars, index
+        # factors, orders, executions, portfolio metrics, engine state).
+        if channel not in ("quote", "trade"):
+            self.journal.append("market_event", event.timestamp_ns, event)
         state = getattr(self._adapter_module, "STATE", None)
         if state is not None:
             state.on_market_event(event)
@@ -1039,7 +1057,7 @@ class ConsoleDecisionStream:
             f"buying_power={_fmt_usd(metrics.buying_power_ticks)} "
             f"net_exp={_fmt_usd(metrics.net_exposure_ticks)} "
             f"gross_exp={_fmt_usd(metrics.gross_exposure_ticks)} "
-            f"realized_pnl={_fmt_usd(metrics.realized_pnl_ticks)} "
+            f"intraday_pnl={_fmt_usd(metrics.intraday_pnl_ticks)} "
             f"positions={metrics.position_count} open_orders={metrics.open_order_count} "
             f"drawdown={metrics.drawdown_bps}bps",
         )
@@ -1224,6 +1242,47 @@ def _env_float(name: str, default: float) -> float:
     return float(value) if value is not None and value.strip() else default
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return default
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+_ALPACA_FEED_PATHS: dict[str, str] = {
+    "sip": "v2/sip",
+    "iex": "v2/iex",
+    "delayed_sip": "v2/delayed_sip",
+    "boats": "v1beta1/boats",
+    "overnight": "v1beta1/overnight",
+}
+
+
+def _alpaca_stream_url() -> Optional[str]:
+    """Resolve the market-data WebSocket URL from the environment.
+
+    ``CENGINE_ALPACA_URL`` (an explicit full URL) always wins. Otherwise
+    ``CENGINE_ALPACA_FEED`` selects a feed (sip|iex|delayed_sip|boats|overnight)
+    on the live or sandbox host (``CENGINE_ALPACA_SANDBOX=1``). Returns None to
+    let the stream use its configured SIP default. A feed not covered by the
+    account's data subscription is rejected by Alpaca at authentication.
+    """
+    explicit = os.environ.get("CENGINE_ALPACA_URL")
+    if explicit and explicit.strip():
+        return explicit.strip()
+    feed = _env_str("CENGINE_ALPACA_FEED", "").strip().lower()
+    if not feed:
+        return None
+    if feed not in _ALPACA_FEED_PATHS:
+        raise EngineConfigurationError(
+            f"unknown CENGINE_ALPACA_FEED {feed!r}; expected one of "
+            f"{sorted(_ALPACA_FEED_PATHS)}"
+        )
+    sandbox = _env_str("CENGINE_ALPACA_SANDBOX", "").strip().lower() in {"1", "true", "yes"}
+    host = "stream.data.sandbox.alpaca.markets" if sandbox else "stream.data.alpaca.markets"
+    return f"wss://{host}/{_ALPACA_FEED_PATHS[feed]}"
+
+
 def config_from_env() -> EngineConfig:
     """Build an EngineConfig from environment variables with operational defaults.
 
@@ -1263,7 +1322,7 @@ def config_from_env() -> EngineConfig:
         mongodb_uri=os.environ.get("CENGINE_MONGODB_URI", ""),
         mongodb_database=_env_str("CENGINE_MONGODB_DATABASE", "cengine"),
         mongodb_timeout_ms=_env_int("CENGINE_MONGODB_TIMEOUT_MS", 5000),
-        alpaca_url=os.environ.get("CENGINE_ALPACA_URL") or None,
+        alpaca_url=_alpaca_stream_url(),
     )
 
 
@@ -1330,6 +1389,14 @@ def main() -> None:
     )
 
     load_runtime_env()
+
+    # Source-integrity gate: refuse to run stale/divergent copies of the engine's own
+    # code. Always warns if a critical module resolves from an installed shadow rather
+    # than the repo; in strict mode (CENGINE_STRICT_SOURCE_INTEGRITY=1, for LIVE) it
+    # additionally requires every source file to match its committed git blob and
+    # fails closed otherwise.
+    verify_source_integrity(strict=_env_bool("CENGINE_STRICT_SOURCE_INTEGRITY"))
+
     config = config_from_env()
     config.validate()
 

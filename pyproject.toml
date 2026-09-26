@@ -23,6 +23,10 @@ wheel.packages = ["cengine", "market_data"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Keep the repo root on sys.path for tests regardless of invocation (`pytest` vs
+# `python -m pytest`), so top-level modules import live from the repo and never fall
+# back to a stale installed copy.
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100

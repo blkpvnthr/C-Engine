@@ -77,12 +77,22 @@ class AlpacaExecutionVenue:
 
     async def sync_account(self) -> AccountSnapshot:
         data = await self._request("GET", "/v2/account")
+        equity_ticks = self._price_to_ticks(data["equity"])
+        # Intraday P/L = current equity - prior-session close ("last_equity").
+        # Both come straight from the broker API; 0 if last_equity is absent.
+        last_equity = data.get("last_equity")
+        intraday_pnl_ticks = (
+            equity_ticks - self._price_to_ticks(last_equity)
+            if last_equity not in (None, "")
+            else 0
+        )
         snapshot = AccountSnapshot(
             cash_ticks=self._price_to_ticks(data["cash"]),
             buying_power_ticks=self._price_to_ticks(data["buying_power"]),
-            equity_ticks=self._price_to_ticks(data["equity"]),
+            equity_ticks=equity_ticks,
             realized_pnl_ticks=0,
             updated_ns=time.time_ns(),
+            intraday_pnl_ticks=intraday_pnl_ticks,
         )
         if self.account_state is not None:
             self.account_state.replace_from_broker(snapshot)

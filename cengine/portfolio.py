@@ -54,6 +54,8 @@ class AccountSnapshot:
     equity_ticks: int
     realized_pnl_ticks: int
     updated_ns: int
+    # Intraday P/L = equity - last_equity (prior session close), from the broker API.
+    intraday_pnl_ticks: int = 0
 
 
 class AccountState:

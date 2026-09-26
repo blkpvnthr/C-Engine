@@ -28,6 +28,7 @@ class PortfolioMetrics:
     position_count: int
     open_order_count: int
     drawdown_bps: int
+    intraday_pnl_ticks: int = 0
 
 
 class PortfolioMetricsCollector:
@@ -76,4 +77,5 @@ class PortfolioMetricsCollector:
             position_count=sum(position.quantity != 0 for position in positions),
             open_order_count=len(self.positions.open_orders()),
             drawdown_bps=drawdown_bps,
+            intraday_pnl_ticks=account.intraday_pnl_ticks,
         )
