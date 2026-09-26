@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(cengine LANGUAGES CXX)
 
-install(FILES run.py order_manager.py strategies.py liquidity.py native_adapters.py
-        DESTINATION .)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

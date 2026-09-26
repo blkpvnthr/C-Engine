@@ -414,20 +414,29 @@ class MarketEngine:
         self.factor_bridge = IndexFactorBridge(on_index=self._publish_market_event)
         self.factor_source = factor_source
 
-        stream_kwargs = dict(
-            symbols=config.symbols,
-            quotes=True,
-            trades=True,
-            bars=True,
-            on_quote=self._publish_market_event,
-            on_trade=self._publish_market_event,
-            on_bar=self._publish_market_event,
-            on_state=self._stream_state_changed,
-        )
-        if config.alpaca_url is not None:
-            stream_kwargs["url"] = config.alpaca_url
-
-        self.stream = AlpacaSIPStream(**stream_kwargs)
+        if config.alpaca_url is None:
+            self.stream = AlpacaSIPStream(
+                symbols=config.symbols,
+                quotes=True,
+                trades=True,
+                bars=True,
+                on_quote=self._publish_market_event,
+                on_trade=self._publish_market_event,
+                on_bar=self._publish_market_event,
+                on_state=self._stream_state_changed,
+            )
+        else:
+            self.stream = AlpacaSIPStream(
+                symbols=config.symbols,
+                quotes=True,
+                trades=True,
+                bars=True,
+                url=config.alpaca_url,
+                on_quote=self._publish_market_event,
+                on_trade=self._publish_market_event,
+                on_bar=self._publish_market_event,
+                on_state=self._stream_state_changed,
+            )
 
         self.router = CandidateRouter(
             order_manager=self.order_manager,
@@ -465,23 +474,38 @@ class MarketEngine:
         if factor_task is not None:
             tasks.append(factor_task)
 
+        stop_task = asyncio.create_task(
+            self._stop.wait(),
+            name="market-engine-stop-waiter",
+        )
+
         try:
             done, pending = await asyncio.wait(
-                tasks,
-                return_when=asyncio.FIRST_EXCEPTION,
+                [*tasks, stop_task],
+                return_when=asyncio.FIRST_COMPLETED,
             )
 
+            # Propagate failures from engine components. The stop waiter is
+            # only a lifecycle signal and cannot itself fail normally.
             for task in done:
+                if task is stop_task:
+                    continue
                 exc = task.exception()
                 if exc is not None:
                     raise exc
 
-            # If a task returned normally while the engine was not asked to
-            # stop, treat that as an unexpected engine termination.
-            if not self._stop.is_set():
+            # A component returning normally without a requested shutdown is
+            # still an unexpected engine termination.
+            component_finished = any(
+                task is not stop_task for task in done
+            )
+            if component_finished and not self._stop.is_set():
                 raise RuntimeError("engine component stopped unexpectedly")
         finally:
             await self.stop()
+
+            if not stop_task.done():
+                stop_task.cancel()
 
             for task in tasks:
                 if not task.done():
@@ -489,6 +513,7 @@ class MarketEngine:
 
             await asyncio.gather(
                 *tasks,
+                stop_task,
                 return_exceptions=True,
             )
 

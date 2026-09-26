@@ -656,8 +656,9 @@ class AlpacaSIPStream:
                     self._reconnects += 1
 
                 LOGGER.warning(
-                    "Alpaca SIP stream disconnected: %s; retrying in %.2fs",
+                    "Alpaca SIP stream disconnected: %s: %s; retrying in %.2fs",
                     type(exc).__name__,
+                    exc,
                     backoff,
                 )
 
@@ -871,12 +872,10 @@ class AlpacaSIPStream:
     async def _consume(self, socket) -> None:
         while not self._stop_event.is_set():
             try:
-                raw = await asyncio.wait_for(
-                    socket.recv(),
-                    timeout=self._heartbeat_timeout,
-                )
-            except asyncio.TimeoutError as exc:
-                raise AlpacaStreamError("market-data receive timeout") from exc
+                # WebSocket liveness is handled by websockets' ping/pong
+                # configuration. A quiet market-data feed is not itself a
+                # connection failure.
+                raw = await socket.recv()
             except ConnectionClosed:
                 raise
 
