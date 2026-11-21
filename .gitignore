@@ -19,3 +19,22 @@ atlas-credentials.env
 *.before-*
 .env.example
 .env
+
+# Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# Environment variables and credentials
+.env
+.env.*
+!.env.example
+
+# Runtime trading logs
+state/audit.jsonl
+logs/
+*.log
+
+# Local development
+playground-*.mongodb.js
+.DS_Store
