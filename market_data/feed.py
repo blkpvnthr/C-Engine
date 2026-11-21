@@ -1,7 +1,7 @@
 """Authoritative Alpaca market-data feed resolution.
 
-A single resolver, shared by every entry point (``run.py``, ``start_engine.py``,
-and programmatic engine construction), decides which Alpaca market-data feed the
+A single resolver, shared by the ``trade.py`` entry point and programmatic engine
+construction, decides which Alpaca market-data feed the
 engine streams from. Centralizing the decision guarantees that the live
 WebSocket endpoint, the archive provenance label, and the startup feed
 verification can never disagree.

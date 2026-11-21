@@ -1,4 +1,4 @@
-# Sustainance
+# Sustenance
 
 
 This C-Engine is a paper-first trading engine joining normalized **Alpaca IEX**
@@ -37,9 +37,9 @@ application. Risk rejects when authoritative quote/account state is absent.
 
 ## Market-data feed (IEX default)
 
-A single authoritative resolver (`market_data/feed.py`, used by `run.py`,
-`start_engine.py`, and programmatic construction) decides the feed, the live
-WebSocket endpoint, and the archive provenance label so they can never disagree.
+A single authoritative resolver (`market_data/feed.py`, used by `trade.py` and
+programmatic construction) decides the feed, the live WebSocket endpoint, and the
+archive provenance label so they can never disagree.
 
 * **Default:** IEX. An omitted feed resolves to IEX, never SIP.
 * **Provenance:** every daily HDF5 file records both `provider` (e.g.

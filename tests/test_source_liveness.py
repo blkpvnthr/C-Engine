@@ -3,15 +3,15 @@ from pathlib import Path
 import liquidity
 import native_adapters
 import order_manager
-import run
 import strategies
+import trade
 
 
 def test_top_level_modules_load_from_repository() -> None:
     repo = Path(__file__).resolve().parents[1]
 
     modules = (
-        run,
+        trade,
         order_manager,
         strategies,
         liquidity,

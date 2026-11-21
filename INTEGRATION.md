@@ -104,15 +104,41 @@ application has **no dependency on the QQ-Trader repository**.
   universe, config, credentials all PASS).
 - `python3 trade.py --status` → loads universe + detects paper/live; degrades
   cleanly when the broker rejects credentials.
-- **Full test suite: 283 passed, 0 failed**, including tests proving a
+- **Full test suite: 287 passed, 0 failed**, including tests proving a
   coordinator-built close flows through the *real* `OrderManager.submit`, a
   *real* `MarketScanner` OFE fed end-to-end through the single-pipeline bridge,
-  and DI/BB entry/inverse-exit signal behaviour.
+  DI/BB entry/inverse-exit behaviour, and the entry-point consolidation
+  (run.py/start_engine.py removed; nothing imports them).
 
 ### Milestone 2 (done): protective-exit execution
 The mandatory −0.5% protective exit now **executes** through the engine's single
 OrderManager path (see `protective_exit.ProtectiveExitCoordinator` above). No
 parallel broker writer; duplicate-close and oversell guarded.
+
+### Milestone 6 (done): entry-point consolidation — run.py / start_engine.py removed
+`trade.py` is now the **single** operational entry point and directly owns the
+engine. `run.py` (1726 lines) and `start_engine.py` (208 lines) are **deleted**;
+nothing imports them (enforced by `tests/test_entrypoint_consolidation.py`).
+
+**Function-level migration report:**
+
+| From | To (now in `trade.py`) | Notes |
+|---|---|---|
+| `run.MarketEngine` (+ all methods) | `trade.MarketEngine` | moved verbatim |
+| `run.CandidateRouter`, `EngineConfig`, policies, protocols | `trade.*` | moved verbatim |
+| `run.config_from_env` / `config_from_args` | `trade.config_from_env` / `config_from_args` | moved verbatim |
+| `run.load_runtime_env` / `_load_env_file` | `trade.load_runtime_env` / `_load_env_file` | moved verbatim |
+| `run.run_engine` | `trade.run_engine` | moved verbatim |
+| `run.main` (composition root) | `trade._engine_composition_root` | renamed; called by `run_autonomous` |
+| `run` `__main__` guard | removed | `trade.main()` is the sole guard |
+| `start_engine.ConfiguredQuantityPolicy` | `trade.ConfiguredQuantityPolicy` | migrated; selected by `CENGINE_ENTRY_QUANTITY` |
+| `start_engine.build_config` / `required_env*` / `StrategyPositionExitProvider` | — | superseded by `config_from_env` + `StrategyOwnedExitProvider` (documented) |
+| importers: `tests/test_source_liveness`, `test_engine_feed_config`, `test_candidate_router` | updated `run` → `trade` | |
+| docs: `README.md`, `market_data/feed.py` docstring | updated `run.py`/`start_engine.py` → `trade.py` | |
+
+Acceptance (`test_entrypoint_consolidation.py`): run.py removed, start_engine.py
+removed, `trade` owns MarketEngine/config_from_env/run_engine/..., no module
+imports the legacy files, and the unified CLI still dispatches `--validate`.
 
 ### Milestone 5 (in progress): canonical strategy integration
 - **Shared indicators** (`indicators.py`): Wilder DMI (DI+/DI-/ADX), SMA
@@ -173,10 +199,9 @@ These are **not yet done** and are the next milestones (do not assume otherwise)
 1. **Remaining Milestone 5**: DI/BB entry+inverse-exit is ported (opt-in); still
    pending are the engine-side portfolio-optimizer allocation layer, regime-driven
    sizing, and AMPS/ML-RL execution eligibility.
-2. **Entry-point consolidation.** `trade.py` still delegates the engine lifecycle
-   to `run.main()`; consolidating `MarketEngine` into `trade.py` and removing
-   `run.py`/`start_engine.py` is Milestone 6.
-3. **Backtest / replay / research** modes are stubs. (Milestone 7.)
+2. **Backtest / replay / research** modes are stubs. (Milestone 7.)
+3. **Full validation** (dynamic equity scaling across account sizes, comparative
+   backtests, performance benchmarks) is Milestone 8.
 4. **Credentials.** The current `.env` keys are rejected by Alpaca
    (`unauthorized`) — they need rotation before any paper/live run.
 
