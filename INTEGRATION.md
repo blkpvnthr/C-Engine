@@ -104,14 +104,34 @@ application has **no dependency on the QQ-Trader repository**.
   universe, config, credentials all PASS).
 - `python3 trade.py --status` → loads universe + detects paper/live; degrades
   cleanly when the broker rejects credentials.
-- **Full test suite: 249 passed, 0 failed** (adds 14 protective-exit, 6
-  stream-update, 9 universe-sync tests), including a test proving a
-  coordinator-built close flows through the *real* `OrderManager.submit`.
+- **Full test suite: 264 passed, 0 failed**, including tests proving a
+  coordinator-built close flows through the *real* `OrderManager.submit` and a
+  *real* `MarketScanner` OFE fed end-to-end through the single-pipeline bridge.
 
 ### Milestone 2 (done): protective-exit execution
 The mandatory −0.5% protective exit now **executes** through the engine's single
 OrderManager path (see `protective_exit.ProtectiveExitCoordinator` above). No
 parallel broker writer; duplicate-close and oversell guarded.
+
+### Milestone 4 (done): single canonical IEX market-data pipeline
+The migrated scanner no longer opens its own IEX websocket; the engine owns the
+one socket and the scanner consumes the **same** normalized events:
+- `scanner_bridge.ScannerEventBridge` — bounded (drop-oldest), thread-safe
+  conduit. `MarketEngine._publish_market_event` offers every quote/trade to it;
+  a slow scanner can never back-pressure the feed.
+- `scanner_bridge.BridgeStreamClient` — drop-in replacement for the scanner's
+  `StreamClient` (`run`/`stop`/`apply_subscriptions`/`is_live`) sourced from the
+  bridge; converts engine ticks/ns → OFE dollars/epoch-seconds. The scanner keeps
+  running on its own thread so its ranking/discovery compute never blocks the
+  execution loop.
+- `MarketEngine` now **owns** the scanner (starts it in `run()`, stops it in
+  `stop()`) via an engine-state-backed host (positions from the lock-guarded
+  `PositionBook`; credentials from env; no second broker REST for pending).
+- `UniverseSubscriptionSync` folds the scanner's desired **discovery candidates**
+  into the single socket's subscription, bounded by `MARKET_SCAN_MAX_SUBSCRIPTIONS`
+  (must-have symbols — canonical/positions/pending/refs — are never trimmed).
+- `trade.py` no longer starts a separate scanner thread for paper/live (the
+  engine owns it); `--shadow` still runs its own scanner (no engine there).
 
 ### Milestone 3 (done): dynamic universe resubscription
 The engine now keeps its live market-data subscription in step with the
@@ -134,12 +154,11 @@ These are **not yet done** and are the next milestones (do not assume otherwise)
 
 1. **Strategy consumption of the canonical universe** beyond subscription seeding
    (DI/BB + VWAP entry/replacement strategies from the monolith) is not yet
-   ported into `strategies.py`.
-2. **Single market-data pipeline.** The scanner owns its own IEX socket (as in
-   the source). Converging it onto `cengine.event_bus` so there is exactly one
-   pipeline is a deliberate follow-up; it is kept separate now to preserve the
-   unit-tested package.
-3. **Backtest / replay / research** modes are stubs.
+   ported into `strategies.py`. (Milestone 5.)
+2. **Entry-point consolidation.** `trade.py` still delegates the engine lifecycle
+   to `run.main()`; consolidating `MarketEngine` into `trade.py` and removing
+   `run.py`/`start_engine.py` is Milestone 6.
+3. **Backtest / replay / research** modes are stubs. (Milestone 7.)
 4. **Credentials.** The current `.env` keys are rejected by Alpaca
    (`unauthorized`) — they need rotation before any paper/live run.
 

@@ -164,3 +164,52 @@ def test_position_read_failure_is_failsafe():
     # Must not raise; canonical change still applied.
     _run(s.sync_once())
     assert "NVDA" in stream.symbols
+
+
+# -------------------------------------------------- discovery candidate folding
+def test_discovery_candidates_are_subscribed():
+    stream = FakeStream(["QQQ"])
+    mgr = FakeManager(["QQQ"], refreshes=[["QQQ"]])
+    s = _sync(stream=stream, universe_manager=mgr,
+              discovery_symbols_fn=lambda: ["NVDA", "AMD"])
+    _run(s.sync_once())
+    assert {"NVDA", "AMD"} <= set(stream.symbols)
+
+
+def test_discovery_bounded_by_max_symbols_never_trims_required():
+    # required = QQQ (canonical) + SQQQ (held) = 2; budget 3 -> only 1 candidate.
+    stream = FakeStream(["QQQ", "SQQQ"])
+    mgr = FakeManager(["QQQ"], refreshes=[["QQQ"]])
+    s = _sync(stream=stream, universe_manager=mgr,
+              positions=FakePositions([_Pos("SQQQ", 10)]),
+              discovery_symbols_fn=lambda: ["AAA", "BBB", "CCC"],
+              max_symbols=3)
+    _run(s.sync_once())
+    syms = set(stream.symbols)
+    assert {"QQQ", "SQQQ"} <= syms           # required never trimmed
+    assert len(syms) == 3                     # budget respected
+    assert len(syms & {"AAA", "BBB", "CCC"}) == 1
+
+
+def test_required_exceeding_budget_keeps_all_required_drops_discovery():
+    stream = FakeStream(["QQQ", "SQQQ", "SPY"])
+    mgr = FakeManager(["QQQ", "SQQQ", "SPY"], refreshes=[["QQQ", "SQQQ", "SPY"]])
+    s = _sync(stream=stream, universe_manager=mgr,
+              discovery_symbols_fn=lambda: ["AAA", "BBB"],
+              max_symbols=2)  # smaller than required (3)
+    _run(s.sync_once())
+    syms = set(stream.symbols)
+    assert {"QQQ", "SQQQ", "SPY"} <= syms     # all required kept
+    assert not (syms & {"AAA", "BBB"})        # no discovery added over budget
+
+
+def test_discovery_read_failure_is_failsafe():
+    stream = FakeStream(["QQQ"])
+    mgr = FakeManager(["QQQ"], refreshes=[["QQQ", "NVDA"]])
+
+    def boom():
+        raise RuntimeError("scanner down")
+
+    s = _sync(stream=stream, universe_manager=mgr, discovery_symbols_fn=boom)
+    _run(s.sync_once())  # must not raise
+    assert "NVDA" in stream.symbols

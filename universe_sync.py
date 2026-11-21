@@ -10,11 +10,16 @@ required subscription set, and applies the delta via
 Subscription set = canonical trading universe
                  ∪ open-position symbols
                  ∪ pending-order symbols
-                 ∪ caller-supplied reference symbols.
+                 ∪ caller-supplied reference symbols      (the "required" set)
+                 ∪ bounded scanner discovery candidates.
 
 This guarantees the spec invariant (§12): removing an instrument from the
 canonical entry universe never unsubscribes a held position or a symbol with a
 pending order — those stay in the required set and are therefore never dropped.
+Scanner discovery candidates (Milestone 4, spec §6) are folded in but are
+subordinate to the required set and bounded by ``max_symbols`` (the broker
+subscription budget): must-have symbols are never trimmed to make room for a
+candidate.
 It runs as a periodic task on the engine loop and is fail-safe (a bad position
 read or file read never stops the loop or blanks coverage).
 """
@@ -36,7 +41,9 @@ class UniverseSubscriptionSync:
         universe_manager: Any,
         positions: Any = None,
         open_orders_fn: Optional[Callable[[], Iterable[Any]]] = None,
+        discovery_symbols_fn: Optional[Callable[[], Iterable[str]]] = None,
         extra_symbols: Iterable[str] = (),
+        max_symbols: Optional[int] = None,
         interval_s: float = 10.0,
         now_fn: Optional[Callable[[], float]] = None,
         log_fn: Optional[Callable[[str], None]] = None,
@@ -45,7 +52,9 @@ class UniverseSubscriptionSync:
         self._manager = universe_manager
         self._positions = positions
         self._open_orders_fn = open_orders_fn
+        self._discovery_symbols_fn = discovery_symbols_fn
         self._extra = {s.strip().upper() for s in extra_symbols if s and s.strip()}
+        self._max_symbols = max_symbols if (max_symbols and max_symbols > 0) else None
         self.interval_s = float(interval_s)
         self._now_fn = now_fn
         self._log = log_fn or (lambda m: logger.info(m))
@@ -79,6 +88,15 @@ class UniverseSubscriptionSync:
             logger.debug("universe-sync: pending read failed: %s", exc)
             return set()
 
+    def _discovery_symbols(self) -> set[str]:
+        if self._discovery_symbols_fn is None:
+            return set()
+        try:
+            return {str(s).upper() for s in (self._discovery_symbols_fn() or []) if s}
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("universe-sync: discovery read failed: %s", exc)
+            return set()
+
     # ------------------------------------------------------------- one pass
     async def sync_once(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
         """Reconcile the live subscription to the required set once.
@@ -91,10 +109,23 @@ class UniverseSubscriptionSync:
             logger.warning("universe-sync: manager refresh failed: %s", exc)
             return ((), ())
 
-        desired = {s.upper() for s in snap.symbols}
-        desired |= self._position_symbols()
-        desired |= self._pending_symbols()
-        desired |= self._extra
+        # Required (must-have) coverage: canonical universe + held positions +
+        # pending orders + reference instruments. Never trimmed.
+        required = {s.upper() for s in snap.symbols}
+        required |= self._position_symbols()
+        required |= self._pending_symbols()
+        required |= self._extra
+
+        # Scanner discovery candidates are additive and bounded by the broker
+        # subscription budget; must-have symbols always win the budget.
+        discovery = self._discovery_symbols() - required
+        desired = set(required)
+        if self._max_symbols is None:
+            desired |= discovery
+        else:
+            room = max(0, self._max_symbols - len(required))
+            if room and discovery:
+                desired |= set(sorted(discovery)[:room])
 
         current = {s.upper() for s in self._stream.symbols}
         add = sorted(desired - current)

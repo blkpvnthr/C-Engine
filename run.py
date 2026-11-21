@@ -118,6 +118,7 @@ from order_manager import (
     TimeInForce,
 )
 from protective_exit import ProtectiveExitCoordinator
+from scanner_bridge import BridgeStreamClient, ScannerEventBridge
 from strategies import (
     APOConfig,
     Bar,
@@ -144,6 +145,55 @@ class EngineConfigurationError(RuntimeError):
 
 class StrategyConflictError(RuntimeError):
     pass
+
+
+class _EngineScannerBrokerView:
+    """Read-only broker surface the market scanner needs, backed by the engine's
+    authoritative in-process state instead of a second broker REST client.
+
+    Exposes exactly what ``market_scan.scanner.MarketScanner`` reads: credentials
+    (for its own historical daily-bar REST client -- not a websocket) and open
+    positions. Pending-order coverage is handled engine-side by
+    ``UniverseSubscriptionSync`` (on the engine loop), so this returns an empty
+    pending list to avoid an unsafe cross-thread read of the OrderManager's
+    order table. Position reads go through PositionBook, which is lock-guarded
+    and safe to call from the scanner thread.
+    """
+
+    def __init__(self, engine: "MarketEngine", api_key: str, secret_key: str) -> None:
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self._engine = engine
+
+    def get_all_open_positions(self) -> list:
+        book = self._engine.portfolio
+        if book is None:
+            return []
+        try:
+            return [p for p in book.positions() if getattr(p, "quantity", 0)]
+        except Exception:  # noqa: BLE001 - never raise into the scanner loop
+            return []
+
+    def list_open_orders(self) -> list:
+        # Pending-order subscription coverage is enforced engine-side; avoid a
+        # cross-thread iteration of the OrderManager order table here.
+        return []
+
+
+class _EngineScannerConfigView:
+    def __init__(self, *, paper: bool) -> None:
+        self.paper = paper
+
+
+class _EngineScannerHost:
+    """The ``executor`` object the scanner reads (``.broker`` + ``.config.paper``);
+    deliberately exposes no order-submission path."""
+
+    def __init__(
+        self, engine: "MarketEngine", api_key: str, secret_key: str, *, paper: bool
+    ) -> None:
+        self.broker = _EngineScannerBrokerView(engine, api_key, secret_key)
+        self.config = _EngineScannerConfigView(paper=paper)
 
 
 class QuantityPolicy(Protocol):
@@ -594,12 +644,37 @@ class MarketEngine:
                 interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
             )
 
+        # Single market-data pipeline (Milestone 4): the engine owns the one and
+        # only market-data socket (self.stream). The migrated scanner consumes the
+        # SAME normalized events through a thread-safe bridge instead of opening a
+        # second IEX websocket. The scanner keeps running on its own thread so its
+        # ranking/discovery compute never blocks this execution loop; the bridge is
+        # bounded (drop-oldest) so a slow scanner can never back-pressure the feed.
+        self._scanner_bridge: ScannerEventBridge | None = None
+        self._bridge_client: BridgeStreamClient | None = None
+        self._scanner_host: _EngineScannerHost | None = None
+        self._scanner_handle: Any = None
+        self._scan_enabled = os.environ.get("MARKET_SCAN_ENABLED", "1") != "0"
+        scan_key = os.environ.get("ALPACA_API_KEY") or os.environ.get("APCA_API_KEY_ID", "")
+        scan_secret = (
+            os.environ.get("ALPACA_SECRET_KEY") or os.environ.get("APCA_API_SECRET_KEY", "")
+        )
+        if self._scan_enabled and scan_key and scan_secret:
+            self._scanner_bridge = ScannerEventBridge()
+            self._bridge_client = BridgeStreamClient(self._scanner_bridge)
+            _url = os.environ.get("ALPACA_TRADING_BASE_URL", "").rstrip("/")
+            if _url.endswith("/v2"):
+                _url = _url[: -len("/v2")]
+            self._scanner_host = _EngineScannerHost(
+                self, scan_key, scan_secret, paper=(_url != "https://api.alpaca.markets")
+            )
+
         # Dynamic universe resubscription: keep the live stream subscription in
         # step with the scanner-republished canonical universe.txt WITHOUT a
         # restart. Disabled by CENGINE_DYNAMIC_UNIVERSE=0 (an operator that pins
         # CENGINE_SYMBOLS); skipped if universe.txt is absent. Held positions and
         # pending orders are always kept subscribed (never dropped on a universe
-        # shrink).
+        # shrink); bounded scanner discovery candidates are folded in.
         self.universe_sync: UniverseSubscriptionSync | None = None
         if os.environ.get("CENGINE_DYNAMIC_UNIVERSE", "1") != "0":
             universe_path = os.path.join(
@@ -610,11 +685,20 @@ class MarketEngine:
                     manager = CanonicalUniverseManager(
                         universe_path, source_feed=config.alpaca_feed
                     )
+                    discovery_fn = (
+                        (lambda: self._bridge_client.desired_symbols)
+                        if self._bridge_client is not None
+                        else None
+                    )
                     self.universe_sync = UniverseSubscriptionSync(
                         stream=self.stream,
                         universe_manager=manager,
                         positions=self.portfolio,
                         open_orders_fn=self.order_manager.open_orders,
+                        discovery_symbols_fn=discovery_fn,
+                        max_symbols=int(
+                            os.environ.get("MARKET_SCAN_MAX_SUBSCRIPTIONS", "30")
+                        ),
                         interval_s=float(
                             os.environ.get("CENGINE_UNIVERSE_SYNC_SECONDS", "5")
                         ),
@@ -622,6 +706,36 @@ class MarketEngine:
                 except Exception as exc:  # noqa: BLE001 - never block engine startup
                     LOGGER.warning("dynamic universe sync disabled: %s", exc)
                     self.universe_sync = None
+
+    def _start_scanner(self) -> None:
+        """Start the in-process market scanner on its own thread, fed by the
+        single market-data pipeline (no second websocket). Never raises."""
+        if self._bridge_client is None or self._scanner_host is None:
+            return
+        try:
+            from market_scan.scanner import MarketScanner
+            from market_scan.thread_runner import start_market_scanner
+
+            bridge_client = self._bridge_client
+
+            def factory(executor: Any, config: Any) -> Any:
+                scanner = MarketScanner(executor, config, stream_client=bridge_client)
+                bridge_client.bind(
+                    on_trade=scanner.ofe.ingest_trade,
+                    on_quote=scanner.ofe.ingest_quote,
+                )
+                return scanner
+
+            self._scanner_handle = start_market_scanner(
+                self._scanner_host, scanner_factory=factory
+            )
+            if self._scanner_handle is not None:
+                LOGGER.info(
+                    "market scanner started (single-pipeline bridge; no second socket)"
+                )
+        except Exception as exc:  # noqa: BLE001 - scanner must never block the engine
+            LOGGER.warning("market scanner start failed: %s", exc)
+            self._scanner_handle = None
 
     def _verify_stream_feed(self) -> None:
         """Fail closed if the connected feed disagrees with the configured one.
@@ -677,6 +791,9 @@ class MarketEngine:
         self.state.transition(EngineState.READY, "broker state agrees")
         self.archive.start()
         self.state.transition(EngineState.RUNNING, "all startup gates passed")
+
+        # Start the in-process scanner (own thread) fed by the single pipeline.
+        self._start_scanner()
 
         consumer_task = asyncio.create_task(
             self._consume_market_events(),
@@ -775,6 +892,16 @@ class MarketEngine:
         elif self.state.state is EngineState.KILLED:
             self.state.transition(EngineState.STOPPING, "killed engine stopping")
         self._stop.set()
+        # Stop the scanner (its own thread) and its bridge consumer first so it
+        # stops asking for coverage and draining the bridge.
+        if self._bridge_client is not None:
+            self._bridge_client.stop()
+        if self._scanner_handle is not None:
+            try:
+                self._scanner_handle.stop()
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("scanner stop error: %s", exc)
+            self._scanner_handle = None
         await self.stream.stop()
         self.state.transition(EngineState.STOPPED, "stopped")
 
@@ -860,6 +987,10 @@ class MarketEngine:
         if state is not None:
             state.on_market_event(event)
         self.event_bus.publish(event)
+        # Feed the single pipeline's scanner via the bounded, drop-oldest bridge.
+        # Only quote/trade ticks are relevant to the OrderFlowEngine.
+        if self._scanner_bridge is not None and channel in ("quote", "trade"):
+            self._scanner_bridge.offer(event)
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():

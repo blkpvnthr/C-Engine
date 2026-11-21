@@ -422,40 +422,39 @@ def run_autonomous(mode: str) -> int:
     logger.info("canonical universe v%d seeded %d symbols into the engine",
                 manager.version(), len(symbols))
 
-    host = ScannerHost(key, secret, paper=paper)
-    scanner_handle = _start_scanner(host)
-    shadow_monitor: ProtectiveExitMonitor | None = None
-
-    try:
-        if mode == "shadow":
-            # No engine runs in shadow, so the thread monitor is the detection
-            # path here (recommend-only; it never submits).
-            shadow_monitor = ProtectiveExitMonitor(
-                host.broker,
-                threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
-                interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
-            )
-            shadow_monitor.start()
-            print("\n[shadow] scanner + canonical universe + protective detection "
-                  "running; engine order path disabled. Ctrl-C to stop.\n")
+    if mode == "shadow":
+        # No engine runs in shadow, so trade.py starts the scanner (its own
+        # thread/socket) and a detection-only protective monitor directly.
+        host = ScannerHost(key, secret, paper=paper)
+        scanner_handle = _start_scanner(host)
+        shadow_monitor = ProtectiveExitMonitor(
+            host.broker,
+            threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
+            interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
+        )
+        shadow_monitor.start()
+        print("\n[shadow] scanner + canonical universe + protective detection "
+              "running; engine order path disabled. Ctrl-C to stop.\n")
+        try:
             _run_shadow_forever()
             return 0
-        # paper / live: the engine's authoritative ProtectiveExitCoordinator (in
-        # run.MarketEngine) owns and EXECUTES protective exits through the native
-        # OrderManager path. We do NOT start a second (thread) monitor here --
-        # one authoritative coordinator only. Delegate the lifecycle to run.main().
+        finally:
+            shadow_monitor.stop()
+            if scanner_handle is not None:
+                try:
+                    scanner_handle.stop()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("scanner stop error: %s", exc)
+
+    # paper / live: the engine (run.MarketEngine) owns the SINGLE market-data
+    # pipeline, the in-process scanner (fed via the bridge -- no second socket),
+    # and the authoritative ProtectiveExitCoordinator. trade.py starts no scanner
+    # thread or monitor of its own here; it just delegates the lifecycle.
+    try:
         run.main()
         return 0
     except KeyboardInterrupt:
         return 0
-    finally:
-        if shadow_monitor is not None:
-            shadow_monitor.stop()
-        if scanner_handle is not None:
-            try:
-                scanner_handle.stop()
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("scanner stop error: %s", exc)
 
 
 def _run_shadow_forever() -> None:
