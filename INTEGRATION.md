@@ -1,0 +1,138 @@
+# QQ-Trader → Sustenance Integration
+
+Status of integrating QQ-Trader's trading intelligence + dynamic market scanner
+into Sustenance's native engine. Work proceeds incrementally on the branch
+`feature/qq-trader-integration`; validated milestones are committed.
+
+The original QQ-Trader repo (`/Users/blkpvnthr/qq-trader`) is the authoritative
+source and is **never modified**. All work happens in Sustenance. At runtime the
+application has **no dependency on the QQ-Trader repository**.
+
+---
+
+## 1. Audit findings (Phase 0)
+
+### Destination (sustenance) — native engine, verified
+- **Native layer is real and compiled** (`_cengine_native` pybind11 module, built
+  from `analytics/`, `risk/risk_engine.cpp`, `orderbook/`, etc.). There is **no
+  pure-Python risk fallback** by design. It must run under the venv Python
+  (3.14) where the `.so` is installed.
+- **Single authoritative broker path:** `Strategy → run.CandidateRouter →
+  order_manager.OrderManager.submit → native RiskEngine.evaluate →
+  cengine.execution.AlpacaExecutionVenue.submit`. `liquidity.py` is a separate
+  internal *simulation* order book, not a broker writer.
+- Entry point today is `run.py` (no-arg composition root) + `start_engine.py`.
+  Lifecycle state machine (`cengine/engine_state.py`) + SIGINT/SIGTERM shutdown +
+  kill switch all exist.
+- **Universe today is a static tuple** (`DEFAULT_SYMBOLS=("QQQ","SQQQ")` /
+  `CENGINE_SYMBOLS`). No universe manager, no scanner.
+- `cengine.event_bus.MarketEventBus` already has unused subscriber channels a
+  consumer can attach to without touching the order path.
+- Live trading is **triple-gated** by explicit `.env` confirmations.
+- **Env:** trading reads `ALPACA_API_KEY`/`ALPACA_SECRET_KEY`; market data reads
+  `APCA_API_KEY_ID`/`APCA_API_SECRET_KEY` (mirrored at startup);
+  `ALPACA_TRADING_BASE_URL`; feed `CENGINE_ALPACA_FEED` (IEX default).
+
+> **Environment fix applied during the audit:** the venv's scikit-build editable
+> install pointed `cengine`/`market_data` at a dead path
+> (`/Users/blkpvnthr/Desktop/sustainance`), so the engine could not import under
+> the venv at all. Reinstalling editable (`pip install -e .`) repointed it here
+> and rebuilt the native lib. The full test suite now collects and passes.
+
+### Source (qq-trader) — trading intelligence
+- `trade.py` is a 370 KB monolith (`ProductionOrderExecutor` + `AlpacaBroker`).
+  It holds the **execution-side** halves of loss-removal, replacement, DI/BB +
+  VWAP confirmation, and sizing/risk.
+- **The market scanner is a real, self-contained `market_scan/` package** (14
+  runtime modules, unit-tested) that was merged into qq-trader. It is already
+  architected the way this integration needs: pure ranking/discovery/replacement
+  logic with **injectable I/O and zero broker order submission** — it discovers,
+  ranks, and publishes `universe.txt` + `live_context_<mode>.json`, and delegates
+  all execution.
+
+---
+
+## 2. Source → destination migration map
+
+| Source | Destination | Treatment |
+|---|---|---|
+| `market_scan/` (14 runtime modules) | `market_scan/` | **Migrated verbatim** (pure logic, injectable I/O) |
+| `universe.py` | `universe.py` | Migrated (stdlib-only; canonical load/atomic-write) |
+| `order_flow_engine.py` | `order_flow_engine.py` | Migrated (order-flow / seller-exhaustion brain) |
+| `amps_v4_regime.py` | `amps_v4_regime.py` | Migrated (regime / directional scoring) |
+| root `scanner.py` (heavy: matplotlib/sklearn) | *(not migrated)* | Only `get_sp500_symbols`/`get_nasdaq_symbols` are used, lazily + injectable; a lightweight shim is the planned follow-up. Discovery is fail-safe meanwhile. |
+| `universe.txt` | `universe.txt` | **Copied verbatim** — the canonical persisted universe |
+| `trade.py` monolith execution halves | `trade.py` (new, thin) + `run.py` engine | **Re-expressed**, not copied: orchestration in `trade.py`, execution stays on the native OrderManager path |
+| scanner's host `executor` (`ProductionOrderExecutor`) | `trade.ScannerHost` | New thin credential/state adapter (`.broker`, `.config.paper`) — **no order path** |
+| legacy CLI analyzers (`*_analyzer.py`) | carried in `market_scan/` | Standalone CLIs, not on the runtime path |
+| qq-trader `tests/test_market_scan_*` (12) | `tests/` | Migrated (100 tests, all pass). `test_market_scan_trade_integration` is source-specific → superseded by `tests/test_trade_entry.py`. |
+
+**Runtime deps added** (`pyproject.toml` `scan` extra): `alpaca-py`, `pandas`,
+`requests`, `lxml`.
+
+---
+
+## 3. What this milestone delivers (Phase 1/2 core)
+
+- **`trade.py` — the single unified entry point.** Loads `.env`, resolves mode
+  (`--paper` default / `--live` / `--shadow` / `--validate` / `--status`), seeds
+  the canonical universe into the engine, auto-starts the scanner daemon + the
+  independent protective monitor, and delegates the engine lifecycle to
+  `run.main()`. Historical modes exit with a clear not-yet-implemented message.
+- **`canonical_universe.CanonicalUniverseManager`** — immutable, versioned
+  `UniverseSnapshot`s loaded from `universe.txt`; version bumps only on genuine
+  membership/order change; fail-closed on load, protective (keep-last-good) on
+  refresh; thread-safe. The scanner remains the sole *file* publisher.
+- **`ScannerHost`** — the minimal host adapter the scanner needs, deliberately
+  exposing no order path (execution stays on the native OrderManager).
+- **`ProtectiveExitMonitor`** — scanner-/strategy-independent −0.5% position
+  monitor on a 5 s backstop (see milestone note below).
+- **Config** — `.env.example` documents the scanner `MARKET_SCAN_*` vars and the
+  spec-alias mapping; scanner runtime artifacts gitignored.
+
+### Validation (all under the venv Python 3.14)
+- `python3 trade.py --validate` → **READY** (native module, scanner graph, deps,
+  universe, config, credentials all PASS).
+- `python3 trade.py --status` → loads universe + detects paper/live; degrades
+  cleanly when the broker rejects credentials.
+- **Full test suite: 219 passed, 0 failed** (42 new + 77 existing + 100 migrated
+  scanner tests).
+
+---
+
+## 4. Known limitations / honest status
+
+These are **not yet done** and are the next milestones (do not assume otherwise):
+
+1. **Protective-exit execution.** `ProtectiveExitMonitor` currently *detects and
+   recommends* (logs) −0.5% breaches; it does **not** yet route exits through the
+   native risk gate + OrderManager. Detection is independent and always-on;
+   execution wiring is next.
+2. **Dynamic resubscription.** The engine seeds its subscription set from the
+   canonical universe at startup. Mid-session universe changes published by the
+   scanner are tracked by `CanonicalUniverseManager` but are not yet pushed into
+   the live stream subscription (applies at restart today).
+3. **Strategy consumption of the canonical universe** beyond subscription seeding
+   (DI/BB + VWAP entry/replacement strategies from the monolith) is not yet
+   ported into `strategies.py`.
+4. **Single market-data pipeline.** The scanner owns its own IEX socket (as in
+   the source). Converging it onto `cengine.event_bus` so there is exactly one
+   pipeline is a deliberate follow-up; it is kept separate now to preserve the
+   unit-tested package.
+5. **Backtest / replay / research** modes are stubs.
+6. **Credentials.** The current `.env` keys are rejected by Alpaca
+   (`unauthorized`) — they need rotation before any paper/live run.
+
+No live orders are placed by any part of this milestone.
+
+---
+
+## 5. Run it
+
+```bash
+cd /Users/blkpvnthr/sustenance
+.venv/bin/python -m pip install -e '.[scan]'   # scanner runtime deps
+.venv/bin/python trade.py --validate            # offline readiness
+.venv/bin/python trade.py --status              # universe + account snapshot
+.venv/bin/python trade.py --paper               # paper autonomous (needs valid creds + Mongo)
+```

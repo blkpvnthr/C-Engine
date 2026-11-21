@@ -17,8 +17,11 @@ __pycache__/
 atlas-credentials.env
 # Local debugging backups
 *.before-*
-.env.example
-.env
+
+# Market scanner runtime artifacts (the scanner republishes universe.txt in
+# place, which IS tracked; these per-run files are not).
+market_scan/scanner.lock
+market_scan/live_context_*.json
 
 # Python environment
 .venv/
