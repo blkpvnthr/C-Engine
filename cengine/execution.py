@@ -178,13 +178,12 @@ class AlpacaExecutionVenue:
         raw = str(data["status"])
         if raw not in status_map:
             raise RuntimeError(f"unsupported Alpaca order status {raw!r}")
-        filled_raw = data.get("filled_qty") or 0
-        filled_value = float(filled_raw)
+        filled_value = float(data.get("filled_qty") or 0)
         # Integer-share model: a fractional broker fill is a data error, not a
         # silently truncated quantity. Fail loud rather than lose shares.
-        if filled_value != int(filled_value):
+        if not filled_value.is_integer():
             raise RuntimeError(
-                f"fractional Alpaca fill unsupported by integer quantity model: {filled_raw}"
+                f"fractional Alpaca fill unsupported by integer quantity model: {filled_value}"
             )
         cumulative = int(filled_value)
         previous = self._reported_fills.get(venue_order_id, 0)
