@@ -1,7 +1,7 @@
 # Sustainance
 
 
-C-Engine is a paper-first trading engine joining normalized Alpaca SIP market
+This C-Engine is a paper-first trading engine joining normalized Alpaca SIP market
 data, HDF5 persistence, bar strategies, authoritative portfolio state, native
 C++ risk, an internal limit-order book, and an Alpaca execution adapter.
 
