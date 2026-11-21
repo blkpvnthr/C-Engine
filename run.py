@@ -116,6 +116,7 @@ from order_manager import (
     Side,
     TimeInForce,
 )
+from protective_exit import ProtectiveExitCoordinator
 from strategies import (
     APOConfig,
     Bar,
@@ -573,6 +574,24 @@ class MarketEngine:
             strategy_state=self.strategy_state,
         )
 
+        # Independent, authoritative protective-exit coordinator (mandatory
+        # -0.5% loss removal). It runs on this loop as a periodic backstop task
+        # (see run()) and routes closes through the SAME OrderManager path --
+        # never a parallel broker writer. It needs the native runtime state
+        # (positions + live quote price + reservations); when that is absent it
+        # is simply not constructed.
+        self.protective_exit: ProtectiveExitCoordinator | None = None
+        if runtime_state is not None and self.portfolio is not None:
+            self.protective_exit = ProtectiveExitCoordinator(
+                order_manager=self.order_manager,
+                positions=self.portfolio,
+                price_source=runtime_state,
+                reservations=runtime_state.reservations,
+                strategy_state=self.strategy_state,
+                threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
+                interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
+            )
+
     def _verify_stream_feed(self) -> None:
         """Fail closed if the connected feed disagrees with the configured one.
 
@@ -640,6 +659,12 @@ class MarketEngine:
             self._reconciliation_loop(), name="broker-reconciliation"
         )
 
+        protective_task: Optional[asyncio.Task[None]] = None
+        if self.protective_exit is not None:
+            protective_task = asyncio.create_task(
+                self.protective_exit.run(self._stop), name="protective-exit"
+            )
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -651,6 +676,8 @@ class MarketEngine:
             )
 
         tasks = [consumer_task, stream_task, reconciliation_task]
+        if protective_task is not None:
+            tasks.append(protective_task)
         if factor_task is not None:
             tasks.append(factor_task)
 

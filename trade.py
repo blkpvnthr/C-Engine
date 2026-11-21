@@ -16,9 +16,14 @@ Responsibilities (Phase 1/2 of the integration):
     subscription universe from it;
   * auto-start the migrated market scanner as an in-process daemon (the sole
     runtime publisher of ``universe.txt`` + ``live_context_<mode>.json``);
-  * start the independent protective-exit monitor (−0.5% detection);
   * delegate the full engine lifecycle (broker reconcile, market data, strategy
     coordination, native risk, OrderManager, shutdown) to :func:`run.main`.
+
+In paper/live the engine's own :class:`protective_exit.ProtectiveExitCoordinator`
+(wired into ``run.MarketEngine``) is the single authoritative protective-exit
+path and EXECUTES the mandatory −0.5% close through the native OrderManager. The
+thread-based :class:`ProtectiveExitMonitor` here is used ONLY in ``--shadow``
+(where no engine runs) and is detection/recommendation only.
 
 Modes::
 
@@ -34,9 +39,9 @@ Modes::
 later integration milestone (they exit with a clear, non-silent message).
 
 SAFETY: this module never forces live trading on and never submits live orders
-during development/testing. The protective-exit monitor in this milestone is
-detection + recommendation only; routing protective exits through the native
-risk gate + OrderManager is the next milestone.
+during development/testing. Live requires the engine's explicit triple-gate env
+confirmations. Protective-exit *execution* happens inside the engine's single
+OrderManager path (never a parallel broker writer).
 """
 
 from __future__ import annotations
@@ -412,26 +417,33 @@ def run_autonomous(mode: str) -> int:
 
     host = ScannerHost(key, secret, paper=paper)
     scanner_handle = _start_scanner(host)
-    monitor = ProtectiveExitMonitor(
-        host.broker,
-        threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
-        interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
-    )
-    monitor.start()
+    shadow_monitor: ProtectiveExitMonitor | None = None
 
     try:
         if mode == "shadow":
+            # No engine runs in shadow, so the thread monitor is the detection
+            # path here (recommend-only; it never submits).
+            shadow_monitor = ProtectiveExitMonitor(
+                host.broker,
+                threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
+                interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
+            )
+            shadow_monitor.start()
             print("\n[shadow] scanner + canonical universe + protective detection "
                   "running; engine order path disabled. Ctrl-C to stop.\n")
             _run_shadow_forever()
             return 0
-        # paper / live: delegate the full engine lifecycle to run.main().
+        # paper / live: the engine's authoritative ProtectiveExitCoordinator (in
+        # run.MarketEngine) owns and EXECUTES protective exits through the native
+        # OrderManager path. We do NOT start a second (thread) monitor here --
+        # one authoritative coordinator only. Delegate the lifecycle to run.main().
         run.main()
         return 0
     except KeyboardInterrupt:
         return 0
     finally:
-        monitor.stop()
+        if shadow_monitor is not None:
+            shadow_monitor.stop()
         if scanner_handle is not None:
             try:
                 scanner_handle.stop()

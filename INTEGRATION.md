@@ -85,8 +85,17 @@ application has **no dependency on the QQ-Trader repository**.
   refresh; thread-safe. The scanner remains the sole *file* publisher.
 - **`ScannerHost`** — the minimal host adapter the scanner needs, deliberately
   exposing no order path (execution stays on the native OrderManager).
-- **`ProtectiveExitMonitor`** — scanner-/strategy-independent −0.5% position
-  monitor on a 5 s backstop (see milestone note below).
+- **`protective_exit.ProtectiveExitCoordinator`** (milestone 2) — the single
+  authoritative, scanner-/strategy-independent −0.5% protective-exit path. Runs
+  as a periodic (5 s backstop) task **on the engine loop**, reads the
+  authoritative in-engine position book + live quote price (no broker REST),
+  and **executes** the mandatory close through the engine's single
+  `OrderManager.submit → native risk → AlpacaExecutionVenue` path. Duplicate
+  closes are prevented via a dedicated `strategy_id` + the existing single-pending
+  guard; oversell is prevented by sizing off the projected position (native risk
+  re-checks). Wired into `run.MarketEngine` (`__init__` + supervised task in
+  `run()`). `trade.py`'s thread `ProtectiveExitMonitor` is now used only in
+  `--shadow` (no engine) as detection/recommendation-only.
 - **Config** — `.env.example` documents the scanner `MARKET_SCAN_*` vars and the
   spec-alias mapping; scanner runtime artifacts gitignored.
 
@@ -95,8 +104,14 @@ application has **no dependency on the QQ-Trader repository**.
   universe, config, credentials all PASS).
 - `python3 trade.py --status` → loads universe + detects paper/live; degrades
   cleanly when the broker rejects credentials.
-- **Full test suite: 219 passed, 0 failed** (42 new + 77 existing + 100 migrated
-  scanner tests).
+- **Full test suite: 232 passed, 0 failed** (42 + 14 protective-exit + 76 existing
+  + 100 migrated scanner tests), including a test proving a coordinator-built
+  close flows through the *real* `OrderManager.submit`.
+
+### Milestone 2 (done): protective-exit execution
+The mandatory −0.5% protective exit now **executes** through the engine's single
+OrderManager path (see `protective_exit.ProtectiveExitCoordinator` above). No
+parallel broker writer; duplicate-close and oversell guarded.
 
 ---
 
@@ -104,26 +119,24 @@ application has **no dependency on the QQ-Trader repository**.
 
 These are **not yet done** and are the next milestones (do not assume otherwise):
 
-1. **Protective-exit execution.** `ProtectiveExitMonitor` currently *detects and
-   recommends* (logs) −0.5% breaches; it does **not** yet route exits through the
-   native risk gate + OrderManager. Detection is independent and always-on;
-   execution wiring is next.
-2. **Dynamic resubscription.** The engine seeds its subscription set from the
+1. **Dynamic resubscription.** The engine seeds its subscription set from the
    canonical universe at startup. Mid-session universe changes published by the
    scanner are tracked by `CanonicalUniverseManager` but are not yet pushed into
    the live stream subscription (applies at restart today).
-3. **Strategy consumption of the canonical universe** beyond subscription seeding
+2. **Strategy consumption of the canonical universe** beyond subscription seeding
    (DI/BB + VWAP entry/replacement strategies from the monolith) is not yet
    ported into `strategies.py`.
-4. **Single market-data pipeline.** The scanner owns its own IEX socket (as in
+3. **Single market-data pipeline.** The scanner owns its own IEX socket (as in
    the source). Converging it onto `cengine.event_bus` so there is exactly one
    pipeline is a deliberate follow-up; it is kept separate now to preserve the
    unit-tested package.
-5. **Backtest / replay / research** modes are stubs.
-6. **Credentials.** The current `.env` keys are rejected by Alpaca
+4. **Backtest / replay / research** modes are stubs.
+5. **Credentials.** The current `.env` keys are rejected by Alpaca
    (`unauthorized`) — they need rotation before any paper/live run.
 
-No live orders are placed by any part of this milestone.
+No live orders are placed by any part of this work. Protective-exit execution is
+validated by unit + real-OrderManager-path tests; it has not been exercised
+against a live broker session (requires valid rotated credentials + Mongo).
 
 ---
 
