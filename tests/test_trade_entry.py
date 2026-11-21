@@ -63,9 +63,20 @@ def test_seed_engine_universe_sets_env(monkeypatch):
 
 def test_seed_engine_universe_respects_operator_override(monkeypatch):
     monkeypatch.setenv("CENGINE_SYMBOLS", "SPY, QQQ")
+    monkeypatch.setenv("CENGINE_DYNAMIC_UNIVERSE", "1")  # owned by monkeypatch -> auto-revert
     syms = trade.seed_engine_universe(_FakeManager(["NVDA", "AMD"]))
     assert syms == ("SPY", "QQQ")  # override wins, canonical not applied
     assert os.environ["CENGINE_SYMBOLS"] == "SPY, QQQ"
+    # An explicit override pins symbols: dynamic resubscription is disabled.
+    assert os.environ["CENGINE_DYNAMIC_UNIVERSE"] == "0"
+
+
+def test_seed_engine_universe_canonical_leaves_dynamic_enabled(monkeypatch):
+    monkeypatch.delenv("CENGINE_SYMBOLS", raising=False)
+    monkeypatch.delenv("CENGINE_DYNAMIC_UNIVERSE", raising=False)
+    trade.seed_engine_universe(_FakeManager(["NVDA", "AMD"]))
+    # Canonical seeding does not pin; dynamic stays at its enabled default.
+    assert os.environ.get("CENGINE_DYNAMIC_UNIVERSE", "1") != "0"
 
 
 # ----------------------------------------------------- protective-exit monitor

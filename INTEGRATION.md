@@ -104,14 +104,27 @@ application has **no dependency on the QQ-Trader repository**.
   universe, config, credentials all PASS).
 - `python3 trade.py --status` → loads universe + detects paper/live; degrades
   cleanly when the broker rejects credentials.
-- **Full test suite: 232 passed, 0 failed** (42 + 14 protective-exit + 76 existing
-  + 100 migrated scanner tests), including a test proving a coordinator-built
-  close flows through the *real* `OrderManager.submit`.
+- **Full test suite: 249 passed, 0 failed** (adds 14 protective-exit, 6
+  stream-update, 9 universe-sync tests), including a test proving a
+  coordinator-built close flows through the *real* `OrderManager.submit`.
 
 ### Milestone 2 (done): protective-exit execution
 The mandatory −0.5% protective exit now **executes** through the engine's single
 OrderManager path (see `protective_exit.ProtectiveExitCoordinator` above). No
 parallel broker writer; duplicate-close and oversell guarded.
+
+### Milestone 3 (done): dynamic universe resubscription
+The engine now keeps its live market-data subscription in step with the
+scanner-republished `universe.txt` **without a restart**:
+- `AlpacaMarketDataStream.update_symbols(add, remove)` sends live
+  subscribe/unsubscribe frames on the open socket (and updates the `Subscription`
+  so a reconnect re-subscribes to the new set); it refuses to drop the last symbol.
+- `universe_sync.UniverseSubscriptionSync` runs as a periodic engine-loop task:
+  required set = canonical universe ∪ open positions ∪ pending orders ∪ refs;
+  it diffs against the live subscription and applies the delta. **Held positions
+  and pending-order symbols are never unsubscribed** on a universe shrink (spec
+  §12). Wired into `run.MarketEngine`; gated by `CENGINE_DYNAMIC_UNIVERSE`
+  (an explicit `CENGINE_SYMBOLS` override pins symbols and disables it).
 
 ---
 
@@ -119,19 +132,15 @@ parallel broker writer; duplicate-close and oversell guarded.
 
 These are **not yet done** and are the next milestones (do not assume otherwise):
 
-1. **Dynamic resubscription.** The engine seeds its subscription set from the
-   canonical universe at startup. Mid-session universe changes published by the
-   scanner are tracked by `CanonicalUniverseManager` but are not yet pushed into
-   the live stream subscription (applies at restart today).
-2. **Strategy consumption of the canonical universe** beyond subscription seeding
+1. **Strategy consumption of the canonical universe** beyond subscription seeding
    (DI/BB + VWAP entry/replacement strategies from the monolith) is not yet
    ported into `strategies.py`.
-3. **Single market-data pipeline.** The scanner owns its own IEX socket (as in
+2. **Single market-data pipeline.** The scanner owns its own IEX socket (as in
    the source). Converging it onto `cengine.event_bus` so there is exactly one
    pipeline is a deliberate follow-up; it is kept separate now to preserve the
    unit-tested package.
-4. **Backtest / replay / research** modes are stubs.
-5. **Credentials.** The current `.env` keys are rejected by Alpaca
+3. **Backtest / replay / research** modes are stubs.
+4. **Credentials.** The current `.env` keys are rejected by Alpaca
    (`unauthorized`) — they need rotation before any paper/live run.
 
 No live orders are placed by any part of this work. Protective-exit execution is

@@ -273,10 +273,17 @@ def is_live_endpoint() -> bool:
 
 def seed_engine_universe(manager) -> tuple[str, ...]:
     """Seed ``CENGINE_SYMBOLS`` from the canonical universe unless an operator
-    override is already present. Returns the symbol tuple the engine will use."""
+    override is already present. Returns the symbol tuple the engine will use.
+
+    An explicit ``CENGINE_SYMBOLS`` override also pins the subscription set: it
+    sets ``CENGINE_DYNAMIC_UNIVERSE=0`` so the engine's dynamic resubscription
+    does not override the operator's chosen symbols. Canonical seeding leaves
+    dynamic resubscription enabled (its default)."""
     override = os.environ.get("CENGINE_SYMBOLS", "").strip()
     if override:
-        logger.info("CENGINE_SYMBOLS override present; not overriding with canonical universe")
+        logger.info("CENGINE_SYMBOLS override present; pinning symbols "
+                    "(dynamic universe resubscription disabled)")
+        os.environ["CENGINE_DYNAMIC_UNIVERSE"] = "0"
         return tuple(s.strip().upper() for s in override.split(",") if s.strip())
     symbols = manager.symbols()
     os.environ["CENGINE_SYMBOLS"] = ",".join(symbols)

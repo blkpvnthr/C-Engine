@@ -79,6 +79,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional, Protocol
 
+from canonical_universe import CanonicalUniverseManager
 from cengine.engine_state import EngineState, EngineStateMachine
 from cengine.event_bus import MarketEventBus
 from cengine.execution_policy import ConfiguredExecutionPolicy, ExecutionPolicy
@@ -130,6 +131,7 @@ from strategies import (
     build_strategy_coordinator,
     group_candidates_by_direction,
 )
+from universe_sync import UniverseSubscriptionSync
 
 LOGGER = logging.getLogger("market_engine")
 
@@ -592,6 +594,35 @@ class MarketEngine:
                 interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
             )
 
+        # Dynamic universe resubscription: keep the live stream subscription in
+        # step with the scanner-republished canonical universe.txt WITHOUT a
+        # restart. Disabled by CENGINE_DYNAMIC_UNIVERSE=0 (an operator that pins
+        # CENGINE_SYMBOLS); skipped if universe.txt is absent. Held positions and
+        # pending orders are always kept subscribed (never dropped on a universe
+        # shrink).
+        self.universe_sync: UniverseSubscriptionSync | None = None
+        if os.environ.get("CENGINE_DYNAMIC_UNIVERSE", "1") != "0":
+            universe_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "universe.txt"
+            )
+            if os.path.exists(universe_path):
+                try:
+                    manager = CanonicalUniverseManager(
+                        universe_path, source_feed=config.alpaca_feed
+                    )
+                    self.universe_sync = UniverseSubscriptionSync(
+                        stream=self.stream,
+                        universe_manager=manager,
+                        positions=self.portfolio,
+                        open_orders_fn=self.order_manager.open_orders,
+                        interval_s=float(
+                            os.environ.get("CENGINE_UNIVERSE_SYNC_SECONDS", "5")
+                        ),
+                    )
+                except Exception as exc:  # noqa: BLE001 - never block engine startup
+                    LOGGER.warning("dynamic universe sync disabled: %s", exc)
+                    self.universe_sync = None
+
     def _verify_stream_feed(self) -> None:
         """Fail closed if the connected feed disagrees with the configured one.
 
@@ -665,6 +696,12 @@ class MarketEngine:
                 self.protective_exit.run(self._stop), name="protective-exit"
             )
 
+        universe_sync_task: Optional[asyncio.Task[None]] = None
+        if self.universe_sync is not None:
+            universe_sync_task = asyncio.create_task(
+                self.universe_sync.run(self._stop), name="universe-sync"
+            )
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -678,6 +715,8 @@ class MarketEngine:
         tasks = [consumer_task, stream_task, reconciliation_task]
         if protective_task is not None:
             tasks.append(protective_task)
+        if universe_sync_task is not None:
+            tasks.append(universe_sync_task)
         if factor_task is not None:
             tasks.append(factor_task)
 

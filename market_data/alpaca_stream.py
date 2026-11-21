@@ -790,6 +790,83 @@ class AlpacaMarketDataStream:
                 )
 
     # -------------------------------------------------------------------------
+    # DYNAMIC SUBSCRIPTION
+    # -------------------------------------------------------------------------
+
+    async def update_symbols(
+        self,
+        *,
+        add: Iterable[str] = (),
+        remove: Iterable[str] = (),
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Add/remove symbols on the live subscription without reconnecting.
+
+        Updates the in-memory :class:`Subscription` (so a later reconnect
+        re-subscribes to the new set) and, if a socket is currently subscribed,
+        sends an ``action: subscribe`` frame for the net-new symbols and an
+        ``action: unsubscribe`` frame for the removed ones (on the enabled
+        channels only). Returns the symbols actually ``(added, removed)``.
+
+        It refuses to unsubscribe the last remaining symbol (Alpaca requires a
+        non-empty subscription, and the engine must always cover something).
+        Acks arrive through the normal consume loop, which ignores ``subscription``
+        messages, so no coordination with the reader is required.
+        """
+        current = list(self._subscription.symbols)
+        current_set = set(current)
+        remove_set = {s.strip().upper() for s in remove if s and s.strip()}
+        to_add = tuple(
+            dict.fromkeys(
+                s.strip().upper() for s in add
+                if s and s.strip() and s.strip().upper() not in current_set
+            )
+        )
+        for s in to_add:
+            _validate_symbol(s)
+        to_remove = tuple(s for s in current if s in remove_set)
+
+        if not to_add and not to_remove:
+            return ((), ())
+
+        new_symbols = tuple(s for s in current if s not in remove_set) + to_add
+        new_symbols = tuple(dict.fromkeys(new_symbols))
+        if not new_symbols:
+            raise ValueError("refusing to unsubscribe the last subscribed symbol")
+
+        new_subscription = Subscription(
+            symbols=new_symbols,
+            quotes=self._subscription.quotes,
+            trades=self._subscription.trades,
+            bars=self._subscription.bars,
+        )
+        new_subscription.validate()
+        self._subscription = new_subscription
+
+        socket = self._socket
+        if socket is not None and self._state == ConnectionState.SUBSCRIBED:
+            if to_add:
+                await self._send_channel_action(socket, "subscribe", to_add)
+            if to_remove:
+                await self._send_channel_action(socket, "unsubscribe", to_remove)
+        return (to_add, to_remove)
+
+    async def _send_channel_action(
+        self,
+        socket,
+        action: str,
+        symbols: Sequence[str],
+    ) -> None:
+        request: dict[str, object] = {"action": action}
+        syms = list(symbols)
+        if self._subscription.trades:
+            request["trades"] = syms
+        if self._subscription.quotes:
+            request["quotes"] = syms
+        if self._subscription.bars:
+            request["bars"] = syms
+        await socket.send(json.dumps(request, separators=(",", ":")))
+
+    # -------------------------------------------------------------------------
     # CONNECTION
     # -------------------------------------------------------------------------
 
