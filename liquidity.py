@@ -5,7 +5,7 @@ Python liquidity/orchestration layer for the hybrid trading engine.
 
 Architecture
 ------------
-AlpacaSIPStream
+AlpacaMarketDataStream (IEX by default)
     |
     +-- QuoteEvent ------+
     +-- TradeEvent ------+----> NativeMarketBridge
@@ -23,9 +23,20 @@ AlpacaSIPStream
 This module deliberately does NOT implement exchange matching in Python.
 The C++ LimitOrderBook is the simulated/internal matching authority.
 
+Feed semantics (IMPORTANT)
+--------------------------
+The default feed is IEX, a SINGLE exchange. An incoming quote is IEX's own best
+bid/offer (exchange top-of-book), NOT the National Best Bid and Offer, and a
+quote's bid/ask sizes are IEX's own resting size, NOT consolidated depth or
+market-wide buy/sell pressure. Any quote-size imbalance computed here is
+therefore single-exchange and must never be presented as consolidated
+order-book imbalance. SIP (opt-in, entitled) carries consolidated NBBO-style
+quotes, but still not full exchange-by-exchange Level-II depth. Under no feed is
+Level-II depth fabricated from a top-of-book quote.
+
 Responsibilities
 ----------------
-* Normalize Alpaca SIP quote/trade events into the C++ binding types.
+* Normalize Alpaca market-data quote/trade events into the C++ binding types.
 * Route live market data into OrderBookRegistry/OrderBookEngine.
 * Generate optional synthetic resting liquidity for simulations.
 * Submit/amend/cancel synthetic liquidity through the native order book.
@@ -41,7 +52,8 @@ Non-responsibilities
 * No Alpaca credentials.
 * No live broker order routing.
 * No Python-side fills.
-* No fabricated Level-II depth from SIP NBBO quotes.
+* No fabricated Level-II depth from a top-of-book (IEX single-exchange or SIP
+  consolidated) quote.
 
 Expected native module
 ----------------------
@@ -163,7 +175,11 @@ class LiveQuote:
     Provider-neutral top-of-book quote.
 
     Prices are integer ticks because that is the execution-boundary format used
-    by the C++ engine. SIP supplies consolidated best bid/ask; this is not L2.
+    by the C++ engine. This is top-of-book only, never Level-II depth. On the
+    default IEX feed the best bid/ask is IEX's own exchange top-of-book (NOT the
+    consolidated NBBO) and ``bid_size``/``ask_size`` are IEX's resting size, not
+    consolidated depth or market-wide pressure. SIP supplies consolidated best
+    bid/ask; still not L2.
     """
 
     symbol: str
@@ -304,7 +320,8 @@ class LiquidityConfig:
     """
     Synthetic-liquidity policy.
 
-    ``levels`` is simulated local depth only. It is NOT derived from SIP depth.
+    ``levels`` is simulated local depth only. It is NOT derived from any feed's
+    depth (the IEX/SIP feeds provide only top-of-book, never Level-II).
     """
 
     tick_size: Decimal = DEFAULT_TICK_SIZE
@@ -455,7 +472,7 @@ def load_native_module(
     Load the pybind11 extension without hardcoding a single module name.
 
     Credentials are intentionally irrelevant here. They remain confined to
-    alpaca_sip_stream.py / process environment.
+    market_data/alpaca_stream.py / process environment.
     """
 
     name = module_name or os.environ.get(
@@ -485,10 +502,12 @@ def load_native_module(
 
 class NativeMarketBridge:
     """
-    Converts normalized Alpaca SIP events into C++ market-data update structs.
+    Converts normalized Alpaca market-data events into C++ update structs.
 
-    The bridge never inserts SIP quotes into LimitOrderBook. The native
-    OrderBookRegistry routes these updates only to ObservedMarketBook.
+    The bridge never inserts an observed top-of-book quote into LimitOrderBook.
+    The native OrderBookRegistry routes these updates only to ObservedMarketBook,
+    which stores them as exchange-observed top-of-book (single-exchange under
+    IEX), never as fabricated Level-II depth.
     """
 
     def __init__(
@@ -1035,9 +1054,11 @@ class LiquidityProvider:
         quantity: int | None = None,
     ) -> list[tuple[LiquidityOrder, tuple[Any, ...]]]:
         """
-        Reprice optional synthetic liquidity around current observed NBBO.
+        Reprice optional synthetic liquidity around the current observed
+        top-of-book (IEX exchange best bid/offer by default, or SIP NBBO).
 
-        SIP itself is not inserted as depth. These are OUR simulated orders.
+        The feed itself is never inserted as depth. These are OUR simulated
+        orders placed relative to the observed top-of-book.
 
         When replace_on_quote=True, currently active synthetic LP orders are
         cancelled before the new ladder is submitted.
@@ -1455,13 +1476,13 @@ class LiquidityProvider:
 
 class LiquidityService:
     """
-    Composition layer for one Alpaca SIP stream and many native books.
+    Composition layer for one Alpaca market-data stream and many native books.
 
     Typical wiring:
 
         bridge = LiquidityService.create(UNIVERSE)
 
-        stream = AlpacaSIPStream(
+        stream = AlpacaMarketDataStream(
             UNIVERSE,
             on_quote=bridge.on_quote,
             on_trade=bridge.on_trade,
@@ -1553,7 +1574,7 @@ class LiquidityService:
         event: AlpacaQuoteLike | LiveQuote,
     ) -> None:
         """
-        Callback suitable for AlpacaSIPStream(on_quote=...).
+        Callback suitable for AlpacaMarketDataStream(on_quote=...).
         """
 
         live = coerce_quote(event)
@@ -1561,8 +1582,8 @@ class LiquidityService:
         # Market observation reaches C++ first.
         self.market_bridge.on_quote(live)
 
-        # Synthetic quoting is explicitly optional. Live SIP observation alone
-        # should not mutate our simulated order book.
+        # Synthetic quoting is explicitly optional. Live market-data observation
+        # alone should not mutate our simulated order book.
         if self.auto_quote_liquidity:
             self.provider(live.symbol).provide_liquidity(live)
 
@@ -1571,7 +1592,7 @@ class LiquidityService:
         event: AlpacaTradeLike | LiveTrade,
     ) -> None:
         """
-        Callback suitable for AlpacaSIPStream(on_trade=...).
+        Callback suitable for AlpacaMarketDataStream(on_trade=...).
         """
 
         self.market_bridge.on_trade(event)
@@ -1609,32 +1630,31 @@ class LiquidityService:
 # ============================================================================
 
 
-def build_alpaca_sip_stream(
+def build_alpaca_market_data_stream(
     service: LiquidityService,
     *,
     stream_class: Any | None = None,
     bars: bool = True,
 ) -> Any:
     """
-    Convenience factory connecting the previously created AlpacaSIPStream to
-    this service.
+    Convenience factory connecting an AlpacaMarketDataStream to this service.
 
     ``stream_class`` can be injected for tests. Otherwise the function imports
-    AlpacaSIPStream lazily so liquidity.py does not own credential loading or
-    WebSocket dependencies.
+    AlpacaMarketDataStream lazily so liquidity.py does not own credential loading
+    or WebSocket dependencies. The stream defaults to the IEX feed; resolve an
+    explicit feed with market_data.feed.resolve_feed when a non-default feed is
+    required.
     """
 
     if stream_class is None:
         try:
-            from alpaca_sip_stream import (
-                AlpacaSIPStream,
-            )
+            from market_data.alpaca_stream import AlpacaMarketDataStream
         except ImportError as exc:
             raise RuntimeError(
-                "alpaca_sip_stream.py must be importable to build the live SIP stream"
+                "market_data.alpaca_stream must be importable to build the live stream"
             ) from exc
 
-        stream_class = AlpacaSIPStream
+        stream_class = AlpacaMarketDataStream
 
     symbols = tuple(sorted(service.providers))
 
@@ -1648,29 +1668,28 @@ def build_alpaca_sip_stream(
     )
 
 
+# Backward-compatible alias for the pre-IEX factory name.
+build_alpaca_sip_stream = build_alpaca_market_data_stream
+
+
 def bind_index_factor_bridge(
     service: LiquidityService,
     *,
     bridge_class: Any | None = None,
 ) -> Any:
     """
-    Construct the VIX/VXN factor bridge from the updated market-data module.
+    Construct the VIX/VXN factor bridge from the market-data module.
 
     The returned bridge accepts external index-provider observations and
     forwards normalized IndexEvent objects into service.on_index().
     """
     if bridge_class is None:
         try:
-            from alpaca_sip_stream_with_vix_vxn_sqqq import (
-                IndexFactorBridge,
-            )
-        except ImportError:
-            try:
-                from alpaca_sip_stream import IndexFactorBridge
-            except ImportError as exc:
-                raise RuntimeError(
-                    "updated market-data module with IndexFactorBridge must be importable"
-                ) from exc
+            from market_data.alpaca_stream import IndexFactorBridge
+        except ImportError as exc:
+            raise RuntimeError(
+                "market_data.alpaca_stream with IndexFactorBridge must be importable"
+            ) from exc
 
         bridge_class = IndexFactorBridge
 
@@ -1705,6 +1724,7 @@ __all__ = [
     "NativeBindingError",
     "NativeMarketBridge",
     "Side",
+    "build_alpaca_market_data_stream",
     "build_alpaca_sip_stream",
     "coerce_quote",
     "coerce_trade",

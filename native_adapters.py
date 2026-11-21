@@ -13,7 +13,7 @@ import _cengine_native as native
 from cengine.execution import AlpacaExecutionVenue
 from cengine.portfolio import AccountState, PositionBook
 from cengine.reservations import RiskReservation, RiskReservationBook
-from market_data.alpaca_sip_stream import QuoteEvent, TradeEvent
+from market_data.alpaca_stream import QuoteEvent, TradeEvent
 from order_manager import OrderIntent, RiskDecision, Side
 
 

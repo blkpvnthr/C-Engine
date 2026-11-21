@@ -230,9 +230,10 @@ bool MarketDepthBook::on_quote(
     ++quote_updates_;
 
     // IMPORTANT:
-    // A consolidated quote is not Level-II. We intentionally do not insert
+    // A top-of-book quote is not Level-II. We intentionally do not insert
     // bid/ask quote sizes into depth_bids_/depth_asks_. Snapshot readers can
-    // still use last_quote as the observed NBBO fallback.
+    // still use last_quote as the observed top-of-book fallback (the observed
+    // NBBO on SIP; a single-exchange best bid/offer on the default IEX feed).
     if (depth_source_ == DepthSource::Unknown) {
         depth_source_ =
             DepthSource::ConsolidatedQuote;
@@ -643,7 +644,8 @@ MarketDepthBook::export_soa(
         ++index;
     }
 
-    // When no genuine provider depth exists, export only observed NBBO as
+    // When no genuine provider depth exists, export only the observed
+    // top-of-book (SIP NBBO, or a single-exchange best bid/offer under IEX) as
     // level 0. This is explicitly one level, never fabricated deeper depth.
     if (depth > 0 &&
         depth_bids_.empty() &&

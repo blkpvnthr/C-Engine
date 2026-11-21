@@ -7,6 +7,7 @@ import importlib
 import os
 
 from cengine.portfolio import PositionBook
+from market_data.feed import resolve_feed
 from run import (
     EngineConfig,
     EngineConfigurationError,
@@ -126,14 +127,17 @@ def build_config() -> EngineConfig:
             "CENGINE_SYMBOLS contains no symbols"
         )
 
-    alpaca_url = os.environ.get("ALPACA_STREAM_URL", "").strip() or None
+    # Resolve the market-data feed through the single authoritative resolver so
+    # this entry point selects the same IEX default, validated endpoint, and
+    # provenance label as run.py. ALPACA_STREAM_URL is accepted as an explicit
+    # endpoint override for backward compatibility; CENGINE_ALPACA_FEED /
+    # CENGINE_ALPACA_URL / CENGINE_ARCHIVE_PROVIDER_LABEL are also honored.
+    feed = resolve_feed(url=os.environ.get("ALPACA_STREAM_URL", "").strip() or None)
 
     config = EngineConfig(
         symbols=symbols,
         market_data_root=required_env("CENGINE_MARKET_DATA_ROOT"),
-        archive_provider_label=required_env(
-            "CENGINE_ARCHIVE_PROVIDER_LABEL"
-        ),
+        archive_provider_label=feed.provider_label,
         native_adapter_module=required_env(
             "ENGINE_NATIVE_ADAPTER_MODULE"
         ),
@@ -161,7 +165,8 @@ def build_config() -> EngineConfig:
         apo_exit_threshold_ticks=required_float(
             "CENGINE_APO_EXIT_THRESHOLD_TICKS"
         ),
-        alpaca_url=alpaca_url,
+        alpaca_url=feed.url,
+        alpaca_feed=feed.name,
     )
 
     config.validate()

@@ -25,15 +25,20 @@ namespace trading {
 // This component never:
 //   * creates, amends, cancels, or fills our orders
 //   * mutates LimitOrderBook
-//   * treats SIP NBBO as fabricated Level-II depth
+//   * treats a top-of-book quote (IEX single-exchange or SIP consolidated) as
+//     fabricated Level-II depth
 //
 // It accepts:
-//   1. normalized consolidated MarketQuoteUpdate / MarketTradeUpdate
+//   1. normalized MarketQuoteUpdate / MarketTradeUpdate. NOTE: on the default
+//      IEX feed these are a SINGLE exchange's top-of-book, not the consolidated
+//      NBBO (DepthSource::ConsolidatedQuote names the top-of-book code path;
+//      under IEX the observation is single-exchange, so any imbalance derived
+//      from it is single-exchange, never market-wide).
 //   2. explicit provider-supplied MarketDepthUpdate messages when a provider
 //      actually supplies depth.
 //
-// A SIP quote updates only the top-of-book observation. It does not create
-// deeper levels.
+// A top-of-book quote updates only the top-of-book observation. It does not
+// create deeper levels.
 // ============================================================================
 
 enum class DepthUpdateAction : std::uint8_t {

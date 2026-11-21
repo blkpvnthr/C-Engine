@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 from zoneinfo import ZoneInfo
 
 import h5py
@@ -117,11 +117,18 @@ def create_daily_file(
     *,
     price_scale: int = DEFAULT_PRICE_SCALE,
     provider: str,
+    feed: Optional[str] = None,
     exclusive: bool = True,
 ) -> Path:
     """Create a valid daily HDF5 container.
 
     exclusive=True refuses to overwrite an existing trading-day file.
+
+    ``provider`` is the mandatory provenance label (e.g. ``alpaca-iex``). The
+    optional ``feed`` records the specific Alpaca feed (``iex``/``sip``/...) so a
+    reader or replay can refuse to combine files whose data came from
+    incompatible feeds. Both are written once and never overwritten, so a daily
+    file can never silently acquire a second provenance.
     """
     if not provider or not provider.strip():
         raise ValueError("provider must be explicitly identified")
@@ -136,6 +143,8 @@ def create_daily_file(
         h5.attrs.setdefault("layout", "one_file_per_trading_day")
         h5.attrs.setdefault("price_scale", int(price_scale))
         h5.attrs.setdefault("provider", provider)
+        if feed is not None and feed.strip():
+            h5.attrs.setdefault("feed", feed.strip())
         h5.attrs.setdefault("created_ns", time.time_ns())
         h5.attrs["last_opened_ns"] = time.time_ns()
 
@@ -145,6 +154,59 @@ def create_daily_file(
         h5.require_group("analytics")
 
     return path
+
+
+def read_provenance(path: str | Path) -> dict[str, Any]:
+    """Return the provenance attributes of a daily HDF5 file.
+
+    Keys: ``provider`` (always present), ``feed`` (None if the file predates
+    feed labeling), ``price_scale``, and ``trading_date``.
+    """
+    with h5py.File(Path(path), "r") as h5:
+        return {
+            "provider": str(h5.attrs["provider"]) if "provider" in h5.attrs else None,
+            "feed": str(h5.attrs["feed"]) if "feed" in h5.attrs else None,
+            "price_scale": int(h5.attrs["price_scale"]) if "price_scale" in h5.attrs else None,
+            "trading_date": (
+                str(h5.attrs["trading_date"]) if "trading_date" in h5.attrs else None
+            ),
+        }
+
+
+def assert_feed_consistency(paths: "Sequence[str | Path]") -> dict[str, Any]:
+    """Verify a set of daily files share one feed/provider before combining them.
+
+    Replay and multi-day analysis must not silently merge, for example, live IEX
+    bars with historical SIP bars: the two are different market views. This fails
+    closed on any mismatch and returns the single shared provenance on success.
+    """
+    providers: set[str] = set()
+    feeds: set[Optional[str]] = set()
+    scales: set[Optional[int]] = set()
+    for path in paths:
+        meta = read_provenance(path)
+        providers.add(str(meta["provider"]))
+        feeds.add(meta["feed"])
+        scales.add(meta["price_scale"])
+    if len(providers) > 1:
+        raise MarketDataStoreError(
+            f"refusing to combine datasets from different providers: {sorted(providers)}"
+        )
+    if len({f for f in feeds if f is not None}) > 1:
+        raise MarketDataStoreError(
+            f"refusing to combine datasets from different feeds: "
+            f"{sorted(f for f in feeds if f is not None)}"
+        )
+    if len({s for s in scales if s is not None}) > 1:
+        raise MarketDataStoreError(
+            f"refusing to combine datasets with different price scales: "
+            f"{sorted(s for s in scales if s is not None)}"
+        )
+    return {
+        "provider": next(iter(providers)) if providers else None,
+        "feed": next((f for f in feeds if f is not None), None),
+        "price_scale": next((s for s in scales if s is not None), None),
+    }
 
 
 @dataclass(slots=True)
@@ -165,7 +227,7 @@ class DailyHDF5Writer:
     silently dropped.
 
     Supported event shapes are the normalized QuoteEvent, TradeEvent,
-    BarEvent, and IndexEvent produced by alpaca_sip_stream.py.
+    BarEvent, and IndexEvent produced by alpaca_stream.py.
     """
 
     def __init__(
@@ -179,6 +241,7 @@ class DailyHDF5Writer:
         flush_interval_seconds: float = DEFAULT_FLUSH_INTERVAL_SECONDS,
         queue_size: int = DEFAULT_QUEUE_SIZE,
         provider: str,
+        feed: Optional[str] = None,
     ) -> None:
         if price_scale <= 0:
             raise ValueError("price_scale must be positive")
@@ -198,6 +261,7 @@ class DailyHDF5Writer:
         self.compression_opts = compression_opts
         self.flush_interval_seconds = float(flush_interval_seconds)
         self.provider = provider
+        self.feed = feed.strip() if feed and feed.strip() else None
 
         self._queue: queue.Queue[Any] = queue.Queue(maxsize=queue_size)
         self._stop = threading.Event()
@@ -334,6 +398,7 @@ class DailyHDF5Writer:
             trading_date,
             price_scale=self.price_scale,
             provider=self.provider,
+            feed=self.feed,
             exclusive=False,
         )
         self._h5 = h5py.File(path, "a", libver="latest")

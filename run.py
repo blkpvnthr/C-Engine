@@ -6,7 +6,7 @@ Top-level bootstrap for the complete market engine.
 
 Data path
 ---------
-Alpaca SIP
+Alpaca IEX (default feed; SIP is opt-in and entitlement-gated)
     -> normalized QuoteEvent / TradeEvent / BarEvent
     -> MarketDataFanout
         -> DailyHDF5Writer
@@ -22,6 +22,10 @@ Alpaca SIP
     -> native C++ RiskEngine
     -> native C++ execution venue / LimitOrderBook
 
+Market-data feed vs. trading mode are independent axes. Selecting IEX or SIP
+changes only the data source; it never changes paper vs. live execution, which
+stays gated by the separate ALPACA_TRADING_BASE_URL live confirmations.
+
 VIX/VXN
 -------
 A licensed external source publishes IndexEvent objects through
@@ -33,14 +37,17 @@ Authority boundary
 This file orchestrates components. It does not:
 - approve risk;
 - invent prices, quantities, timestamps, fills, or volatility-index values;
-- fabricate Level-II depth from SIP NBBO;
+- fabricate Level-II depth from a single-exchange (IEX) or consolidated (SIP)
+  top-of-book quote;
+- present IEX exchange-specific quotes/volume as consolidated NBBO/market-wide;
 - bypass the native C++ risk boundary;
 - treat Metal output as execution authority.
 
 Required local modules
 ----------------------
-alpaca_sip_stream.py
-market_data_store.py
+market_data/alpaca_stream.py
+market_data/feed.py
+market_data/market_data_store.py
 strategies.py
 order_manager.py
 
@@ -87,14 +94,15 @@ from cengine.safety import (
     SessionConfig,
 )
 from cengine.strategy_state import StrategyStateBook
-from market_data.alpaca_sip_stream import (
-    AlpacaSIPStream,
+from market_data.alpaca_stream import (
+    AlpacaMarketDataStream,
     BarEvent,
     IndexEvent,
     IndexFactorBridge,
     QuoteEvent,
     TradeEvent,
 )
+from market_data.feed import resolve_feed
 from market_data.market_data_store import DailyHDF5Writer
 from order_manager import (
     TERMINAL_STATUSES,
@@ -208,6 +216,9 @@ class EngineConfig:
     mongodb_timeout_ms: int
 
     alpaca_url: Optional[str] = None
+    # Resolved feed name (e.g. "iex"/"sip") used for startup feed verification
+    # and provenance logging. None leaves the stream's derived feed unchecked.
+    alpaca_feed: Optional[str] = None
 
     def validate(self) -> None:
         if not self.symbols:
@@ -521,6 +532,7 @@ class MarketEngine:
         self.archive = DailyHDF5Writer(
             root=config.market_data_root,
             provider=config.archive_provider_label,
+            feed=config.alpaca_feed,
         )
         self.event_bus: MarketEventBus[MarketEvent] = MarketEventBus()
         self.strategy_events = self.event_bus.subscribe("strategies")
@@ -537,29 +549,21 @@ class MarketEngine:
         self.factor_bridge = IndexFactorBridge(on_index=self._publish_market_event)
         self.factor_source = factor_source
 
-        if config.alpaca_url is None:
-            self.stream = AlpacaSIPStream(
-                symbols=config.symbols,
-                quotes=True,
-                trades=True,
-                bars=True,
-                on_quote=self._publish_market_event,
-                on_trade=self._publish_market_event,
-                on_bar=self._publish_market_event,
-                on_state=self._stream_state_changed,
-            )
-        else:
-            self.stream = AlpacaSIPStream(
-                symbols=config.symbols,
-                quotes=True,
-                trades=True,
-                bars=True,
-                url=config.alpaca_url,
-                on_quote=self._publish_market_event,
-                on_trade=self._publish_market_event,
-                on_bar=self._publish_market_event,
-                on_state=self._stream_state_changed,
-            )
+        stream_kwargs: dict[str, Any] = dict(
+            symbols=config.symbols,
+            quotes=True,
+            trades=True,
+            bars=True,
+            on_quote=self._publish_market_event,
+            on_trade=self._publish_market_event,
+            on_bar=self._publish_market_event,
+            on_state=self._stream_state_changed,
+        )
+        # An omitted URL leaves the stream on its IEX default (never SIP).
+        if config.alpaca_url is not None:
+            stream_kwargs["url"] = config.alpaca_url
+        self.stream = AlpacaMarketDataStream(**stream_kwargs)
+        self._verify_stream_feed()
 
         self.router = CandidateRouter(
             order_manager=self.order_manager,
@@ -567,6 +571,44 @@ class MarketEngine:
             exit_quantity_provider=exit_quantity_provider,
             execution_policy=execution_policy,
             strategy_state=self.strategy_state,
+        )
+
+    def _verify_stream_feed(self) -> None:
+        """Fail closed if the connected feed disagrees with the configured one.
+
+        The feed is derived from the endpoint the stream will actually open, so
+        this catches an explicit URL override whose path contradicts the declared
+        feed/provenance before any market data is trusted. It does not force IEX:
+        when SIP is explicitly configured it confirms SIP. It also surfaces a
+        provenance label that does not reflect the feed (soft warning only, so
+        intentional composite labels like ``alpaca-iex+index`` are allowed).
+        """
+        actual = self.stream.feed
+        expected = self.config.alpaca_feed
+        if expected is not None and actual != expected:
+            self.kill_switch(
+                f"market-data feed mismatch: endpoint feed {actual!r} != "
+                f"configured feed {expected!r}"
+            )
+            raise EngineConfigurationError(
+                f"market-data feed mismatch: stream endpoint resolves to feed "
+                f"{actual!r} but configuration declares {expected!r}; refusing to "
+                "run with inconsistent feed provenance"
+            )
+        label = self.config.archive_provider_label.lower()
+        if actual is not None and actual.replace("_", "-") not in label:
+            LOGGER.warning(
+                "archive provider label %r does not name the active feed %r; "
+                "verify provenance labeling",
+                self.config.archive_provider_label,
+                actual,
+            )
+        LOGGER.info(
+            "market-data feed=%s endpoint=%s provider_label=%s consolidated=%s",
+            actual or "custom",
+            self.stream.endpoint,
+            self.config.archive_provider_label,
+            actual in {"sip", "delayed_sip"},
         )
 
     async def run(self) -> None:
@@ -592,7 +634,7 @@ class MarketEngine:
         )
         stream_task = asyncio.create_task(
             self.stream.run_forever(),
-            name="alpaca-sip-stream",
+            name="alpaca-market-data-stream",
         )
         reconciliation_task = asyncio.create_task(
             self._reconciliation_loop(), name="broker-reconciliation"
@@ -726,10 +768,11 @@ class MarketEngine:
     ) -> None:
         # Persistence and every analytics consumer have independent streams.
         self.archive.submit(event)
-        # SIP multiplexes independent channels; the gate enforces monotonicity
-        # per (symbol, channel), never across channels (quotes and trades
-        # interleave with non-monotonic cross-channel timestamps). Index factor
-        # observations (VIX/VXN) get their own channel and are never executable.
+        # The market-data feed (IEX by default, or SIP) multiplexes independent
+        # channels; the gate enforces monotonicity per (symbol, channel), never
+        # across channels (quotes and trades interleave with non-monotonic
+        # cross-channel timestamps). Index factor observations (VIX/VXN) get
+        # their own channel and are never executable.
         if isinstance(event, BarEvent):
             channel = "bar"
         elif isinstance(event, QuoteEvent):
@@ -860,7 +903,9 @@ class MarketEngine:
                 state.reservations.release(order.client_order_id)
 
     async def _stream_state_changed(self, state) -> None:
-        LOGGER.info("Alpaca SIP state=%s", state.value)
+        LOGGER.info(
+            "Alpaca market-data state=%s feed=%s", state.value, self.stream.feed or "custom"
+        )
 
 
 class ATRTracker:
@@ -1014,6 +1059,13 @@ class ConsoleDecisionStream:
     def banner(self, config: EngineConfig, *, live: bool) -> None:
         mode = "LIVE" if live else "PAPER"
         self._emit("ENGINE", f"starting [{mode}] symbols={','.join(config.symbols)}")
+        feed = config.alpaca_feed or "custom"
+        consolidated = "consolidated" if feed in {"sip", "delayed_sip"} else "single-exchange"
+        self._emit(
+            "FEED",
+            f"market_data={feed} ({consolidated}) provenance={config.archive_provider_label} "
+            f"endpoint={config.alpaca_url or '<stream default>'}",
+        )
         self._emit(
             "ENGINE",
             f"session={config.session_timezone} "
@@ -1146,12 +1198,18 @@ def config_from_args() -> EngineConfig:
         "--alpaca-url",
         default=None,
         help=(
-            "Optional explicit Alpaca WebSocket endpoint. "
-            "If omitted, alpaca_sip_stream.py uses its configured SIP URL."
+            "Optional explicit Alpaca market-data WebSocket endpoint. If omitted, "
+            "the engine uses the IEX feed by default. Set CENGINE_ALPACA_FEED=sip "
+            "(entitled accounts only) to select SIP instead of an explicit URL."
         ),
     )
 
     args = parser.parse_args()
+
+    # Resolve through the single authoritative resolver so the CLI path uses the
+    # same IEX default, endpoint validation, and feed provenance as every other
+    # entry point. An explicit --alpaca-url is validated and its feed derived.
+    resolved = resolve_feed(url=args.alpaca_url)
 
     return EngineConfig(
         symbols=args.symbols,
@@ -1177,7 +1235,8 @@ def config_from_args() -> EngineConfig:
         mongodb_uri=args.mongodb_uri,
         mongodb_database=args.mongodb_database,
         mongodb_timeout_ms=args.mongodb_timeout_ms,
-        alpaca_url=args.alpaca_url,
+        alpaca_url=resolved.url,
+        alpaca_feed=resolved.name,
     )
 
 
@@ -1249,54 +1308,29 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-_ALPACA_FEED_PATHS: dict[str, str] = {
-    "sip": "v2/sip",
-    "iex": "v2/iex",
-    "delayed_sip": "v2/delayed_sip",
-    "boats": "v1beta1/boats",
-    "overnight": "v1beta1/overnight",
-}
-
-
-def _alpaca_stream_url() -> Optional[str]:
-    """Resolve the market-data WebSocket URL from the environment.
-
-    ``CENGINE_ALPACA_URL`` (an explicit full URL) always wins. Otherwise
-    ``CENGINE_ALPACA_FEED`` selects a feed (sip|iex|delayed_sip|boats|overnight)
-    on the live or sandbox host (``CENGINE_ALPACA_SANDBOX=1``). Returns None to
-    let the stream use its configured SIP default. A feed not covered by the
-    account's data subscription is rejected by Alpaca at authentication.
-    """
-    explicit = os.environ.get("CENGINE_ALPACA_URL")
-    if explicit and explicit.strip():
-        return explicit.strip()
-    feed = _env_str("CENGINE_ALPACA_FEED", "").strip().lower()
-    if not feed:
-        return None
-    if feed not in _ALPACA_FEED_PATHS:
-        raise EngineConfigurationError(
-            f"unknown CENGINE_ALPACA_FEED {feed!r}; expected one of "
-            f"{sorted(_ALPACA_FEED_PATHS)}"
-        )
-    sandbox = _env_str("CENGINE_ALPACA_SANDBOX", "").strip().lower() in {"1", "true", "yes"}
-    host = "stream.data.sandbox.alpaca.markets" if sandbox else "stream.data.alpaca.markets"
-    return f"wss://{host}/{_ALPACA_FEED_PATHS[feed]}"
-
-
 def config_from_env() -> EngineConfig:
     """Build an EngineConfig from environment variables with operational defaults.
 
     Only *operational* defaults are supplied here (paths, session hours, feed
     tolerances, strategy periods). Trading sizing is never defaulted in the
     config; it is an injected policy. Every value is overridable via env.
+
+    The market-data feed defaults to IEX (``alpaca-iex`` provenance) and is
+    resolved through the single authoritative resolver; it never falls back to
+    SIP automatically. Set ``CENGINE_ALPACA_FEED=sip`` (entitled accounts only)
+    or an explicit validated ``CENGINE_ALPACA_URL`` to choose another feed.
     """
     symbols_raw = os.environ.get("CENGINE_SYMBOLS", "")
     symbols = _csv_symbols(symbols_raw) if symbols_raw.strip() else DEFAULT_SYMBOLS
 
+    feed = resolve_feed()
+
     return EngineConfig(
         symbols=symbols,
         market_data_root=_env_str("CENGINE_MARKET_DATA_ROOT", "./state/market_data"),
-        archive_provider_label=_env_str("CENGINE_ARCHIVE_PROVIDER_LABEL", "alpaca-sip"),
+        # Provenance defaults to the resolved feed's canonical label (alpaca-iex);
+        # CENGINE_ARCHIVE_PROVIDER_LABEL overrides it (honored inside the resolver).
+        archive_provider_label=feed.provider_label,
         turtle_entry_lookback=_env_int("CENGINE_TURTLE_ENTRY_LOOKBACK", 20),
         turtle_exit_lookback=_env_int("CENGINE_TURTLE_EXIT_LOOKBACK", 10),
         dual_ma_fast_period=_env_int("CENGINE_DUAL_MA_FAST_PERIOD", 20),
@@ -1322,7 +1356,8 @@ def config_from_env() -> EngineConfig:
         mongodb_uri=os.environ.get("CENGINE_MONGODB_URI", ""),
         mongodb_database=_env_str("CENGINE_MONGODB_DATABASE", "cengine"),
         mongodb_timeout_ms=_env_int("CENGINE_MONGODB_TIMEOUT_MS", 5000),
-        alpaca_url=_alpaca_stream_url(),
+        alpaca_url=feed.url,
+        alpaca_feed=feed.name,
     )
 
 

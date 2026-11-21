@@ -26,8 +26,11 @@ namespace trading {
 // This header deliberately separates:
 //
 //   1. OBSERVED LIVE MARKET STATE
-//      Alpaca SIP quote/trade events normalized by Python and pushed into
-//      ObservedMarketBook.
+//      Alpaca market-data quote/trade events normalized by Python and pushed
+//      into ObservedMarketBook. The default feed is IEX (a SINGLE exchange):
+//      its quotes are IEX's own top-of-book, NOT the consolidated NBBO, and its
+//      sizes/volume are IEX-only, NOT market-wide. SIP (opt-in, entitled) is
+//      consolidated. Either way this is top-of-book, never Level-II depth.
 //
 //   2. SIMULATED / INTERNAL ORDER STATE
 //      LimitOrderBook owns our orders, queue priority, amendments,
@@ -53,10 +56,11 @@ namespace trading {
 //       -> FeatureEngine / bar pipeline
 //
 // IMPORTANT:
-// Alpaca SIP provides consolidated quotes/trades. It is not a complete
-// exchange-by-exchange Level-II depth feed. Therefore incoming SIP quotes
-// update ObservedMarketBook and are NOT inserted as resting orders into
-// LimitOrderBook.
+// No Alpaca market-data feed provides exchange-by-exchange Level-II depth.
+// IEX (default) is a single exchange's top-of-book; SIP is consolidated
+// top-of-book. Therefore incoming quotes update ObservedMarketBook and are NOT
+// inserted as resting orders into LimitOrderBook, and single-exchange (IEX)
+// quote sizes must never be presented as consolidated order-book imbalance.
 //
 // ============================================================================
 
