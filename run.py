@@ -122,6 +122,7 @@ from scanner_bridge import BridgeStreamClient, ScannerEventBridge
 from strategies import (
     APOConfig,
     Bar,
+    DIBBConfig,
     DualMAConfig,
     SignalSide,
     StrategyCoordinator,
@@ -578,6 +579,25 @@ class MarketEngine:
                 slow_period=config.apo_slow_period,
                 entry_threshold_ticks=config.apo_entry_threshold_ticks,
                 exit_threshold_ticks=config.apo_exit_threshold_ticks,
+            ),
+            # The DI/BB strategy (migrated from QQ-Trader) is opt-in: it only
+            # trades when CENGINE_DIBB_ENABLED is set, so an unvalidated strategy
+            # never silently gains execution eligibility (spec §16). Its entries
+            # are still revalidated against the canonical universe + native risk.
+            di_bb=(
+                DIBBConfig(
+                    di_period=int(os.environ.get("CENGINE_DIBB_DI_PERIOD", "14")),
+                    bb_period=int(os.environ.get("CENGINE_DIBB_BB_PERIOD", "20")),
+                    momentum_lookback=int(
+                        os.environ.get("CENGINE_DIBB_MOMENTUM_LOOKBACK", "5")
+                    ),
+                    require_vwap=os.environ.get("CENGINE_DIBB_REQUIRE_VWAP", "1") != "0",
+                    require_momentum=(
+                        os.environ.get("CENGINE_DIBB_REQUIRE_MOMENTUM", "1") != "0"
+                    ),
+                )
+                if os.environ.get("CENGINE_DIBB_ENABLED", "0") != "0"
+                else None
             ),
         )
         self.strategies: StrategyCoordinator = build_strategy_coordinator(strategy_config)

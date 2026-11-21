@@ -104,14 +104,32 @@ application has **no dependency on the QQ-Trader repository**.
   universe, config, credentials all PASS).
 - `python3 trade.py --status` → loads universe + detects paper/live; degrades
   cleanly when the broker rejects credentials.
-- **Full test suite: 264 passed, 0 failed**, including tests proving a
-  coordinator-built close flows through the *real* `OrderManager.submit` and a
-  *real* `MarketScanner` OFE fed end-to-end through the single-pipeline bridge.
+- **Full test suite: 283 passed, 0 failed**, including tests proving a
+  coordinator-built close flows through the *real* `OrderManager.submit`, a
+  *real* `MarketScanner` OFE fed end-to-end through the single-pipeline bridge,
+  and DI/BB entry/inverse-exit signal behaviour.
 
 ### Milestone 2 (done): protective-exit execution
 The mandatory −0.5% protective exit now **executes** through the engine's single
 OrderManager path (see `protective_exit.ProtectiveExitCoordinator` above). No
 parallel broker writer; duplicate-close and oversell guarded.
+
+### Milestone 5 (in progress): canonical strategy integration
+- **Shared indicators** (`indicators.py`): Wilder DMI (DI+/DI-/ADX), SMA
+  (Bollinger middle band), session VWAP accumulator, momentum — pure, look-ahead-
+  free, unit-tested (directional invariants + exact SMA/VWAP).
+- **`strategies.DIBBStrategy`** (spec §14/§15): long-only DI/BB entry
+  (`DI+ > DI-` and `price > BB-mid`, with configurable mandatory VWAP + momentum
+  confirmation that fail **closed**) and inverse exit (`DI- > DI+` and
+  `price < BB-mid`). Added to `StrategyName`, `StrategySetConfig`, and
+  `build_strategy_coordinator`. **Opt-in** via `CENGINE_DIBB_ENABLED` so an
+  unvalidated strategy never silently gains execution eligibility (spec §16);
+  entries still flow through the canonical-universe-seeded engine + native risk.
+- Remaining M5 (pending): engine-side portfolio-optimizer allocation layer,
+  regime-driven sizing, and AMPS/ML-RL *execution* eligibility (the
+  `order_flow_engine`, `amps_v4_regime`, and `portfolio_optimizer` modules are
+  already migrated and consumed by the scanner's ranking). **Empirical strategy
+  validation is deferred to the backtest/replay work (Milestone 7).**
 
 ### Milestone 4 (done): single canonical IEX market-data pipeline
 The migrated scanner no longer opens its own IEX websocket; the engine owns the
@@ -152,9 +170,9 @@ scanner-republished `universe.txt` **without a restart**:
 
 These are **not yet done** and are the next milestones (do not assume otherwise):
 
-1. **Strategy consumption of the canonical universe** beyond subscription seeding
-   (DI/BB + VWAP entry/replacement strategies from the monolith) is not yet
-   ported into `strategies.py`. (Milestone 5.)
+1. **Remaining Milestone 5**: DI/BB entry+inverse-exit is ported (opt-in); still
+   pending are the engine-side portfolio-optimizer allocation layer, regime-driven
+   sizing, and AMPS/ML-RL execution eligibility.
 2. **Entry-point consolidation.** `trade.py` still delegates the engine lifecycle
    to `run.main()`; consolidating `MarketEngine` into `trade.py` and removing
    `run.py`/`start_engine.py` is Milestone 6.
