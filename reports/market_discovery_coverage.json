@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T21:47:19.553714+00:00",
+  "recorded_utc": "2026-11-22T22:14:57.857226+00:00",
   "membership_version": 1,
   "degraded": false,
   "sources": {
@@ -13,7 +13,7 @@
     "djia": false
   },
   "coverage_denominators": {
-    "MASTER_MEMBERSHIP": 5601,
+    "MASTER_MEMBERSHIP": 5651,
     "PROVIDER_SUPPORTED": 14426,
     "TRADABLE": 13509,
     "FRACTIONABLE": 7921
@@ -22,9 +22,9 @@
     "nasdaq_member": 5600,
     "sp500_member": 0,
     "djia_member": 0,
-    "configured_member": 1,
-    "master_universe_deduplicated": 5601,
-    "master_tradable": 5565
+    "configured_member": 57,
+    "master_universe_deduplicated": 5651,
+    "master_tradable": 5615
   },
   "changes": {
     "added": [],

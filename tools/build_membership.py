@@ -58,7 +58,11 @@ def main() -> int:
 
     sp500, sp500_src = _index_source("CENGINE_SP500_FILE", "data/sp500.txt")
     djia, djia_src = _index_source("CENGINE_DJIA_FILE", "data/djia.txt")
-    configured = _read_symbol_file(REPO / "universe.txt")
+    # Configured members = the canonical universe.txt UNION the curated ETF seed
+    # (data/configured_etfs.txt) so the master universe genuinely includes the
+    # broad/sector/leveraged/inverse ETF categories (directive §3).
+    configured = sorted(set(_read_symbol_file(REPO / "universe.txt"))
+                        | set(_read_symbol_file(REPO / "data" / "configured_etfs.txt")))
 
     reg = MembershipRegistry()
     sources = {"universe": "alpaca_assets", "sp500": sp500_src, "djia": djia_src,

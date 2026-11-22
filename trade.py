@@ -689,6 +689,40 @@ class MarketEngine:
         except Exception as exc:  # noqa: BLE001 — exposure gating is optional
             LOGGER.warning("exposure registry unavailable (%s); entries ungated", exc)
 
+        # Master-universe membership drives operational discovery (directive §4):
+        # loaded from the cache written by tools/build_membership.py. When present
+        # (and not overridden by a pinned CENGINE_SYMBOLS diagnostic universe), the
+        # scanner's discovery_fn returns the master universe instead of the legacy
+        # discover_us_listed path. Absent cache -> scanner keeps its default
+        # (backward compatible). CENGINE_MEMBERSHIP_DISCOVERY=0 opts out.
+        self._membership_registry = None
+        self._membership_discovery_fn = None
+        _pinned = os.environ.get("CENGINE_SYMBOLS", "").strip()
+        if (os.environ.get("CENGINE_MEMBERSHIP_DISCOVERY", "1") != "0" and not _pinned):
+            try:
+                from cengine.membership import MembershipRegistry
+                from cengine.operational_discovery import make_membership_discovery_fn
+
+                reg = MembershipRegistry()
+                cache = REPO_ROOT / "data" / "membership_snapshot.json"
+                if reg.load_cache(cache) and len(reg) > 0:
+                    self._membership_registry = reg
+                    cap = int(os.environ.get("CENGINE_DISCOVERY_MAX_SYMBOLS", "0")) or None
+                    self._membership_discovery_fn = make_membership_discovery_fn(
+                        reg, self._exposure_registry, max_symbols=cap)
+                    LOGGER.info(
+                        "membership discovery active: %d master members "
+                        "(v%s) drive operational discovery",
+                        len(reg.tradable_master_symbols()),
+                        reg.snapshot_meta.membership_version)
+                else:
+                    LOGGER.info("no membership cache; scanner uses legacy discovery "
+                                "(run tools/build_membership.py)")
+            except Exception as exc:  # noqa: BLE001 — discovery source is optional
+                LOGGER.warning("membership discovery unavailable (%s); legacy path", exc)
+        elif _pinned:
+            LOGGER.info("CENGINE_SYMBOLS pinned; membership discovery disabled (diagnostic)")
+
         self.router = CandidateRouter(
             order_manager=self.order_manager,
             entry_quantity_policy=quantity_policy,
@@ -813,6 +847,7 @@ class MarketEngine:
             bridge_client = self._bridge_client
 
             gpu_discovery = self._gpu_discovery
+            membership_discovery_fn = self._membership_discovery_fn
 
             def factory(executor: Any, config: Any) -> Any:
                 scanner = MarketScanner(executor, config, stream_client=bridge_client)
@@ -820,6 +855,12 @@ class MarketEngine:
                     on_trade=scanner.ofe.ingest_trade,
                     on_quote=scanner.ofe.ingest_quote,
                 )
+                # Master-universe membership drives discovery (directive §4): the
+                # scanner ranks + publishes over the full supported universe, not
+                # the legacy discover_us_listed list. Falls back to its default
+                # when no membership cache is available.
+                if membership_discovery_fn is not None:
+                    scanner.discovery_fn = membership_discovery_fn
                 # Overlay native GPU directional/screen features on the scanner's
                 # base features AND move the cross-sectional ranking onto the GPU
                 # (identical semantics). The scanner keeps orchestration, lifecycle
