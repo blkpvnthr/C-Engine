@@ -876,6 +876,52 @@ class MarketEngine:
                 LOGGER.warning("adaptive subscription controller disabled: %s", exc)
                 self._adaptive_controller = None
 
+        # Automatic SIP historical warm-up (directive item 4): feeds the native
+        # DiscoveryEngine buffers with prioritized history so GPU features have
+        # adequate depth. One-shot at startup, in a worker thread (never blocks the
+        # loop or protection). Active on SIP + GPU discovery + membership;
+        # CENGINE_HISTORICAL_WARMUP=0 disables.
+        self._historical_warmup = None
+        if (self._gpu_discovery is not None and self._membership_registry is not None
+                and feed in ("sip", "delayed_sip")
+                and os.environ.get("CENGINE_HISTORICAL_WARMUP", "1") != "0"):
+            try:
+                from cengine.historical_warmup import HistoricalWarmup, make_sip_fetch_fn
+
+                _k = os.environ.get("ALPACA_API_KEY") or os.environ.get("APCA_API_KEY_ID", "")
+                _s = os.environ.get("ALPACA_SECRET_KEY") or os.environ.get("APCA_API_SECRET_KEY", "")
+                if _k and _s:
+                    self._historical_warmup = HistoricalWarmup(
+                        self._gpu_discovery.provider, make_sip_fetch_fn(_k, _s),
+                        batch_size=int(os.environ.get("CENGINE_WARMUP_BATCH", "100")))
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("historical warm-up unavailable: %s", exc)
+                self._historical_warmup = None
+
+    async def _run_historical_warmup(self) -> None:
+        """One-shot prioritized warm-up in a worker thread (off the hot path)."""
+        import datetime as _dt
+
+        from cengine.historical_warmup import prioritize
+
+        try:
+            inp = self._adaptive_tier_inputs()
+            cap = int(os.environ.get("CENGINE_WARMUP_MAX_SYMBOLS", "500"))
+            master = inp["tier1_bars"][:cap]
+            order = prioritize(positions=inp["protected"], actionable=inp["tier2_trades"],
+                               remaining=master)
+            today = _dt.date.today()
+            start_5m = (today - _dt.timedelta(days=20)).isoformat()
+            start_1m = (today - _dt.timedelta(days=4)).isoformat()
+            cov = await asyncio.to_thread(
+                self._historical_warmup.warm, order,
+                start_5m=start_5m, start_1m=start_1m)
+            LOGGER.info("historical warm-up: %d requested, %d warmed, %d incomplete, "
+                        "%d failed, bars=%s", cov["requested"], cov["warmed"],
+                        cov["incomplete"], cov["failed"], cov["bars_ingested"])
+        except Exception as exc:  # noqa: BLE001 - warm-up must never crash the engine
+            LOGGER.warning("historical warm-up failed: %s", exc)
+
     def _adaptive_tier_inputs(self) -> dict:
         """Compute current tier memberships for the adaptive controller."""
         positions = list(getattr(self.portfolio, "symbols", lambda: [])() or []) \
@@ -1057,6 +1103,15 @@ class MarketEngine:
                 name="adaptive-subscriptions",
             )
 
+        # One-shot warm-up runs DETACHED (not in the FIRST_COMPLETED wait set, so
+        # its completion never triggers engine shutdown). Stored on self to avoid
+        # GC; cancelled during teardown.
+        self._warmup_task: Optional[asyncio.Task[None]] = None
+        if self._historical_warmup is not None:
+            self._warmup_task = asyncio.create_task(
+                self._run_historical_warmup(), name="historical-warmup"
+            )
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -1114,9 +1169,15 @@ class MarketEngine:
                 if not task.done():
                     task.cancel()
 
+            # Cancel the detached one-shot warm-up task if still running.
+            warmup = getattr(self, "_warmup_task", None)
+            if warmup is not None and not warmup.done():
+                warmup.cancel()
+
             await asyncio.gather(
                 *tasks,
                 stop_task,
+                *( [warmup] if warmup is not None else [] ),
                 return_exceptions=True,
             )
 

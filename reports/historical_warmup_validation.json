@@ -1,0 +1,26 @@
+{
+  "recorded_utc": "2026-11-22T22:41:32.483177+00:00",
+  "acceptance_item": "4 - automatic historical acquisition and warm-up (+ \u00a77 native feed)",
+  "component": "cengine/historical_warmup.py: HistoricalWarmup + make_sip_fetch_fn + prioritize",
+  "priority_order": [
+    "positions",
+    "pending",
+    "references",
+    "actionable",
+    "preliminary",
+    "remaining"
+  ],
+  "status_states": [
+    "not_requested",
+    "downloading",
+    "warmed",
+    "incomplete",
+    "failed"
+  ],
+  "ingestion": "batched SIP bars -> ticks -> GpuDiscoveryProvider.ingest_bars -> native DiscoveryEngine buffers (5m+1m)",
+  "engine_wiring": "trade.py MarketEngine: one-shot DETACHED startup task (_run_historical_warmup via asyncio.to_thread), prioritized, capped by CENGINE_WARMUP_MAX_SYMBOLS (default 500), off the hot path, cancelled on teardown; CENGINE_HISTORICAL_WARMUP=0 disables.",
+  "offline_verification": "tests/test_historical_warmup.py (5): priority+dedup, ingest+status (warmed/incomplete/failed) reaching native buffers, per-batch error (429) handling, large-set batching, fail-safe on fetcher exception.",
+  "failure_handling": "acquisition failure / rate-limit / missing history -> symbols marked FAILED/INCOMPLETE; never fabricates bars; never blocks protection (runs in worker thread, detached).",
+  "status": "OPERATIONALLY_CONNECTED (orchestration offline-verified; fail-safe demonstrated). Real SIP fetch mechanism identical to the proven path (reports/sip_migration_validation.json, phase_b_operational_validation.json).",
+  "pending": "Full real-session master-universe warm-up coverage is session/rate-limit-dependent."
+}
