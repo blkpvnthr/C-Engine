@@ -185,6 +185,18 @@ class GpuDiscoveryProvider:
             return self._runtime.screen(inputs)
         return native.screen_market_cpu(inputs)
 
+    def market_breadth(self, symbols: list[str]):
+        """Compute market breadth over `symbols` via the GPU market_breadth kernel
+        (CPU oracle fallback) from each symbol's current screen flags. Returns a
+        native.BreadthCounters, or None if no symbols are known."""
+        rows = self.compute(symbols)
+        flags = [rows[s].flags for s in symbols if s in rows]
+        if not flags:
+            return None
+        if self._runtime is not None:
+            return self._runtime.market_breadth(flags)
+        return native.market_breadth_cpu(flags)
+
     def compute(self, symbols: list[str]) -> dict[str, ScreenRow]:
         """Run the native discovery pipeline for `symbols`, returning per-symbol
         technical features + screen output. Symbols unknown to the engine (never

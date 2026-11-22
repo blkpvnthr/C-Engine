@@ -1,7 +1,7 @@
 {
-  "recorded_utc": "2026-11-22T20:50:18.892270+00:00",
-  "operationally_consumed_count": 2,
-  "note": "HONEST STATUS: 9 kernels are host-callable, hardware-executed and CPU-parity-validated. 2 (screen_market, technical_features) are now operationally consumed via the scanner feature_provider (cengine.gpu_scanner_bridge -> MarketScanner.rank -> UniversePublisher), wired into trade.py's zero-arg path and verified through the REAL scanner offline; live IEX-session end-to-end certification is Phase B.6. `intended_consumer` names the planned consumer; `operationally_consumed` records real wiring (\u00a780/\u00a786). The other 7 remain host-wired, pending Phase D/E.",
+  "recorded_utc": "2026-11-22T21:01:53.474229+00:00",
+  "operationally_consumed_count": 3,
+  "note": "HONEST STATUS: 11 kernels are host-callable, hardware-executed and CPU-parity-validated. 3 (screen_market, technical_features, market_breadth) are operationally consumed via the engine glue (cengine.gpu_scanner_bridge): screen_market + technical_features through the scanner feature_provider -> MarketScanner.rank -> UniversePublisher; market_breadth via EngineGpuDiscovery.update_breadth each rank tick. All wired into trade.py's zero-arg path and verified through the REAL scanner offline; live SIP-session end-to-end certification is pending (market closed). compact_entry_candidates remains host-validated but not yet consumed (no GPU top-K consumer yet). `operationally_consumed` records real wiring (\u00a780/\u00a786); the other 7 remain host-wired pending Phase D/E.",
   "kernels": {
     "rolling_sma_ticks": {
       "host_interface": "MetalRuntime.sma",
@@ -48,7 +48,7 @@
     "market_breadth": {
       "host_interface": "MetalRuntime.market_breadth",
       "intended_consumer": "market_breadth,regime,dashboard",
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "mode": "operational",
       "blocker": ""
     },

@@ -209,6 +209,37 @@ def test_engine_gpu_discovery_tap_and_provider(tmp_path):
     assert "WIN" in (tmp_path / "universe.txt").read_text()
 
 
+def test_market_breadth_operationally_consumed(tmp_path):
+    """The engine glue computes + stores market breadth each rank tick (the
+    operational consumer of the market_breadth kernel), not just a standalone test."""
+    egd = EngineGpuDiscovery(bar_capacity=256, window=64)
+    px = 100.0
+    for i in range(80):  # 80 1m bars -> 16 completed 5m bars (DI valid)
+        o = px
+        px *= 1.004
+        egd.on_market_event(BarEvent("WIN", i * _NS_MIN, _t(o),
+                                     _t(max(o, px) * 1.001), _t(min(o, px) * 0.999),
+                                     _t(px), 1000 + i))
+    egd.on_market_event(TradeEvent("WIN", 81 * _NS_MIN, _t(px * 1.004)))
+
+    scanner = _build_scanner(tmp_path, provider=lambda s, n: {})
+    scanner._daily_stats = {"WIN": {"price": 50.0, "adv": 5_000_000,
+                                    "addv": 250_000_000}}
+    scanner._discovered = ["WIN"]
+    _feed_ofe(scanner, "WIN", 1000.0)
+    scanner.feature_provider = egd.feature_provider_for(scanner)
+
+    assert egd.latest_breadth is None  # nothing consumed yet
+    scanner.feature_provider(["WIN"], 1000.0)  # drives update_breadth()
+    b = egd.latest_breadth
+    assert b is not None and b.total >= 1
+    assert b.entry_qualified >= 1          # the uptrend symbol qualifies
+    assert b.valid + b.data_invalid == b.total
+    snap = egd.breadth_snapshot()
+    assert snap["available"] and snap["backend"] in ("metal", "cpu")
+    assert snap["entry_qualified"] == b.entry_qualified
+
+
 def test_composed_provider_is_failsafe(tmp_path):
     # A GPU provider with no data must not break the scanner; base features pass
     # through and WIN still qualifies on daily stats alone.

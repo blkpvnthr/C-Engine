@@ -87,6 +87,9 @@ class EngineGpuDiscovery:
         self._agg = BarAggregator(agg_minutes)
         self._latest_trade: dict[str, tuple[int, int]] = {}
         self._universe: set[str] = set()
+        # Latest operationally-consumed market breadth (BreadthCounters | None).
+        self.latest_breadth: Any = None
+        self.latest_breadth_backend: str = ""
 
     @property
     def backend(self) -> str:
@@ -134,15 +137,46 @@ class EngineGpuDiscovery:
         except Exception:  # noqa: BLE001
             pass
 
+    def update_breadth(self) -> Any:
+        """Compute + store market breadth over the full active universe via the GPU
+        market_breadth kernel (CPU fallback). This is the operational consumer of
+        the breadth kernel (invoked each rank tick). Returns the BreadthCounters."""
+        syms = sorted(self._universe)
+        if not syms:
+            return None
+        try:
+            self.latest_breadth = self.provider.market_breadth(syms)
+            self.latest_breadth_backend = self.provider.backend
+        except Exception:  # noqa: BLE001 — breadth is advisory telemetry
+            return self.latest_breadth
+        return self.latest_breadth
+
+    def breadth_snapshot(self) -> dict:
+        """Serialize the latest breadth for telemetry / live_context / dashboard."""
+        b = self.latest_breadth
+        if b is None:
+            return {"available": False}
+        return {"available": True, "backend": self.latest_breadth_backend,
+                "total": b.total, "valid": b.valid,
+                "entry_qualified": b.entry_qualified,
+                "technical_exit": b.technical_exit, "bullish": b.bullish,
+                "bearish": b.bearish, "positive_momentum": b.positive_momentum,
+                "negative_momentum": b.negative_momentum,
+                "above_vwap": b.above_vwap, "below_vwap": b.below_vwap,
+                "data_invalid": b.data_invalid}
+
     def feature_provider_for(self, scanner: Any) -> Callable[[list[str], float], dict]:
-        """Return a feature_provider bound to `scanner` that flushes cached trades
-        then overlays GPU directional features on the scanner's base features."""
+        """Return a feature_provider bound to `scanner` that flushes cached trades,
+        overlays GPU directional features on the scanner's base features, and
+        updates the operationally-consumed market breadth."""
         composed = make_composed_feature_provider(scanner, self.provider)
 
         def provider(symbols: list[str], now: float) -> dict:
             self.ensure_symbols(symbols)
             self._flush_trades()
-            return composed(symbols, now)
+            feats = composed(symbols, now)
+            self.update_breadth()  # operational consumer of market_breadth kernel
+            return feats
 
         return provider
 

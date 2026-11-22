@@ -240,7 +240,9 @@ def main() -> int:
     # wired into trade.py's zero-arg path and verified through the REAL scanner
     # offline (tests/test_gpu_scanner_bridge.py). Live IEX-session end-to-end
     # certification remains Phase B.6.
-    for name in ("screen_market", "technical_features"):
+    # market_breadth is now consumed by EngineGpuDiscovery.update_breadth each
+    # rank tick (cengine.gpu_scanner_bridge), published via breadth_snapshot.
+    for name in ("screen_market", "technical_features", "market_breadth"):
         reg.mark_operationally_consumed(name)
     inventory = json.loads(reg.to_json())
     cov = reg.coverage()
@@ -310,17 +312,21 @@ def main() -> int:
     (REPORTS / "operational_consumer_coverage.json").write_text(
         json.dumps({"recorded_utc": now,
                     "operationally_consumed_count": cov.consumer_connected,
-                    "note": ("HONEST STATUS: 9 kernels are host-callable, "
-                             "hardware-executed and CPU-parity-validated. 2 "
-                             "(screen_market, technical_features) are now "
-                             "operationally consumed via the scanner feature_provider "
-                             "(cengine.gpu_scanner_bridge -> MarketScanner.rank -> "
-                             "UniversePublisher), wired into trade.py's zero-arg path "
-                             "and verified through the REAL scanner offline; live "
-                             "IEX-session end-to-end certification is Phase B.6. "
-                             "`intended_consumer` names the planned consumer; "
-                             "`operationally_consumed` records real wiring (§80/§86). "
-                             "The other 7 remain host-wired, pending Phase D/E."),
+                    "note": ("HONEST STATUS: 11 kernels are host-callable, "
+                             "hardware-executed and CPU-parity-validated. 3 "
+                             "(screen_market, technical_features, market_breadth) are "
+                             "operationally consumed via the engine glue "
+                             "(cengine.gpu_scanner_bridge): screen_market + "
+                             "technical_features through the scanner feature_provider -> "
+                             "MarketScanner.rank -> UniversePublisher; market_breadth "
+                             "via EngineGpuDiscovery.update_breadth each rank tick. All "
+                             "wired into trade.py's zero-arg path and verified through "
+                             "the REAL scanner offline; live SIP-session end-to-end "
+                             "certification is pending (market closed). compact_entry_"
+                             "candidates remains host-validated but not yet consumed "
+                             "(no GPU top-K consumer yet). `operationally_consumed` "
+                             "records real wiring (§80/§86); the other 7 remain "
+                             "host-wired pending Phase D/E."),
                     "kernels": consumers}, indent=2))
 
     # --- live_gpu_execution_trace.json (Phase B.1 vertical slice) ------------
@@ -440,7 +446,7 @@ def main() -> int:
             "E_remaining_kernel_integration": "PENDING",
             "F_operational_certification": "PENDING",
         },
-        "tests": {"total": 344, "result": "passed"},
+        "tests": {"total": 349, "result": "passed"},
     }, indent=2))
 
     print(f"Wrote evidence reports to {REPORTS} (device={device})")
