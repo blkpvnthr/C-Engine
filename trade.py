@@ -1808,7 +1808,7 @@ def parse_args(argv: list[str]) -> CliOptions:
     """Parse argv into a single resolved mode. Paper is the default."""
     parser = argparse.ArgumentParser(
         prog="trade.py",
-        description="Sustenance unified autonomous trading engine.",
+        description="C-Engine unified autonomous trading engine.",
     )
     group = parser.add_mutually_exclusive_group()
     for flag, mode in (
@@ -2074,7 +2074,7 @@ def run_validate() -> int:
     check("market scan config", _scan_config)
     check("alpaca credentials (.env)", _creds)
 
-    print("\nSUSTENANCE — readiness validation")
+    print("\nC-ENGINE — readiness validation")
     print("-" * 60)
     critical_ok = True
     for name, ok, detail in checks:
@@ -2093,7 +2093,7 @@ def run_status() -> int:
     from canonical_universe import CanonicalUniverseManager
 
     mgr = CanonicalUniverseManager(UNIVERSE_PATH)
-    print("\nSUSTENANCE — status")
+    print("\nC-ENGINE — status")
     print("-" * 60)
     print(f"  Universe file      : {UNIVERSE_PATH}")
     print(f"  Universe version   : {mgr.version()}")
@@ -2224,6 +2224,33 @@ def run_validate_metal() -> int:
         print(f"\nBlocked kernels ({len(report['blocked'])}) — not yet consumer-wired:")
         for b in report["blocked"]:
             print(f"  [{b['shader']}] {b['kernel']}: {b['reason']}")
+
+    # Native Obj-C++ runtime view (the operational path). The PyObjC backend
+    # above is retained only for parity regression and is being retired
+    # (directive §89); the native registry is the authoritative kernel inventory
+    # and includes the Phase B screen_market kernel the legacy backend does not.
+    try:
+        import _cengine_native as _native
+
+        from cengine.metal_backend import discover_metallib as _disc
+
+        _lib = _disc()
+        if getattr(_native, "metal_available", False) and _lib is not None:
+            _rt = _native.MetalRuntime(str(_lib))
+            if _rt.available:
+                _reg = _native.KernelRegistry()
+                _reg.reconcile_with_device(_rt)
+                _cov = _reg.coverage()
+                print("\nNative Obj-C++ runtime (operational path):")
+                print(f"  Device:                      {_rt.device_name}")
+                print(f"  Kernel entry points:         {len(_rt.function_names())}")
+                print(f"  Registry kernels:            {_cov.discovered}")
+                print(f"  Kernels compiled+callable:   {_cov.compiled_callable}")
+                print(f"  Kernels host-callable:       {_cov.host_callable}")
+                print(f"  Phase B screen_market wired: {_rt.has_kernel('screen_market')}")
+    except Exception as _exc:  # reporting must never break the command
+        print(f"\nNative runtime view unavailable: {_exc}")
+
     # Persist reports (benchmarks included so the JSON set is complete).
     benchmarks = benchmark_metal(backend, repeats=15) if backend.available else {"available": False}
     write_reports(REPO_ROOT / "reports", report, benchmarks)

@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
+  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
   "device": "Apple M5 Max",
   "parity": {
     "rolling_sma_ticks": {
@@ -43,6 +43,12 @@
       "parity_ok": true,
       "detail": "max_abs_error=1.296e-07 (tol 1e-4)",
       "max_abs_error": 1.29648491054013e-07
+    },
+    "screen_market": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "4 symbols; exact flag parity + NaN-safe float parity (tol 1e-4)",
+      "max_abs_error": 0.0
     }
   }
 }

@@ -13,9 +13,9 @@ from __future__ import annotations
 import platform
 import random
 
+import _cengine_native as native
 import pytest
 
-import _cengine_native as native
 from cengine import metal_backend as mb
 from cengine import metal_cpu_ref as ref
 
@@ -48,7 +48,10 @@ def test_runtime_initializes_on_device(runtime):
     assert runtime.device_name  # non-empty device name
     assert runtime.reason == ""
     names = runtime.function_names()
-    assert len(names) == 45, f"expected 45 entry points, got {len(names)}"
+    # 45 preserved baseline kernels + the Phase B screen_market kernel newly
+    # added by the native discovery layer (directive §13/§80).
+    assert len(names) == 46, f"expected 46 entry points, got {len(names)}"
+    assert "screen_market" in names
 
 
 def test_namespace_aware_resolution(runtime):
@@ -89,11 +92,11 @@ def test_true_range_exact_cpu_parity(runtime):
 
 
 def test_indicator_invalid_args_raise(runtime):
-    with pytest.raises(Exception):
+    with pytest.raises(native.MetalError):
         runtime.sma([], 5)
-    with pytest.raises(Exception):
+    with pytest.raises(native.MetalError):
         runtime.sma(PRICES, 0)
-    with pytest.raises(Exception):
+    with pytest.raises(native.MetalError):
         runtime.ema(PRICES, 11, 10)  # numerator > denominator
 
 
@@ -109,7 +112,7 @@ def test_covariance_cpu_parity(runtime):
     flat = [x for row in mat for x in row]
     gpu = runtime.covariance_matrix(flat, obs, assets)
     cpu = [x for row in ref.covariance_matrix(mat) for x in row]
-    assert max(abs(a - b) for a, b in zip(gpu, cpu)) < 1e-4
+    assert max(abs(a - b) for a, b in zip(gpu, cpu, strict=True)) < 1e-4
 
 
 def test_ewma_covariance_cpu_parity(runtime):
@@ -118,7 +121,7 @@ def test_ewma_covariance_cpu_parity(runtime):
     flat = [x for row in mat for x in row]
     gpu = runtime.ewma_covariance_matrix(flat, obs, assets, 0.94, 0.0)
     cpu = [x for row in ref.ewma_covariance_matrix(mat, 0.94) for x in row]
-    assert max(abs(a - b) for a, b in zip(gpu, cpu)) < 1e-4
+    assert max(abs(a - b) for a, b in zip(gpu, cpu, strict=True)) < 1e-4
 
 
 # ---------------------------------------------------------- pipeline cache + telemetry
@@ -147,15 +150,16 @@ def test_kernel_registry_reconciles_against_device(runtime):
     reg = native.KernelRegistry()
     reg.reconcile_with_device(runtime)
     cov = reg.coverage()
-    assert cov.discovered == 45
-    assert cov.compiled_callable == 45  # every kernel builds a pipeline on device
-    assert cov.host_callable == 7  # the 7 wired kernels have a native host interface
+    # 45 baseline kernels + the Phase B screen_market kernel (directive §13/§80).
+    assert cov.discovered == 46
+    assert cov.compiled_callable == 46  # every kernel builds a pipeline on device
+    assert cov.host_callable == 8  # 7 baseline wired kernels + screen_market
     # JSON serialization is well-formed and reflects the live counts.
     import json
 
     doc = json.loads(reg.to_json())
-    assert doc["discovered"] == 45
-    assert len(doc["kernels"]) == 45
+    assert doc["discovered"] == 46
+    assert len(doc["kernels"]) == 46
 
 
 # ------------------------------------------------- regression parity vs legacy PyObjC
@@ -191,4 +195,74 @@ def test_native_matches_legacy_pyobjc_covariance(metallib):
     native_rt = native.MetalRuntime(metallib)
     gpu_native = native_rt.covariance_matrix(flat, obs, assets)
     gpu_legacy = [x for row in py_cov.covariance_matrix(mat) for x in row]
-    assert max(abs(a - b) for a, b in zip(gpu_native, gpu_legacy)) < 1e-4
+    assert max(abs(a - b) for a, b in zip(gpu_native, gpu_legacy, strict=True)) < 1e-4
+
+
+# -------------------------------------------- Phase B opportunity screening kernel
+def _screen_inputs():
+    """A mix of entry-qualified, technical-exit, borderline and invalid symbols."""
+    SI = native.ScreeningInput
+    return [
+        # Clean entry: DI+ > DI-, above VWAP, price > prev 1m close.
+        SI(price=101.0, previous_close_1m=100.0, di_plus_5m=30.0, di_minus_5m=20.0,
+           session_vwap=99.0, sma20_5m=98.0, bb_middle_5m=97.0,
+           valid_market=1, valid_direction=1, valid_1m=1, valid_vwap=1,
+           valid_sma=1, valid_bb=1),
+        # Clean technical exit: DI- > DI+, below VWAP, price < prev 1m close.
+        SI(price=97.0, previous_close_1m=100.0, di_plus_5m=18.0, di_minus_5m=29.0,
+           session_vwap=99.0, sma20_5m=100.0, bb_middle_5m=101.0,
+           valid_market=1, valid_direction=1, valid_1m=1, valid_vwap=1,
+           valid_sma=1, valid_bb=1),
+        # Bullish direction but below all references -> NOT entry qualified.
+        SI(price=95.0, previous_close_1m=96.0, di_plus_5m=30.0, di_minus_5m=20.0,
+           session_vwap=99.0, sma20_5m=98.0, bb_middle_5m=97.0,
+           valid_market=1, valid_direction=1, valid_1m=1, valid_vwap=1,
+           valid_sma=1, valid_bb=1),
+        # Missing all reference features -> entry can never qualify; DATA_INVALID.
+        SI(price=101.0, previous_close_1m=100.0, di_plus_5m=30.0, di_minus_5m=20.0,
+           valid_market=1, valid_direction=1, valid_1m=1,
+           valid_vwap=0, valid_sma=0, valid_bb=0),
+        # No valid market observation -> DATA_INVALID, nothing qualifies.
+        SI(price=101.0, previous_close_1m=100.0, di_plus_5m=30.0, di_minus_5m=20.0,
+           session_vwap=99.0, valid_market=0, valid_direction=1, valid_1m=1,
+           valid_vwap=1, valid_sma=0, valid_bb=0),
+    ]
+
+
+def test_screen_market_gpu_cpu_exact_parity(runtime):
+    """GPU screen_market must match the CPU oracle bit-for-bit on every flag."""
+    inputs = _screen_inputs()
+    gpu = runtime.screen(inputs)
+    cpu = native.screen_market_cpu(inputs)
+    assert len(gpu) == len(cpu) == len(inputs)
+    for g, c in zip(gpu, cpu, strict=True):
+        assert g.flags == c.flags
+        # NaN-safe float comparison (invalid refs produce NaN identically).
+        for attr in ("momentum_1m_pct", "directional_strength", "vwap_distance_pct"):
+            gv, cv = getattr(g, attr), getattr(c, attr)
+            if gv != gv or cv != cv:  # NaN
+                assert gv != gv and cv != cv
+            else:
+                assert abs(gv - cv) < 1e-4
+
+
+def test_screen_market_entry_and_exit_semantics(runtime):
+    out = runtime.screen(_screen_inputs())
+    EQ = native.SCREEN_ENTRY_QUALIFIED
+    TX = native.SCREEN_TECHNICAL_EXIT
+    DI = native.SCREEN_DATA_INVALID
+    # row 0: entry qualified, not an exit, data valid
+    assert out[0].flags & EQ and not (out[0].flags & TX) and not (out[0].flags & DI)
+    assert abs(out[0].momentum_1m_pct - 1.0) < 1e-4  # (101/100 - 1) * 100
+    # row 1: technical exit, not an entry
+    assert out[1].flags & TX and not (out[1].flags & EQ)
+    # row 2: bullish but below references -> no entry
+    assert not (out[2].flags & EQ)
+    # rows 3 & 4: no usable reference / no market -> DATA_INVALID, no entry
+    assert out[3].flags & DI and not (out[3].flags & EQ)
+    assert out[4].flags & DI and not (out[4].flags & EQ)
+
+
+def test_screen_market_rejects_empty(runtime):
+    with pytest.raises(native.MetalError):
+        runtime.screen([])

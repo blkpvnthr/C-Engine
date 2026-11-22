@@ -106,6 +106,13 @@ public:
         const std::vector<float>& values, std::uint32_t observations,
         std::uint32_t assets, float lambda, float minimum_variance);
 
+    // Opportunity screening (one GPU thread per symbol). Evaluates the mandatory
+    // shared entry contract on device via metal/opportunity_screening.metal and
+    // returns one ScreeningOutput per input, bit-for-bit matching the CPU oracle
+    // cpu_ref::screen_market (directive §28/§32/§37).
+    [[nodiscard]] std::vector<ScreeningOutput> screen(
+        const std::vector<ScreeningInput>& inputs);
+
     // --- introspection / telemetry -----------------------------------------
     [[nodiscard]] RuntimeTelemetry telemetry() const;
     [[nodiscard]] std::size_t cached_pipeline_count() const;

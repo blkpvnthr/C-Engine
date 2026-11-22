@@ -14,6 +14,7 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
+#include <cstring>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
@@ -406,6 +407,29 @@ std::vector<float> MetalRuntime::ewma_covariance_matrix(
     if (ok) pool.read_f32(cov, out.data(), static_cast<std::size_t>(assets) * assets);
     pool.release(vb); pool.release(prm); pool.release(cov);
     if (!ok) throw MetalError("ewma_covariance_matrix dispatch failed");
+    return out;
+}
+
+std::vector<ScreeningOutput> MetalRuntime::screen(
+    const std::vector<ScreeningInput>& inputs) {
+    if (!available()) throw MetalError("Metal runtime unavailable");
+    if (inputs.empty()) throw MetalError("inputs cannot be empty");
+    const std::size_t n = inputs.size();
+    auto& pool = *impl_->pool;
+    // Shared-storage buffers: inputs[0], outputs[1], symbol_count[2] — mirrors
+    // the screen_market signature. SoA-of-structs upload is a single memcpy.
+    GpuBuffer ib = pool.upload_bytes(inputs.data(), n * sizeof(ScreeningInput));
+    GpuBuffer ob = pool.acquire(n * sizeof(ScreeningOutput), true);
+    GpuBuffer cb = pool.upload_u32(static_cast<std::uint32_t>(n));
+    const bool ok = dispatch("screen_market", {ib, ob, cb}, n);
+    std::vector<ScreeningOutput> out(n);
+    if (ok && ob.contents) {
+        std::memcpy(out.data(), ob.contents, n * sizeof(ScreeningOutput));
+    }
+    pool.release(ib);
+    pool.release(ob);
+    pool.release(cb);
+    if (!ok) throw MetalError("screen_market dispatch failed");
     return out;
 }
 

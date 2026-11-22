@@ -21,6 +21,7 @@ namespace py = pybind11;
 #include <string>
 #include <vector>
 
+#include "opportunity_discovery/cpu_reference.hpp"
 #include "opportunity_discovery/kernel_registry.hpp"
 #include "opportunity_discovery/metal_runtime.hpp"
 #include "opportunity_discovery/screening_types.hpp"
@@ -45,6 +46,75 @@ void register_discovery(py::module_& m) {
         .def_readonly("total_dispatch_duration_ns", &RuntimeTelemetry::total_dispatch_duration_ns)
         .def_property_readonly("pipeline_cache_hit_rate", &RuntimeTelemetry::pipeline_cache_hit_rate)
         .def_property_readonly("mean_dispatch_ms", &RuntimeTelemetry::mean_dispatch_ms);
+
+    // --- opportunity screening contract (Phase B) --------------------------
+    // Bitmask flag values (mirror ScreenFlag in screening_types.hpp /
+    // opportunity_screening.metal). Exposed as plain ints so Python can test
+    // `output.flags & native.SCREEN_ENTRY_QUALIFIED` ergonomically.
+    m.attr("SCREEN_ENTRY_QUALIFIED") = static_cast<std::uint32_t>(kEntryQualified);
+    m.attr("SCREEN_TECHNICAL_EXIT") = static_cast<std::uint32_t>(kTechnicalExit);
+    m.attr("SCREEN_BULLISH_DIRECTION") = static_cast<std::uint32_t>(kBullishDirection);
+    m.attr("SCREEN_BEARISH_DIRECTION") = static_cast<std::uint32_t>(kBearishDirection);
+    m.attr("SCREEN_POSITIVE_MOMENTUM") = static_cast<std::uint32_t>(kPositiveMomentum);
+    m.attr("SCREEN_NEGATIVE_MOMENTUM") = static_cast<std::uint32_t>(kNegativeMomentum);
+    m.attr("SCREEN_ABOVE_VWAP") = static_cast<std::uint32_t>(kAboveVwap);
+    m.attr("SCREEN_BELOW_VWAP") = static_cast<std::uint32_t>(kBelowVwap);
+    m.attr("SCREEN_DATA_INVALID") = static_cast<std::uint32_t>(kDataInvalid);
+
+    py::class_<ScreeningInput>(m, "ScreeningInput")
+        .def(py::init<>())
+        .def(py::init([](float price, float previous_close_1m, float di_plus_5m,
+                         float di_minus_5m, float session_vwap, float sma20_5m,
+                         float bb_middle_5m, std::uint32_t valid_market,
+                         std::uint32_t valid_direction, std::uint32_t valid_1m,
+                         std::uint32_t valid_vwap, std::uint32_t valid_sma,
+                         std::uint32_t valid_bb) {
+                 ScreeningInput s;
+                 s.price = price;
+                 s.previous_close_1m = previous_close_1m;
+                 s.di_plus_5m = di_plus_5m;
+                 s.di_minus_5m = di_minus_5m;
+                 s.session_vwap = session_vwap;
+                 s.sma20_5m = sma20_5m;
+                 s.bb_middle_5m = bb_middle_5m;
+                 s.valid_market = valid_market;
+                 s.valid_direction = valid_direction;
+                 s.valid_1m = valid_1m;
+                 s.valid_vwap = valid_vwap;
+                 s.valid_sma = valid_sma;
+                 s.valid_bb = valid_bb;
+                 return s;
+             }),
+             py::arg("price") = 0.0f, py::arg("previous_close_1m") = 0.0f,
+             py::arg("di_plus_5m") = 0.0f, py::arg("di_minus_5m") = 0.0f,
+             py::arg("session_vwap") = 0.0f, py::arg("sma20_5m") = 0.0f,
+             py::arg("bb_middle_5m") = 0.0f, py::arg("valid_market") = 0u,
+             py::arg("valid_direction") = 0u, py::arg("valid_1m") = 0u,
+             py::arg("valid_vwap") = 0u, py::arg("valid_sma") = 0u,
+             py::arg("valid_bb") = 0u)
+        .def_readwrite("price", &ScreeningInput::price)
+        .def_readwrite("previous_close_1m", &ScreeningInput::previous_close_1m)
+        .def_readwrite("di_plus_5m", &ScreeningInput::di_plus_5m)
+        .def_readwrite("di_minus_5m", &ScreeningInput::di_minus_5m)
+        .def_readwrite("session_vwap", &ScreeningInput::session_vwap)
+        .def_readwrite("sma20_5m", &ScreeningInput::sma20_5m)
+        .def_readwrite("bb_middle_5m", &ScreeningInput::bb_middle_5m)
+        .def_readwrite("valid_market", &ScreeningInput::valid_market)
+        .def_readwrite("valid_direction", &ScreeningInput::valid_direction)
+        .def_readwrite("valid_1m", &ScreeningInput::valid_1m)
+        .def_readwrite("valid_vwap", &ScreeningInput::valid_vwap)
+        .def_readwrite("valid_sma", &ScreeningInput::valid_sma)
+        .def_readwrite("valid_bb", &ScreeningInput::valid_bb);
+
+    py::class_<ScreeningOutput>(m, "ScreeningOutput")
+        .def_readonly("flags", &ScreeningOutput::flags)
+        .def_readonly("momentum_1m_pct", &ScreeningOutput::momentum_1m_pct)
+        .def_readonly("directional_strength", &ScreeningOutput::directional_strength)
+        .def_readonly("vwap_distance_pct", &ScreeningOutput::vwap_distance_pct);
+
+    // Native CPU oracle / fallback for the screening contract. Parity tests
+    // compare this against MetalRuntime.screen on real hardware.
+    m.def("screen_market_cpu", &cpu_ref::screen_market, py::arg("inputs"));
 
     py::class_<MetalRuntime>(m, "MetalRuntime")
         .def(py::init([](const std::string& metallib_path) {
@@ -80,6 +150,8 @@ void register_discovery(py::module_& m) {
         .def("ewma_covariance_matrix", &MetalRuntime::ewma_covariance_matrix,
              py::arg("values"), py::arg("observations"), py::arg("assets"),
              py::arg("lambda_"), py::arg("minimum_variance") = 0.0f,
+             py::call_guard<py::gil_scoped_release>())
+        .def("screen", &MetalRuntime::screen, py::arg("inputs"),
              py::call_guard<py::gil_scoped_release>());
 
     py::class_<KernelInfo>(m, "KernelInfo")

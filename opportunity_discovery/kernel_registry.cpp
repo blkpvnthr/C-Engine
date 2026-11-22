@@ -84,6 +84,15 @@ KernelRegistry::KernelRegistry() {
                           "highs[i64@0] lows[i64@1] prev[i64@2] out[i64@3] count[u32@4]",
                           "technical_features,atr,di_bb", "ohlc_ticks"));
 
+    // --- opportunity_screening.metal (1) : Phase B native discovery kernel -----
+    // Newly added (directive §13/§80): one GPU thread per symbol evaluates the
+    // mandatory shared entry contract on device. Operational; CPU oracle is
+    // cpu_ref::screen_market.
+    kernels_.push_back(op("opportunity_screening.metal", "screen_market",
+                          "MetalRuntime.screen",
+                          "inputs[ScreeningInput@0] outputs[ScreeningOutput@1] count[u32@2]",
+                          "opportunity_discovery,scanner,strategies", "l1_quote"));
+
     // --- covariance.metal (7) : 3 wired, 4 research/blocked -------------------
     kernels_.push_back(op("covariance.metal", "column_means",
                           "MetalRuntime.column_means",

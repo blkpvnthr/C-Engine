@@ -13,7 +13,16 @@
 #include <cstdint>
 #include <vector>
 
+#include "opportunity_discovery/screening_types.hpp"
+
 namespace trading::metal::cpu_ref {
+
+// --- opportunity screening (exact branch-for-branch parity with -----------
+// metal/opportunity_screening.metal's screen_market). This is the CPU oracle
+// for GPU-parity validation AND the validated CPU fallback / crossover path for
+// the mandatory shared entry contract (directive §12/§28). One output per input.
+[[nodiscard]] std::vector<ScreeningOutput> screen_market(
+    const std::vector<ScreeningInput>& inputs);
 
 // Integer division truncating toward zero (matches Metal/C `long` /).
 [[nodiscard]] std::int64_t trunc_div(std::int64_t a, std::int64_t b) noexcept;

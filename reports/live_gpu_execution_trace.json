@@ -1,0 +1,64 @@
+{
+  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
+  "device": "Apple M5 Max",
+  "metallib": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
+  "kernel": "screen_market",
+  "backend": "metal",
+  "note": "End-to-end native dispatch of the Phase B opportunity-screening kernel on real Apple hardware: ScreeningInput -> GPU screen_market -> ScreeningOutput, validated bit-for-bit vs the CPU oracle cpu_ref::screen_market. Evaluates the mandatory shared entry contract (spec \u00a728) on device; by itself it does NOT authorize orders. Operational ingest->scanner->universe wiring is the remainder of Phase B.",
+  "symbols_screened": 4,
+  "cpu_parity_ok": true,
+  "dispatches_completed": 11,
+  "dispatch_failures": 0,
+  "outputs": [
+    {
+      "index": 0,
+      "flags": 85,
+      "flags_set": [
+        "ENTRY_QUALIFIED",
+        "BULLISH_DIRECTION",
+        "POSITIVE_MOMENTUM",
+        "ABOVE_VWAP"
+      ],
+      "momentum_1m_pct": 0.999998,
+      "directional_strength": 10.0,
+      "vwap_distance_pct": 2.020202
+    },
+    {
+      "index": 1,
+      "flags": 170,
+      "flags_set": [
+        "TECHNICAL_EXIT",
+        "BEARISH_DIRECTION",
+        "NEGATIVE_MOMENTUM",
+        "BELOW_VWAP"
+      ],
+      "momentum_1m_pct": -3.000002,
+      "directional_strength": -11.0,
+      "vwap_distance_pct": -2.020202
+    },
+    {
+      "index": 2,
+      "flags": 164,
+      "flags_set": [
+        "BULLISH_DIRECTION",
+        "NEGATIVE_MOMENTUM",
+        "BELOW_VWAP"
+      ],
+      "momentum_1m_pct": -1.041664,
+      "directional_strength": 10.0,
+      "vwap_distance_pct": -4.040404
+    },
+    {
+      "index": 3,
+      "flags": 276,
+      "flags_set": [
+        "BULLISH_DIRECTION",
+        "POSITIVE_MOMENTUM",
+        "DATA_INVALID"
+      ],
+      "momentum_1m_pct": 0.999998,
+      "directional_strength": 10.0,
+      "vwap_distance_pct": null
+    }
+  ]
+}

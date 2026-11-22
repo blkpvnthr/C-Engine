@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
+  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
   "device": "Apple M5 Max",
   "baseline_before_correction": {
     "existing_kernels": 45,
@@ -10,15 +10,15 @@
     "gpu_on_live_screening_path": false
   },
   "after_phase_a": {
-    "discovered": 45,
-    "compiled_callable": 45,
-    "host_callable": 7,
-    "consumer_connected": 32,
-    "hardware_executed": 7,
-    "numerically_validated": 7,
+    "discovered": 46,
+    "compiled_callable": 46,
+    "host_callable": 8,
+    "consumer_connected": 33,
+    "hardware_executed": 8,
+    "numerically_validated": 8,
     "blocked": 6,
     "pipeline_coverage_pct": 100.0,
-    "operational_coverage_pct": 71.11,
+    "operational_coverage_pct": 71.74,
     "host": "native Objective-C++ MetalRuntime (cached pipelines, persistent buffers)"
   }
 }

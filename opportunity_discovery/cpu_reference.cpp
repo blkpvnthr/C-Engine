@@ -157,4 +157,79 @@ std::vector<float> ewma_covariance_matrix(const std::vector<float>& values,
     return cov;
 }
 
+std::vector<ScreeningOutput> screen_market(
+    const std::vector<ScreeningInput>& inputs) {
+    std::vector<ScreeningOutput> out(inputs.size());
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+        const ScreeningInput& s = inputs[i];
+        ScreeningOutput r;  // zero-initialised by member defaults
+
+        // Validity gates — identical to opportunity_screening.metal. A missing
+        // or non-finite reference can never satisfy a qualification (§29/§30).
+        const bool price_valid =
+            s.valid_market && std::isfinite(s.price) && s.price > 0.0f;
+        const bool direction_valid = s.valid_direction &&
+                                     std::isfinite(s.di_plus_5m) &&
+                                     std::isfinite(s.di_minus_5m);
+        const bool momentum_valid = price_valid && s.valid_1m &&
+                                    std::isfinite(s.previous_close_1m) &&
+                                    s.previous_close_1m > 0.0f;
+        const bool vwap_valid =
+            s.valid_vwap && std::isfinite(s.session_vwap) && s.session_vwap > 0.0f;
+        const bool sma_valid =
+            s.valid_sma && std::isfinite(s.sma20_5m) && s.sma20_5m > 0.0f;
+        const bool bb_valid =
+            s.valid_bb && std::isfinite(s.bb_middle_5m) && s.bb_middle_5m > 0.0f;
+
+        const bool bullish = direction_valid && s.di_plus_5m > s.di_minus_5m;
+        const bool bearish = direction_valid && s.di_minus_5m > s.di_plus_5m;
+
+        const bool above_vwap = price_valid && vwap_valid && s.price > s.session_vwap;
+        const bool below_vwap = price_valid && vwap_valid && s.price < s.session_vwap;
+
+        const bool above_reference =
+            price_valid &&
+            (above_vwap || (sma_valid && s.price > s.sma20_5m) ||
+             (bb_valid && s.price > s.bb_middle_5m));
+        const bool below_reference =
+            price_valid &&
+            (below_vwap || (sma_valid && s.price < s.sma20_5m) ||
+             (bb_valid && s.price < s.bb_middle_5m));
+
+        const bool positive_1m = momentum_valid && s.price > s.previous_close_1m;
+        const bool negative_1m = momentum_valid && s.price < s.previous_close_1m;
+
+        std::uint32_t flags = 0;
+        if (bullish) flags |= kBullishDirection;
+        if (bearish) flags |= kBearishDirection;
+        if (positive_1m) flags |= kPositiveMomentum;
+        if (negative_1m) flags |= kNegativeMomentum;
+        if (above_vwap) flags |= kAboveVwap;
+        if (below_vwap) flags |= kBelowVwap;
+
+        // The mandatory shared entry contract (directive §28). Necessary, not
+        // sufficient, for an order — portfolio/risk gates still apply downstream.
+        if (bullish && above_reference && positive_1m) flags |= kEntryQualified;
+        if (bearish && below_reference && negative_1m) flags |= kTechnicalExit;
+        if (!price_valid || !direction_valid || !momentum_valid ||
+            !(vwap_valid || sma_valid || bb_valid)) {
+            flags |= kDataInvalid;
+        }
+        r.flags = flags;
+
+        r.momentum_1m_pct = momentum_valid
+                                ? (s.price / s.previous_close_1m - 1.0f) * 100.0f
+                                : std::nanf("");
+        r.directional_strength =
+            direction_valid ? s.di_plus_5m - s.di_minus_5m : std::nanf("");
+        r.vwap_distance_pct =
+            (price_valid && vwap_valid)
+                ? (s.price / s.session_vwap - 1.0f) * 100.0f
+                : std::nanf("");
+
+        out[i] = r;
+    }
+    return out;
+}
+
 }  // namespace trading::metal::cpu_ref

@@ -82,6 +82,53 @@ struct KernelInfo {
 // Monotonic runtime counters. Everything the live dashboard and the
 // live_gpu_execution_trace evidence need in order to prove the GPU is actually
 // doing operational work (directive §11/§20). All counts are cumulative.
+// ---------------------------------------------------------------------------
+// Individual-ticker screening contract (Phase B).
+//
+// The host-side mirror of metal/opportunity_screening.metal. Layout MUST match
+// the Metal struct byte-for-byte (all fields are 4-byte float/uint, no padding).
+// This encodes the mandatory shared qualification contract (directive §11/§12):
+//   entry_eligible = valid_market && valid_5m_direction && valid_1m &&
+//                    di_plus_5m > di_minus_5m &&
+//                    (above_vwap || above_sma20_5m || above_bb_middle_5m) &&
+//                    current_price_1m > previous_close_1m
+// evaluated identically on GPU (Metal) and CPU (the oracle / fallback).
+// ---------------------------------------------------------------------------
+enum ScreenFlag : std::uint32_t {
+    kEntryQualified = 1u << 0,
+    kTechnicalExit = 1u << 1,
+    kBullishDirection = 1u << 2,
+    kBearishDirection = 1u << 3,
+    kPositiveMomentum = 1u << 4,
+    kNegativeMomentum = 1u << 5,
+    kAboveVwap = 1u << 6,
+    kBelowVwap = 1u << 7,
+    kDataInvalid = 1u << 8,
+};
+
+struct ScreeningInput {
+    float price{0.0f};
+    float previous_close_1m{0.0f};
+    float di_plus_5m{0.0f};
+    float di_minus_5m{0.0f};
+    float session_vwap{0.0f};
+    float sma20_5m{0.0f};
+    float bb_middle_5m{0.0f};
+    std::uint32_t valid_market{0};
+    std::uint32_t valid_direction{0};
+    std::uint32_t valid_1m{0};
+    std::uint32_t valid_vwap{0};
+    std::uint32_t valid_sma{0};
+    std::uint32_t valid_bb{0};
+};
+
+struct ScreeningOutput {
+    std::uint32_t flags{0};
+    float momentum_1m_pct{0.0f};
+    float directional_strength{0.0f};
+    float vwap_distance_pct{0.0f};
+};
+
 struct RuntimeTelemetry {
     std::uint64_t dispatches_submitted{0};
     std::uint64_t dispatches_completed{0};

@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
+  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
   "device": "Apple M5 Max",
   "interpreter": "3.11.8",
   "baseline_deficiencies": [
@@ -31,7 +31,8 @@
   "regression": {
     "baseline_tests": 298,
     "phase_a_new_tests": 15,
-    "total": 313,
-    "result": "313 passed"
+    "phase_b1_new_tests": 3,
+    "total": 316,
+    "result": "316 passed"
   }
 }

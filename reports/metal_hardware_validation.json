@@ -1,14 +1,15 @@
 {
-  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
+  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
   "device": "Apple M5 Max",
-  "metallib_path": "/Users/blkpvnthr/.pyenv/versions/3.11.8/lib/python3.11/site-packages/cengine.metallib",
-  "metallib_sha256": "925c00ade207d17003728608b698358c7413cfb19ec6d20ea5c1ce0754dbf6c8",
-  "native_module": "/Users/blkpvnthr/.pyenv/versions/3.11.8/lib/python3.11/site-packages/_cengine_native.cpython-311-darwin.so",
+  "metallib_path": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
+  "metallib_sha256": "aa2aed23b7acfc05feb1445dd3c664ea7a37ea19285af2fd95fa317f2921c64d",
+  "native_module": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/_cengine_native.cpython-311-darwin.so",
   "pipeline_status": {
     "rolling_sma_ticks": true,
     "exponential_moving_average_ticks": true,
     "average_price_oscillator_ticks": true,
     "true_range_ticks": true,
+    "screen_market": true,
     "column_means": true,
     "covariance_matrix": true,
     "ewma_covariance_matrix": true,
@@ -58,17 +59,18 @@
     "true_range_ticks",
     "column_means",
     "covariance_matrix",
-    "ewma_covariance_matrix"
+    "ewma_covariance_matrix",
+    "screen_market"
   ],
   "telemetry": {
-    "dispatches_submitted": 10,
-    "dispatches_completed": 10,
+    "dispatches_submitted": 11,
+    "dispatches_completed": 11,
     "dispatch_failures": 0,
     "pipeline_cache_hits": 3,
-    "pipeline_cache_misses": 7,
-    "pipeline_cache_hit_rate": 0.3,
+    "pipeline_cache_misses": 8,
+    "pipeline_cache_hit_rate": 0.2727,
     "buffers_allocated": 8,
-    "buffers_reused": 30,
-    "mean_dispatch_ms": 0.04647
+    "buffers_reused": 33,
+    "mean_dispatch_ms": 0.02006
   }
 }
