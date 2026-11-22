@@ -60,7 +60,8 @@ set(CENGINE_CORE_SOURCES
   statArb/stat-arb.cpp
   volatility/volatility.cpp
   opportunity_discovery/cpu_reference.cpp
-  opportunity_discovery/kernel_registry.cpp)
+  opportunity_discovery/kernel_registry.cpp
+  opportunity_discovery/discovery_engine.cpp)
 
 if(CENGINE_METAL_ENABLED)
   list(APPEND CENGINE_CORE_SOURCES

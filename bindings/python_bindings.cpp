@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include "opportunity_discovery/discovery_engine.hpp"
 #include "orderbook/orderbook.hpp"
 #include "risk/risk_engine.hpp"
 
@@ -61,6 +62,121 @@ PYBIND11_MODULE(_cengine_native, m) {
         .def("add_limit", &LimitOrderBook::add_limit).def("amend", &LimitOrderBook::amend)
         .def("cancel", &LimitOrderBook::cancel).def("contains", &LimitOrderBook::contains)
         .def_property_readonly("size", &LimitOrderBook::size).def_property_readonly("symbol", &LimitOrderBook::symbol);
+
+    // ------------------------------------------------------------------ Phase B.2
+    // Native market-state ingestion (discovery_engine.hpp). Pure C++ (no Metal),
+    // always available. The supervisor batches IEX observations into these.
+    {
+        using namespace trading::discovery;
+        py::enum_<BarTimeframe>(m, "BarTimeframe")
+            .value("ONE_MINUTE", BarTimeframe::OneMinute)
+            .value("FIVE_MINUTE", BarTimeframe::FiveMinute);
+
+        py::class_<QuoteObs>(m, "QuoteObs")
+            .def(py::init([](std::uint32_t sid, std::uint64_t ts, std::int64_t bid,
+                             std::int64_t ask, std::uint64_t bsz, std::uint64_t asz,
+                             std::uint64_t seq) {
+                     return QuoteObs{sid, ts, bid, ask, bsz, asz, seq};
+                 }),
+                 py::arg("symbol_id"), py::arg("timestamp_ns"), py::arg("bid_ticks"),
+                 py::arg("ask_ticks"), py::arg("bid_size") = 0,
+                 py::arg("ask_size") = 0, py::arg("sequence") = 0)
+            .def_readwrite("symbol_id", &QuoteObs::symbol_id)
+            .def_readwrite("timestamp_ns", &QuoteObs::timestamp_ns)
+            .def_readwrite("bid_ticks", &QuoteObs::bid_ticks)
+            .def_readwrite("ask_ticks", &QuoteObs::ask_ticks)
+            .def_readwrite("bid_size", &QuoteObs::bid_size)
+            .def_readwrite("ask_size", &QuoteObs::ask_size)
+            .def_readwrite("sequence", &QuoteObs::sequence);
+
+        py::class_<TradeObs>(m, "TradeObs")
+            .def(py::init([](std::uint32_t sid, std::uint64_t ts, std::int64_t px,
+                             std::uint64_t sz, std::uint64_t seq) {
+                     return TradeObs{sid, ts, px, sz, seq};
+                 }),
+                 py::arg("symbol_id"), py::arg("timestamp_ns"),
+                 py::arg("price_ticks"), py::arg("size") = 0, py::arg("sequence") = 0)
+            .def_readwrite("symbol_id", &TradeObs::symbol_id)
+            .def_readwrite("timestamp_ns", &TradeObs::timestamp_ns)
+            .def_readwrite("price_ticks", &TradeObs::price_ticks)
+            .def_readwrite("size", &TradeObs::size)
+            .def_readwrite("sequence", &TradeObs::sequence);
+
+        py::class_<BarObs>(m, "BarObs")
+            .def(py::init([](std::uint32_t sid, std::uint64_t ts, std::int64_t o,
+                             std::int64_t h, std::int64_t l, std::int64_t c,
+                             std::int64_t v) {
+                     return BarObs{sid, ts, o, h, l, c, v};
+                 }),
+                 py::arg("symbol_id"), py::arg("timestamp_ns"), py::arg("open_ticks"),
+                 py::arg("high_ticks"), py::arg("low_ticks"), py::arg("close_ticks"),
+                 py::arg("volume") = 0)
+            .def_readwrite("symbol_id", &BarObs::symbol_id)
+            .def_readwrite("timestamp_ns", &BarObs::timestamp_ns)
+            .def_readwrite("open_ticks", &BarObs::open_ticks)
+            .def_readwrite("high_ticks", &BarObs::high_ticks)
+            .def_readwrite("low_ticks", &BarObs::low_ticks)
+            .def_readwrite("close_ticks", &BarObs::close_ticks)
+            .def_readwrite("volume", &BarObs::volume);
+
+        py::class_<SymbolSnapshot>(m, "SymbolSnapshot")
+            .def_readonly("symbol_id", &SymbolSnapshot::symbol_id)
+            .def_readonly("generation", &SymbolSnapshot::generation)
+            .def_readonly("symbol", &SymbolSnapshot::symbol)
+            .def_readonly("active", &SymbolSnapshot::active)
+            .def_readonly("has_quote", &SymbolSnapshot::has_quote)
+            .def_readonly("has_trade", &SymbolSnapshot::has_trade)
+            .def_readonly("bid_ticks", &SymbolSnapshot::bid_ticks)
+            .def_readonly("ask_ticks", &SymbolSnapshot::ask_ticks)
+            .def_readonly("last_trade_ticks", &SymbolSnapshot::last_trade_ticks)
+            .def_readonly("last_obs_ns", &SymbolSnapshot::last_obs_ns)
+            .def_readonly("last_sequence", &SymbolSnapshot::last_sequence)
+            .def_readonly("quote_updates", &SymbolSnapshot::quote_updates)
+            .def_readonly("trade_updates", &SymbolSnapshot::trade_updates)
+            .def_readonly("bars_1m", &SymbolSnapshot::bars_1m)
+            .def_readonly("bars_5m", &SymbolSnapshot::bars_5m)
+            .def_readonly("dirty", &SymbolSnapshot::dirty);
+
+        py::class_<CoverageSummary>(m, "DiscoveryCoverage")
+            .def_readonly("symbols", &CoverageSummary::symbols)
+            .def_readonly("observed", &CoverageSummary::observed)
+            .def_readonly("with_quote", &CoverageSummary::with_quote)
+            .def_readonly("with_trade", &CoverageSummary::with_trade)
+            .def_readonly("with_bars_1m", &CoverageSummary::with_bars_1m)
+            .def_readonly("with_bars_5m", &CoverageSummary::with_bars_5m)
+            .def_readonly("dirty", &CoverageSummary::dirty)
+            .def_readonly("membership_version", &CoverageSummary::membership_version)
+            .def_readonly("total_quote_updates", &CoverageSummary::total_quote_updates)
+            .def_readonly("total_trade_updates", &CoverageSummary::total_trade_updates)
+            .def_readonly("total_bar_updates", &CoverageSummary::total_bar_updates)
+            .def_readonly("rejected", &CoverageSummary::rejected);
+
+        py::class_<DiscoveryEngine>(m, "DiscoveryEngine")
+            .def(py::init<std::size_t, std::int64_t>(),
+                 py::arg("bar_capacity") = 512,
+                 py::arg("price_scale") = kDefaultPriceScale)
+            .def("update_membership", &DiscoveryEngine::update_membership,
+                 py::arg("symbols"))
+            .def("symbol_id", &DiscoveryEngine::symbol_id, py::arg("symbol"))
+            .def("symbol_name", &DiscoveryEngine::symbol_name, py::arg("symbol_id"))
+            .def("generation", &DiscoveryEngine::generation, py::arg("symbol_id"))
+            .def_property_readonly("membership_version",
+                                   &DiscoveryEngine::membership_version)
+            .def_property_readonly("symbol_count", &DiscoveryEngine::symbol_count)
+            .def("symbols", &DiscoveryEngine::symbols)
+            .def("ingest_quotes", &DiscoveryEngine::ingest_quotes, py::arg("quotes"),
+                 py::call_guard<py::gil_scoped_release>())
+            .def("ingest_trades", &DiscoveryEngine::ingest_trades, py::arg("trades"),
+                 py::call_guard<py::gil_scoped_release>())
+            .def("ingest_bars", &DiscoveryEngine::ingest_bars, py::arg("bars"),
+                 py::arg("timeframe"), py::call_guard<py::gil_scoped_release>())
+            .def("dirty_symbols", &DiscoveryEngine::dirty_symbols)
+            .def("clear_dirty", &DiscoveryEngine::clear_dirty)
+            .def("snapshot", &DiscoveryEngine::snapshot, py::arg("symbol_id"))
+            .def("last_bar_close", &DiscoveryEngine::last_bar_close,
+                 py::arg("symbol_id"), py::arg("timeframe"))
+            .def("coverage", &DiscoveryEngine::coverage);
+    }
 
     register_discovery(m);
 }

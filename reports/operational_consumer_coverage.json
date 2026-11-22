@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T20:11:19.409059+00:00",
+  "recorded_utc": "2026-11-22T20:22:26.258452+00:00",
   "operationally_consumed_count": 0,
   "note": "HONEST STATUS: 8 kernels are host-callable, hardware-executed and CPU-parity-validated, but NONE are yet operationally consumed on the live screening path (consumer_connected=0). `intended_consumer` names the planned consumer; `operationally_consumed` records real wiring, set only when a live consumer dispatches the kernel (directive \u00a780/\u00a786). Operational consumption is wired in Phase B.5 (scanner) and Phase D/E.",
   "kernels": {

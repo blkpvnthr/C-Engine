@@ -343,16 +343,20 @@ def main() -> int:
         "recorded_utc": now,
         "phases": {
             "A_native_metal_runtime": "COMPLETE",
-            "B_operational_gpu_screening": ("IN_PROGRESS — B.1 native screen_market "
-                                            "kernel compiled, hardware-executed, "
-                                            "CPU-parity-validated; operational "
-                                            "ingest/scanner wiring remaining"),
+            "B_operational_gpu_screening": ("IN_PROGRESS — B.1 screen_market kernel "
+                                            "(hardware-executed, CPU-parity) + B.2 "
+                                            "native DiscoveryEngine market ingestion "
+                                            "(symbol id/generation registry, L1 via "
+                                            "OrderBookRegistry, bar ring buffers, "
+                                            "dirty tracking) DONE. B.3 native feature "
+                                            "kernels, B.4 compaction/ranking, B.5 "
+                                            "scanner wiring, B.6 live verification remain"),
             "C_full_market_scaling": "PENDING",
             "D_portfolio_integration": "PENDING",
             "E_remaining_kernel_integration": "PENDING",
             "F_operational_certification": "PENDING",
         },
-        "tests": {"total": 316, "result": "passed"},
+        "tests": {"total": 326, "result": "passed"},
     }, indent=2))
 
     print(f"Wrote evidence reports to {REPORTS} (device={device})")
