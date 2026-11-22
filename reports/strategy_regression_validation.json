@@ -1,0 +1,29 @@
+{
+  "recorded_utc": "2026-11-22T22:18:36.821312+00:00",
+  "test_file": "tests/test_strategy_regression.py (9 passed)",
+  "strategies_covered": {
+    "TurtleStrategy": [
+      "breakout->LONG",
+      "no signal before entry_lookback",
+      "invalid bar rejected"
+    ],
+    "DualMAStrategy": [
+      "cross-up->LONG",
+      "no signal before slow_period",
+      "invalid bar rejected"
+    ],
+    "APOMeanReversionStrategy": [
+      "warm-up guard (no premature signal)",
+      "contrarian LONG on decline",
+      "invalid bar rejected"
+    ]
+  },
+  "other_invariants_covered_elsewhere": {
+    "exposure_authorization": "tests/test_exposure_gate.py",
+    "duplicate_intent_prevention": "order_manager DuplicateClientOrderId (tests/test_order_lifecycle.py)",
+    "exit_independence": "tests/test_candidate_router.py (exit wins over opposed entry)",
+    "native_risk_rejection": "order_manager risk path (tests/test_order_lifecycle.py)",
+    "mandatory_entry_contract": "screen_market / cpu_ref (tests/test_native_metal_runtime.py)"
+  },
+  "note": "Correctness/regression coverage only; establishes NO profitability claim. DIBB remains off-by-default (CENGINE_DIBB_ENABLED); no new strategies activated."
+}
