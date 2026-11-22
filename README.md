@@ -13,7 +13,9 @@ The architecture uses Apple Metal as the primary broad-market numerical compute 
 - **SIP is the verified operational feed** (`tools/sip_verify.py`: REST + WebSocket authenticated against the real account). Historical SIP certification harness (`tools/phase_b_certify.py`) has driven real SIP bars through the full pipeline; **real-time session certification is pending an eligible market session**.
 - Regression suite: **353 tests passing**.
 
-In progress / not yet certified: the adaptive four-tier subscription manager (current cap is a flat 250 symbols on SIP), full master-universe membership acquisition, operational portfolio-optimizer consumers, the remaining Metal kernels, the unified dashboard, and out-of-sample/live-readiness certification. Nodes marked *(target)* below are not certified production capabilities.
+- **Operational discovery runs over the master universe.** The scanner's discovery source is the deduplicated master-universe membership (5,651 members incl. the 56 curated ETFs; ~5,616 tradable), feeding the already-wired GPU feature_provider (`screen_market` + `technical_features`), GPU `rank_candidates`, the sole `UniversePublisher`, and the exposure-authorization gate in `CandidateRouter` — not the legacy flat list. A traceable path from membership → metadata → authorization → `OrderManager` → mock fill is validated per instrument category (equity / broad / sector / leveraged-bull / inverse / leveraged-inverse).
+
+In progress / not yet certified: the adaptive four-tier subscription manager is built and tested but is **not yet the live SIP-socket owner** (per-tick evaluation is still bounded by the scanner's subscription window); automatic master-universe historical warm-up scheduling; operational portfolio-optimizer consumers; the remaining Metal kernels; the regime engine and five-family strategy consolidation; the unified dashboard; and out-of-sample/**real-time SIP session** certification. Nodes marked *(target)* below are not certified production capabilities.
 
 ## Architecture
 
