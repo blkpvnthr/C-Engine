@@ -310,6 +310,44 @@ std::optional<float> DiscoveryEngine::last_bar_close(std::uint32_t id,
     return buf.back().close;
 }
 
+BarWindow DiscoveryEngine::export_bar_window(
+    const std::vector<std::uint32_t>& ids, BarTimeframe tf,
+    std::uint32_t window) const {
+    std::lock_guard<std::mutex> lk(impl_->mtx);
+    BarWindow w;
+    w.max_window = window == 0 ? 1 : window;
+    w.symbol_count = static_cast<std::uint32_t>(ids.size());
+    const std::size_t cells =
+        static_cast<std::size_t>(w.symbol_count) * w.max_window;
+    w.closes.assign(cells, 0.0f);
+    w.highs.assign(cells, 0.0f);
+    w.lows.assign(cells, 0.0f);
+    w.volumes.assign(cells, 0.0f);
+    w.counts.assign(w.symbol_count, 0u);
+
+    for (std::uint32_t row = 0; row < ids.size(); ++row) {
+        const std::uint32_t id = ids[row];
+        if (id >= impl_->records.size()) continue;
+        const auto& buf = tf == BarTimeframe::OneMinute
+                              ? impl_->records[id].bars_1m
+                              : impl_->records[id].bars_5m;
+        const std::size_t avail = buf.size();
+        const std::size_t take =
+            avail < w.max_window ? avail : static_cast<std::size_t>(w.max_window);
+        const std::size_t start = avail - take;  // last `take` bars, chronological
+        const std::size_t base = static_cast<std::size_t>(row) * w.max_window;
+        for (std::size_t i = 0; i < take; ++i) {
+            const analytics::Bar& b = buf[start + i];
+            w.closes[base + i] = b.close;
+            w.highs[base + i] = b.high;
+            w.lows[base + i] = b.low;
+            w.volumes[base + i] = b.volume;
+        }
+        w.counts[row] = static_cast<std::uint32_t>(take);
+    }
+    return w;
+}
+
 CoverageSummary DiscoveryEngine::coverage() const {
     std::lock_guard<std::mutex> lk(impl_->mtx);
     CoverageSummary c;

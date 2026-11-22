@@ -137,6 +137,15 @@ PYBIND11_MODULE(_cengine_native, m) {
             .def_readonly("bars_5m", &SymbolSnapshot::bars_5m)
             .def_readonly("dirty", &SymbolSnapshot::dirty);
 
+        py::class_<BarWindow>(m, "BarWindow")
+            .def_readonly("closes", &BarWindow::closes)
+            .def_readonly("highs", &BarWindow::highs)
+            .def_readonly("lows", &BarWindow::lows)
+            .def_readonly("volumes", &BarWindow::volumes)
+            .def_readonly("counts", &BarWindow::counts)
+            .def_readonly("symbol_count", &BarWindow::symbol_count)
+            .def_readonly("max_window", &BarWindow::max_window);
+
         py::class_<CoverageSummary>(m, "DiscoveryCoverage")
             .def_readonly("symbols", &CoverageSummary::symbols)
             .def_readonly("observed", &CoverageSummary::observed)
@@ -175,6 +184,9 @@ PYBIND11_MODULE(_cengine_native, m) {
             .def("snapshot", &DiscoveryEngine::snapshot, py::arg("symbol_id"))
             .def("last_bar_close", &DiscoveryEngine::last_bar_close,
                  py::arg("symbol_id"), py::arg("timeframe"))
+            .def("export_bar_window", &DiscoveryEngine::export_bar_window,
+                 py::arg("ids"), py::arg("timeframe"), py::arg("window"),
+                 py::call_guard<py::gil_scoped_release>())
             .def("coverage", &DiscoveryEngine::coverage);
     }
 

@@ -94,6 +94,20 @@ struct SymbolSnapshot {
     bool dirty{false};
 };
 
+// --- batched bar-window export (feeds the B.3 technical_features kernel) -----
+// Row-major (symbol_count * max_window) float matrices of the last `window` bars
+// for the requested symbol ids, ready to pass straight to
+// MetalRuntime.technical_features. counts[row] is the valid bar depth.
+struct BarWindow {
+    std::vector<float> closes;
+    std::vector<float> highs;
+    std::vector<float> lows;
+    std::vector<float> volumes;
+    std::vector<std::uint32_t> counts;
+    std::uint32_t symbol_count{0};
+    std::uint32_t max_window{0};
+};
+
 // --- coverage summary (telemetry) -------------------------------------------
 struct CoverageSummary {
     std::size_t symbols{0};          // active symbols
@@ -154,6 +168,13 @@ public:
                                                    BarTimeframe tf) const;
     [[nodiscard]] std::optional<float> last_bar_close(std::uint32_t id,
                                                       BarTimeframe tf) const;
+
+    // Export the last `window` bars for `ids` as a row-major matrix (one row per
+    // requested id, in order). Rows for unknown ids are left empty (count 0).
+    [[nodiscard]] BarWindow export_bar_window(
+        const std::vector<std::uint32_t>& ids, BarTimeframe tf,
+        std::uint32_t window) const;
+
     [[nodiscard]] CoverageSummary coverage() const;
 
 private:
