@@ -23,7 +23,8 @@ class SubscriptionPlan:
     to_add: list[str] = field(default_factory=list)    # target - current
     to_remove: list[str] = field(default_factory=list)  # current - target
     dropped: list[str] = field(default_factory=list)    # symbols that did not fit the cap
-    mandatory_dropped: list[str] = field(default_factory=list)  # mandatory symbols dropped (loud warn)
+    # mandatory symbols dropped (loud warn)
+    mandatory_dropped: list[str] = field(default_factory=list)
     overflow: bool = False                              # True if anything was dropped for the cap
     active: int = 0
     available: int = 0

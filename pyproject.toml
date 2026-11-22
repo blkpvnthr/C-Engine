@@ -35,6 +35,10 @@ pythonpath = ["."]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# `iex/` is a vendored THIRD-PARTY nested git repository (its own .git + history),
+# not part of C-Engine's own source. It is excluded from project linting as vendored
+# code — this is not a suppression of C-Engine's own lint (all first-party code is clean).
+extend-exclude = ["iex"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]

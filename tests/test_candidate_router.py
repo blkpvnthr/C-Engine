@@ -3,8 +3,8 @@ import pytest
 from cengine.execution_policy import ConfiguredExecutionPolicy
 from cengine.strategy_state import StrategyStateBook
 from order_manager import OrderType, TimeInForce
-from trade import CandidateRouter
 from strategies import SignalSide, StrategyName, TradeCandidate
+from trade import CandidateRouter
 
 
 class Manager:

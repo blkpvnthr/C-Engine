@@ -148,7 +148,8 @@ def score_candidate(f: CandidateFeatures, market: MarketContext,
 
     # Direction-aware regime alignment (inverse ETFs favored when regime bearish).
     dir_sign = _direction_sign(f.symbol)
-    regime_align = _clip01(0.5 + 0.5 * max(-1.0, min(1.0, (market.regime_score * dir_sign) / 100.0)))
+    regime_align = _clip01(
+        0.5 + 0.5 * max(-1.0, min(1.0, (market.regime_score * dir_sign) / 100.0)))
 
     score = (w.rel_strength * rel_strength + w.momentum * momentum
              + w.volume_expansion * volume_expansion + w.liquidity * liquidity

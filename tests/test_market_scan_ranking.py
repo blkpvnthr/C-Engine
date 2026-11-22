@@ -87,8 +87,10 @@ def test_higher_buy_pressure_scores_higher():
 
 
 def test_higher_seller_exhaustion_scores_higher():
-    lo, _ = score_candidate(_feat(snapshot=_snap(seller_exhaustion=0.0, seller_exhaustion_l1=0.0)), _mkt())
-    hi, _ = score_candidate(_feat(snapshot=_snap(seller_exhaustion=0.9, seller_exhaustion_l1=0.9)), _mkt())
+    lo, _ = score_candidate(_feat(snapshot=_snap(
+        seller_exhaustion=0.0, seller_exhaustion_l1=0.0)), _mkt())
+    hi, _ = score_candidate(_feat(snapshot=_snap(
+        seller_exhaustion=0.9, seller_exhaustion_l1=0.9)), _mkt())
     assert hi > lo
 
 

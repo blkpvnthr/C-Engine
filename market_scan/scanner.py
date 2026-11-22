@@ -23,7 +23,6 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 import amps_v4_regime
-import universe
 from market_scan import discovery as discovery_mod
 from market_scan import ranking as ranking_mod
 from market_scan.config import MarketScanConfig
@@ -232,7 +231,8 @@ class MarketScanner:
             self._log(msg)
             self._errors.append(msg)
         elif plan.dropped:
-            self._log(f"[market-scan] {len(plan.dropped)} candidate(s) rotated out this cycle (cap)")
+            self._log(
+                f"[market-scan] {len(plan.dropped)} candidate(s) rotated out this cycle (cap)")
 
         subscribed = list(plan.target)
         # Evict order-flow accumulators for symbols that rotated out of coverage
@@ -296,8 +296,10 @@ class MarketScanner:
             if cf is not None and getattr(cf, "directional_row", None):
                 ref_rows[r] = cf.directional_row
         label, score, _conf = amps_v4_regime.market_regime(ref_rows, self._regime_cfg)
-        spy = amps_v4_regime.directional_score(ref_rows.get("SPY", {}), self._regime_cfg) if "SPY" in ref_rows else 0.0
-        qqq = amps_v4_regime.directional_score(ref_rows.get("QQQ", {}), self._regime_cfg) if "QQQ" in ref_rows else 0.0
+        spy = amps_v4_regime.directional_score(ref_rows.get(
+            "SPY", {}), self._regime_cfg) if "SPY" in ref_rows else 0.0
+        qqq = amps_v4_regime.directional_score(ref_rows.get(
+            "QQQ", {}), self._regime_cfg) if "QQQ" in ref_rows else 0.0
         spy = 0.0 if spy != spy else spy
         qqq = 0.0 if qqq != qqq else qqq
         sc = 0.0 if (score != score) else float(score)
@@ -379,7 +381,8 @@ class MarketScanner:
         # Healthy requires an actually-live stream AND fresh reference data. Each
         # PUBLISHED candidate is separately gated on its own freshness (so a
         # fresh reference never vouches for a stale candidate).
-        status = STATUS_HEALTHY if (self._subscribe_ok and live and refs_fresh) else STATUS_UNHEALTHY
+        status = STATUS_HEALTHY if (
+            self._subscribe_ok and live and refs_fresh) else STATUS_UNHEALTHY
         if not self._subscribe_ok:
             conn = "disconnected"
         elif live:
@@ -541,6 +544,7 @@ class MarketScanner:
             return {}
         try:
             from datetime import datetime, timedelta, timezone
+
             from alpaca.data.requests import StockBarsRequest
             from alpaca.data.timeframe import TimeFrame
             try:
@@ -565,10 +569,11 @@ class MarketScanner:
                 window_v = vols[-20:] if len(vols) >= 1 else vols
                 window_c = closes[-20:] if len(closes) >= 1 else closes
                 adv = sum(window_v) / len(window_v) if window_v else 0.0
-                addv = (sum(c * v for c, v in zip(window_c, window_v)) / len(window_v)
+                addv = (sum(c * v for c, v in zip(window_c, window_v, strict=False)) / len(window_v)
                         if window_v else 0.0)
                 price = closes[-1]
-                short_mom = (closes[-1] - closes[-6]) / closes[-6] if len(closes) >= 6 and closes[-6] else 0.0
+                short_mom = (closes[-1] - closes[-6]) / \
+                             closes[-6] if len(closes) >= 6 and closes[-6] else 0.0
                 rel_volume = (vols[-1] / adv) if adv > 0 else 1.0
                 stats[sym] = {
                     "price": price, "adv": adv, "addv": addv,

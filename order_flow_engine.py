@@ -35,8 +35,8 @@ from __future__ import annotations
 import logging
 import math
 from collections import deque
-from dataclasses import dataclass, field
-from datetime import datetime, timezone, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Deque, Iterable, Optional, Sequence, Tuple
 
 logger = logging.getLogger(__name__)
@@ -207,7 +207,9 @@ def quote_imbalance(bid_size: float, ask_size: float) -> float:
     return max(-1.0, min(1.0, (bid_size - ask_size) / tot))
 
 
-def spread_metrics(bid: float, ask: float) -> Tuple[Optional[float], Optional[float], Optional[float]]:
+def spread_metrics(
+    bid: float, ask: float,
+) -> Tuple[Optional[float], Optional[float], Optional[float]]:
     """Return (mid, spread, spread_bps) or (None,None,None) if invalid."""
     if bid is None or ask is None or bid <= 0 or ask <= 0 or ask < bid:
         return None, None, None
@@ -277,7 +279,9 @@ def norm_sell_pressure(executed_imb: float, q_imb: float, delta_60s: float, buy_
     return max(0.0, min(1.0, s))
 
 
-def norm_cvd_deterioration(cvd: float, cvd_peak: float, delta_30s: float, delta_300s: float) -> float:
+def norm_cvd_deterioration(
+    cvd: float, cvd_peak: float, delta_30s: float, delta_300s: float,
+) -> float:
     """[0,1]: how far CVD has given back from its peak + near-term delta turning negative."""
     giveback = 0.0
     denom = max(abs(cvd_peak), 1.0)
@@ -320,7 +324,9 @@ def norm_buy_pressure(executed_imb: float, q_imb: float, delta_60s: float, buy_v
     return max(0.0, min(1.0, s))
 
 
-def norm_cvd_improvement(cvd: float, cvd_trough: float, delta_30s: float, delta_300s: float) -> float:
+def norm_cvd_improvement(
+    cvd: float, cvd_trough: float, delta_30s: float, delta_300s: float,
+) -> float:
     """[0,1]: how far CVD has RECOVERED from its trough + near-term delta turning positive.
     Mirror of norm_cvd_deterioration."""
     recovery = 0.0
@@ -449,7 +455,7 @@ def replenishment_score(size_series: Sequence[Tuple[float, float]], now: float,
         return 0.0
     up = 0.0
     tot = 0.0
-    for (_t0, s0), (_t1, s1) in zip(pts, pts[1:]):
+    for (_t0, s0), (_t1, s1) in zip(pts, pts[1:], strict=False):
         d = s1 - s0
         tot += abs(d)
         if d > 0:
@@ -543,7 +549,8 @@ class SymbolOrderFlow:
 
     # ---- ingestion ----
     def on_quote(self, ts: float, bid: float, ask: float, bid_size: float, ask_size: float) -> None:
-        if self._last_quote_ts is not None and ts < self._last_quote_ts - self.cfg.out_of_order_tolerance_s:
+        if (self._last_quote_ts is not None
+                and ts < self._last_quote_ts - self.cfg.out_of_order_tolerance_s):
             return  # badly out of order
         self._last_quote_ts = max(ts, self._last_quote_ts or ts)
         if bid and ask and bid > 0 and ask > 0:
@@ -554,7 +561,8 @@ class SymbolOrderFlow:
     def on_trade(self, ts: float, price: float, size: float, trade_id: Any = None) -> None:
         if price <= 0 or size <= 0:
             return
-        if self._last_trade_ts is not None and ts < self._last_trade_ts - self.cfg.out_of_order_tolerance_s:
+        if (self._last_trade_ts is not None
+                and ts < self._last_trade_ts - self.cfg.out_of_order_tolerance_s):
             return  # badly out of order
         key = (round(ts, 4), round(float(price), 6), round(float(size), 6))
         if key in self._seen_trade_keys:
@@ -563,7 +571,8 @@ class SymbolOrderFlow:
 
         sign = classify_trade(price, self._bid, self._ask, self._last_tick_sign)
         if sign == 0 and self._last_price is not None:
-            sign = 1 if price > self._last_price else (-1 if price < self._last_price else self._last_tick_sign)
+            sign = 1 if price > self._last_price else (-1 if price <
+                                                       self._last_price else self._last_tick_sign)
         if sign in (1, -1):
             self._last_tick_sign = sign
 
@@ -588,7 +597,8 @@ class SymbolOrderFlow:
     # ---- snapshot ----
     def snapshot(self, now: Optional[float] = None) -> OrderFlowSnapshot:
         now = now if now is not None else datetime.now(timezone.utc).timestamp()
-        snap = OrderFlowSnapshot(symbol=self.symbol, ts=datetime.fromtimestamp(now, timezone.utc).isoformat())
+        snap = OrderFlowSnapshot(
+            symbol=self.symbol, ts=datetime.fromtimestamp(now, timezone.utc).isoformat())
         snap.last_trade_age_s = (now - self._last_trade_ts) if self._last_trade_ts else None
         snap.last_quote_age_s = (now - self._last_quote_ts) if self._last_quote_ts else None
 
@@ -656,9 +666,10 @@ class SymbolOrderFlow:
         snap.ask_replenishment = replenishment_score(ask_hist, now, self.cfg.replenish_window_s)
         short_b, short_s = buy_sell_volumes(trades, now, self.cfg.climax_short_s)
         base_b, base_s = buy_sell_volumes(trades, now, self.cfg.climax_baseline_s)
-        snap.volume_climax = volume_climax_score(short_b + short_s, base_b + base_s,
-                                                 self.cfg.climax_short_s, self.cfg.climax_baseline_s,
-                                                 self.cfg.climax_full_ratio)
+        snap.volume_climax = volume_climax_score(
+            short_b + short_s, base_b + base_s,
+            self.cfg.climax_short_s, self.cfg.climax_baseline_s,
+            self.cfg.climax_full_ratio)
         short_delta = signed_delta(trades, now, self.cfg.climax_short_s)
         snap.volume_climax_side = 1 if short_delta > 0 else (-1 if short_delta < 0 else 0)
         snap.seller_exhaustion_l1 = seller_exhaustion_l1(snap.absorption, snap.bid_replenishment,
@@ -749,7 +760,8 @@ class OrderFlowEngine:
         return len(drop)
 
     # ---- direct ingestion (for stream handlers or tests) ----
-    def ingest_trade(self, symbol: str, ts: float, price: float, size: float, trade_id: Any = None) -> None:
+    def ingest_trade(self, symbol: str, ts: float, price: float, size: float,
+                     trade_id: Any = None) -> None:
         self._sym(symbol).on_trade(ts, price, size, trade_id)
 
     def ingest_quote(self, symbol: str, ts: float, bid: float, ask: float,
@@ -760,7 +772,8 @@ class OrderFlowEngine:
         return self._sym(symbol).snapshot(now)
 
     # ---- Alpaca REST poll (IEX) ----
-    def poll_rest(self, symbols: Sequence[str], lookback_s: int = 300) -> dict[str, OrderFlowSnapshot]:
+    def poll_rest(self, symbols: Sequence[str],
+                  lookback_s: int = 300) -> dict[str, OrderFlowSnapshot]:
         """Fetch recent IEX trades + latest quotes for `symbols` and ingest them.
 
         Returns {symbol: snapshot}. Fail-safe: on any error a symbol gets whatever

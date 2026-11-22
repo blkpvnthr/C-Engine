@@ -11,7 +11,6 @@ from typing import Any
 from cengine.metal_indicators import MetalIndicators
 from cengine.metal_runtime import MetalRuntime
 
-
 HOST = "127.0.0.1"
 PORT = 8770
 MAX_BODY_BYTES = 2 * 1024 * 1024
