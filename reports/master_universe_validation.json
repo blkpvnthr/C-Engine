@@ -1,0 +1,52 @@
+{
+  "acceptance_item": "5 - index membership sources (S&P 500 / DJIA) + master universe",
+  "snapshot_version": 1,
+  "snapshot_effective_date": "2026-11-22T23:36:46.302923+00:00",
+  "degraded": false,
+  "counts": {
+    "alpaca_supported": 14426,
+    "tradable": 13509,
+    "fractionable": 7921,
+    "nasdaq_member": 5600,
+    "sp500_member": 503,
+    "djia_member": 30,
+    "configured_member": 57,
+    "master_universe": 5994,
+    "master_tradable": 5958
+  },
+  "index_sources": {
+    "sp500": {
+      "source": "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
+      "retrieved_at": "2026-11-22T23:36:23.666879+00:00",
+      "as_of": "2026-11-22",
+      "count": "503",
+      "status": "configured",
+      "path": "data/sp500.txt",
+      "effective_members": 503
+    },
+    "djia": {
+      "source": "https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average",
+      "retrieved_at": "2026-11-22T23:36:23.666879+00:00",
+      "as_of": "2026-07-31",
+      "count": "30",
+      "status": "configured",
+      "path": "data/djia.txt",
+      "effective_members": 30
+    }
+  },
+  "filtering_rules": {
+    "master_universe": "dedup union(nasdaq \u222a sp500 \u222a djia \u222a configured_etfs) \u2229 provider_supported",
+    "master_tradable": "master_universe \u2229 Alpaca tradable=True"
+  },
+  "provenance": "S&P 500 from datahub.io constituents CSV; DJIA from the Wikipedia components table. Both carry source/retrieved_at/as_of/count headers (tools/fetch_index_constituents.py). Constituents are NEVER fabricated; an absent source reports not_configured (degraded), not inferred.",
+  "distinct_quantities_not_conflated": {
+    "master_membership": 5994,
+    "master_tradable": 5958,
+    "note": "membership and tradability are distinct; neither is warm-up coverage nor actionable opportunity count."
+  },
+  "offline_verification": {
+    "tests/test_membership.py": 8
+  },
+  "status": "CONFIGURED (genuine verifiable sources with provenance)",
+  "recorded_utc": "2026-11-22T23:48:23.993954+00:00"
+}

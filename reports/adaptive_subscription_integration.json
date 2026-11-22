@@ -1,18 +1,17 @@
 {
-  "recorded_utc": "2026-11-22T22:36:53.423835+00:00",
-  "acceptance_item": "2 - adaptive subscription manager controls the authoritative SIP connection",
-  "wiring": {
-    "stream": "market_data/alpaca_stream.py: set_channel_subscriptions() sends per-channel subscribe/unsubscribe frames with DISTINCT bars/trades/quotes symbol lists on the ONE socket; per-channel reconnect via _subscribe_channels; legacy union path unchanged when per-channel state empty (backward compatible).",
-    "controller": "cengine/adaptive_subscription_controller.py: AdaptiveSubscriptionController wraps AdaptiveSubscriptionManager, applies the 4-tier plan to the stream, tracks acks + freshness, reserves protected capacity.",
-    "engine": "trade.py MarketEngine: constructs the controller on SIP + loaded membership (CENGINE_ADAPTIVE_SUBSCRIPTIONS!=0), DISABLES the legacy flat UniverseSubscriptionSync (one authoritative owner), runs _run_adaptive_subscriptions task. Tier1=master universe bars; Tier2/3=canonical candidates + positions/pending trades+quotes; Tier4=positions/pending/refs protected."
-  },
+  "acceptance_item": "2/6 - adaptive subscription management on one SIP socket",
+  "owner": "AdaptiveSubscriptionController is the authoritative owner of the single SIP stock-data connection; legacy flat UniverseSubscriptionSync is disabled when active.",
   "caps_default": {
-    "bars": 4096,
+    "bars": 8192,
     "trades": 1000,
     "quotes": 250
   },
-  "offline_verification": "tests/test_adaptive_subscription_live.py (8): per-channel distinct lists, delta+unsubscribe, per-channel reconnect frame, legacy-path gate, promotion progression (Tier1 bars->Tier2 trades->Tier3 quotes), protected-degraded flag, single-connection invariant.",
-  "status": "OPERATIONALLY_CONNECTED (offline-verified with fake socket)",
-  "pending": "Real-time SIP session certification (live provider acks + observation freshness) is session-gated. No live orders.",
-  "one_connection": true
+  "full_market_bars": "bar cap >= tradable master (~5958) -> simultaneous full-market bar coverage; deterministic rotation when demand exceeds a cap; protected never rotated",
+  "provider_driven": true,
+  "offline_verification": {
+    "tests/test_adaptive_subscriptions.py": 14,
+    "tests/test_adaptive_subscription_live.py": 14
+  },
+  "status": "IMPLEMENTED + offline-verified",
+  "recorded_utc": "2026-11-22T23:48:23.994879+00:00"
 }

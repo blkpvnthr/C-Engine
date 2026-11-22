@@ -1,0 +1,23 @@
+{
+  "acceptance_item": "3 - momentum-gated trade -> quote promotion",
+  "sequence": "fresh bars -> structural screening -> preliminary ranking -> TRADE subscription -> provider ack -> fresh trade observations -> momentum confirmed -> QUOTE subscription -> provider ack -> fresh quote observations -> final entry qualification -> canonical publication",
+  "no_trade_quote_shortcut": true,
+  "mechanism": {
+    "gate": "cengine/gpu_scanner_bridge.py EngineGpuDiscovery.momentum_confirmed(): valid DMI + DI+>DI- + developing 1m momentum>0, computed on the native GPU screen.",
+    "engine": "trade.py _adaptive_tier_inputs(): Tier2(trades)=preliminary ranked; Tier3(quotes)=canonical UNION (fresh-trade symbols that are momentum-confirmed); protected (positions/pending) exempt (all channels)."
+  },
+  "strict_final_entry_contract": [
+    "DI+5m > DI-5m",
+    "price above a valid VWAP/SMA20/BB-mid reference",
+    "developing 1m > previous completed 1m close",
+    "valid+fresh observations",
+    "strategy + exposure + risk auth"
+  ],
+  "offline_verification": {
+    "tests/test_full_discovery_path.py": 2,
+    "tests/test_gpu_scanner_bridge.py::test_momentum_confirmed_gates_uptrend_only": 1
+  },
+  "status": "IMPLEMENTED + offline-verified",
+  "session_gated": "live momentum confirmation from genuine streaming trades",
+  "recorded_utc": "2026-11-22T23:48:23.993511+00:00"
+}
