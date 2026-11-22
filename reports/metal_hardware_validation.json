@@ -1,5 +1,9 @@
 {
+  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
   "device": "Apple M5 Max",
+  "metallib_path": "/Users/blkpvnthr/.pyenv/versions/3.11.8/lib/python3.11/site-packages/cengine.metallib",
+  "metallib_sha256": "925c00ade207d17003728608b698358c7413cfb19ec6d20ea5c1ce0754dbf6c8",
+  "native_module": "/Users/blkpvnthr/.pyenv/versions/3.11.8/lib/python3.11/site-packages/_cengine_native.cpython-311-darwin.so",
   "pipeline_status": {
     "rolling_sma_ticks": true,
     "exponential_moving_average_ticks": true,
@@ -47,41 +51,24 @@
     "combine_threshold_tail_partials": true,
     "normalize_zscores": true
   },
-  "exercised": {
-    "rolling_sma_ticks": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "exact integer parity"
-    },
-    "exponential_moving_average_ticks": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "exact integer parity"
-    },
-    "average_price_oscillator_ticks": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "exact integer parity"
-    },
-    "true_range_ticks": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "exact integer parity"
-    },
-    "covariance_matrix": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "max_abs_diff=4.74e-11"
-    },
-    "column_means": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "executed as part of covariance_matrix pipeline"
-    },
-    "ewma_covariance_matrix": {
-      "executed": true,
-      "parity_ok": true,
-      "detail": "max_abs_diff=8.89e-12"
-    }
+  "hardware_executed_kernels": [
+    "rolling_sma_ticks",
+    "exponential_moving_average_ticks",
+    "average_price_oscillator_ticks",
+    "true_range_ticks",
+    "column_means",
+    "covariance_matrix",
+    "ewma_covariance_matrix"
+  ],
+  "telemetry": {
+    "dispatches_submitted": 10,
+    "dispatches_completed": 10,
+    "dispatch_failures": 0,
+    "pipeline_cache_hits": 3,
+    "pipeline_cache_misses": 7,
+    "pipeline_cache_hit_rate": 0.3,
+    "buffers_allocated": 8,
+    "buffers_reused": 30,
+    "mean_dispatch_ms": 0.04647
   }
 }

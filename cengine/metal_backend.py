@@ -505,16 +505,28 @@ KERNELS: tuple[MetalKernelRegistration, ...] = (
 
 
 def discover_metallib(explicit: str | Path | None = None) -> Optional[Path]:
-    """Locate the compiled cengine.metallib across build directories.
+    """Locate the compiled cengine.metallib.
 
-    Order: explicit arg, CENGINE_METALLIB env, build/, any build*/ (newest mtime),
-    then a recursive repo search (excluding the venv)."""
+    Order: explicit arg, CENGINE_METALLIB env, the metallib installed BESIDE the
+    native ``_cengine_native`` module (authoritative, version-matched to the
+    compiled extension — preferred so a stale build/ artifact is never loaded;
+    architectural correction §2), then build/, any build*/ (newest mtime), then a
+    recursive repo search (excluding the venv)."""
     if explicit:
         p = Path(explicit)
         return p if p.exists() else None
     env = os.environ.get("CENGINE_METALLIB", "").strip()
     if env and Path(env).exists():
         return Path(env)
+    # Authoritative: the metallib installed next to the compiled native module.
+    try:
+        import _cengine_native as _native  # type: ignore[import-not-found]
+
+        beside = Path(_native.__file__).resolve().parent / METALLIB_NAME
+        if beside.exists():
+            return beside
+    except Exception:
+        pass
     candidates: list[Path] = []
     for pat in (f"build/{METALLIB_NAME}", f"build*/{METALLIB_NAME}"):
         candidates += [Path(p) for p in glob.glob(str(REPO_ROOT / pat))]

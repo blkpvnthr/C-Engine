@@ -1,0 +1,37 @@
+{
+  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
+  "device": "Apple M5 Max",
+  "interpreter": "3.11.8",
+  "baseline_deficiencies": [
+    "Metal hosted via PyObjC (synchronous one-shot dispatch, no pipeline cache)",
+    "only 7/45 kernels wired (15.56%)",
+    "zero GPU on the live screening path",
+    "live screening is Python per-symbol loops, capped ~30 symbols"
+  ],
+  "phase_a_corrections": [
+    "native Objective-C++ MetalRuntime (single operational runtime)",
+    "MTLComputePipelineState cache (hit-rate telemetry)",
+    "persistent reusable MTLBuffer pool (shared storage / unified memory)",
+    "async command submission with real completion handlers + semaphore sync",
+    "namespace-aware kernel resolution (bare / gme::)",
+    "native CPU reference oracles + strict parity",
+    "native 45-kernel registry reconciled from live device evidence",
+    "batched pybind11 bindings with GIL release during dispatch",
+    "7 previously-wired kernels executed natively on device with CPU parity",
+    "metallib installed beside module; discovery prefers it (no stale loads)"
+  ],
+  "status": {
+    "NATIVE_METAL_RUNTIME": "COMPLETE",
+    "PIPELINE_CACHE": "COMPLETE",
+    "PERSISTENT_BUFFERS": "COMPLETE",
+    "SEVEN_KERNELS_NATIVE_PARITY": "COMPLETE",
+    "LIVE_GPU_SCREENING_PATH": "PENDING (Phase B)",
+    "MASTER_UNIVERSE_SCALING": "PENDING (Phase C)"
+  },
+  "regression": {
+    "baseline_tests": 298,
+    "phase_a_new_tests": 15,
+    "total": 313,
+    "result": "313 passed"
+  }
+}

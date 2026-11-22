@@ -6,8 +6,13 @@
 namespace py = pybind11;
 using namespace trading;
 
+// Implemented in bindings/discovery_bindings.cpp. Registers the native
+// Objective-C++ Metal runtime + kernel registry on the same module. A no-op
+// stub is provided there for non-Apple builds so this call always links.
+void register_discovery(py::module_& m);
+
 PYBIND11_MODULE(_cengine_native, m) {
-    m.doc() = "C-Engine native risk and order-book boundary";
+    m.doc() = "C-Engine native risk, order-book boundary, and Metal runtime";
     py::enum_<Side>(m, "Side").value("BUY", Side::Buy).value("SELL", Side::Sell);
     py::enum_<RiskDecision>(m, "RiskDecision")
         .value("ACCEPT", RiskDecision::Accept).value("REJECT", RiskDecision::Reject);
@@ -56,4 +61,6 @@ PYBIND11_MODULE(_cengine_native, m) {
         .def("add_limit", &LimitOrderBook::add_limit).def("amend", &LimitOrderBook::amend)
         .def("cancel", &LimitOrderBook::cancel).def("contains", &LimitOrderBook::contains)
         .def_property_readonly("size", &LimitOrderBook::size).def_property_readonly("symbol", &LimitOrderBook::symbol);
+
+    register_discovery(m);
 }

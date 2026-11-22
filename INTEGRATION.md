@@ -248,8 +248,64 @@ against a live broker session (requires valid rotated credentials + Mongo).
 
 ```bash
 cd /Users/blkpvnthr/sustenance
-.venv/bin/python -m pip install -e '.[scan]'   # scanner runtime deps
-.venv/bin/python trade.py --validate            # offline readiness
-.venv/bin/python trade.py --status              # universe + account snapshot
-.venv/bin/python trade.py --paper               # paper autonomous (needs valid creds + Mongo)
+# Canonical interpreter is pyenv Python 3.11.8 (the verified Metal build env),
+# NOT the legacy .venv (3.14). See §6.
+python3 -m pip install -e '.[dev,scan,metal,research,nosql]'  # full stack + native ext (Metal ON)
+python3 trade.py --validate         # offline readiness
+python3 trade.py --validate-metal   # native + legacy Metal report (reports/*.json)
+python3 trade.py --status           # universe + account snapshot
+python3 trade.py --paper            # paper autonomous (needs valid creds + Mongo)
 ```
+
+---
+
+## 6. Native Metal Architectural Correction
+
+The user mandated correcting the deficiency that Apple Metal was PyObjC-hosted,
+only 7/45 kernels were wired, and **no GPU ran on the live screening path**
+(screening was Python per-symbol loops). Work proceeds in Phases A–F; Phase A is
+done and committed.
+
+**Environment (resolved):** the canonical interpreter is **pyenv Python 3.11.8**
+(`/Users/blkpvnthr/.pyenv/versions/3.11.8`), the environment the full
+`CENGINE_COMPILE_METAL=ON` build was verified under (Xcode 27.2, Metal Toolchain
+27B47, metal compiler 32023.922, AppleClang 21.0, pybind11 3.1.0). The native ext
+is `_cengine_native.cpython-311`; the legacy `.venv` (3.14, cpython-314 `.so`) is
+ABI-incompatible and no longer used. See `reports/build_environment.json`.
+
+### Phase A (done): native Objective-C++ Metal runtime
+- **`opportunity_discovery/`** new native module:
+  - `metal_runtime.{hpp,mm}` — the single `trading::metal::MetalRuntime`: owns one
+    MTLDevice/queue/library, a **cached `MTLComputePipelineState`** map
+    (namespace-aware: bare name → `gme::<name>`), **async** submission with a real
+    `addCompletedHandler` + semaphore sync, GPU-time/cache/fallback telemetry, and
+    `available()`/`reason()` CPU-fallback gating.
+  - `metal_buffers.{hpp,mm}` — a **persistent shared-storage buffer pool** (best-fit
+    reuse; no per-call allocation).
+  - `cpu_reference.{hpp,cpp}` — native CPU oracles mirroring the kernels exactly.
+  - `kernel_registry.{hpp,cpp}` — native 45-kernel inventory reconciled from live
+    device evidence (lifecycle states, coverage, JSON).
+  - `screening_types.hpp` — POD runtime/telemetry/registry types.
+- **CMake**: `CENGINE_COMPILE_METAL` now defaults **ON** on Apple when the toolchain
+  is present; compiles the `.mm` (OBJCXX) + shaders, links `-framework Metal
+  -framework Foundation`, and `install()`s the metallib **beside the module**;
+  `metal_backend.discover_metallib` prefers that copy (no stale-artifact loads).
+- **Bindings**: `bindings/discovery_bindings.cpp` exposes `MetalRuntime`,
+  `KernelRegistry`, `RuntimeTelemetry` on `_cengine_native`, releasing the GIL
+  during dispatch.
+- **Validated on Apple M5 Max**: the 7 previously-wired kernels execute natively
+  with **exact integer parity** (sma/ema/apo/true_range) and covariance/EWMA parity
+  `< 1e-6`; pipeline cache + buffer reuse confirmed; **native-vs-legacy-PyObjC parity**
+  proven. Tests: `tests/test_native_metal_runtime.py` (15), full suite **313 passed**
+  (298 baseline + 15). Evidence: `reports/{architecture_correction,metal_kernel_inventory,
+  metal_kernel_coverage,metal_hardware_validation,metal_cpu_parity,
+  operational_consumer_coverage,build_environment,native_library_identity,
+  shader_library_identity,implementation_progress}.json`. Legacy PyObjC reports kept
+  as `*_pyobjc.json` for regression.
+
+### Phases B–F (pending)
+B: new discovery kernels (DMI/ADX/Bollinger/VWAP/ATR/rel-vol/1m-momentum/entry+exit
+masks/compaction/ranking/breadth) + the live IEX→native→GPU→scanner pathway.
+C: full NASDAQ∪SP500∪DJIA master universe + batched IEX REST (fix the broken
+fetchers; add DJIA). D: GPU covariance→optimizer→sizing. E: remaining 38 kernels.
+F: 1-second dashboard, `--benchmark-discovery`, backtest/replay/research, certification.

@@ -254,8 +254,14 @@ def write_reports(
             "blocked",
         )
     }
-    (out / "metal_integration_coverage.json").write_text(json.dumps(coverage, indent=2))
-    (out / "metal_hardware_validation.json").write_text(
+    # NOTE: these are the LEGACY PyObjC-path reports, retained for regression
+    # comparison during the native-runtime migration (architectural correction
+    # §4). They use a `_pyobjc` suffix so the native Phase A reports
+    # (metal_hardware_validation.json, metal_cpu_parity.json, metal_kernel_*.json
+    # — written by tools/metal_evidence.py from the native MetalRuntime) own the
+    # canonical filenames and are never clobbered by this legacy path.
+    (out / "metal_integration_coverage_pyobjc.json").write_text(json.dumps(coverage, indent=2))
+    (out / "metal_hardware_validation_pyobjc.json").write_text(
         json.dumps(
             {
                 "device": validation["device"],
@@ -265,7 +271,7 @@ def write_reports(
             indent=2,
         )
     )
-    (out / "metal_cpu_gpu_parity.json").write_text(
+    (out / "metal_cpu_gpu_parity_pyobjc.json").write_text(
         json.dumps(
             {
                 "device": validation["device"],
@@ -274,4 +280,4 @@ def write_reports(
             indent=2,
         )
     )
-    (out / "metal_performance_benchmarks.json").write_text(json.dumps(benchmarks, indent=2))
+    (out / "metal_performance_benchmarks_pyobjc.json").write_text(json.dumps(benchmarks, indent=2))

@@ -1,0 +1,276 @@
+{
+  "recorded_utc": "2026-11-22T19:32:19.429727+00:00",
+  "note": "Phase A wires the 7 indicator/covariance kernels to the native runtime host. Full operational consumption via the discovery engine arrives in Phase B; the 38 others are research/blocked with documented reasons.",
+  "kernels": {
+    "rolling_sma_ticks": {
+      "host_interface": "MetalRuntime.sma",
+      "consumer": "technical_features,strategies,scanner",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "exponential_moving_average_ticks": {
+      "host_interface": "MetalRuntime.ema",
+      "consumer": "technical_features,strategies",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "average_price_oscillator_ticks": {
+      "host_interface": "MetalRuntime.apo",
+      "consumer": "technical_features,apo_strategy",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "true_range_ticks": {
+      "host_interface": "MetalRuntime.true_range",
+      "consumer": "technical_features,atr,di_bb",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "column_means": {
+      "host_interface": "MetalRuntime.column_means",
+      "consumer": "portfolio_optimizer",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "covariance_matrix": {
+      "host_interface": "MetalRuntime.covariance_matrix",
+      "consumer": "portfolio_optimizer,risk_manager",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "ewma_covariance_matrix": {
+      "host_interface": "MetalRuntime.ewma_covariance_matrix",
+      "consumer": "portfolio_optimizer,regime",
+      "mode": "operational",
+      "blocker": ""
+    },
+    "statarb_pair_regression": {
+      "host_interface": "",
+      "consumer": "statarb_research",
+      "mode": "research",
+      "blocker": "structured StatArb ABI; research-only, not yet wired"
+    },
+    "statarb_residual_series": {
+      "host_interface": "",
+      "consumer": "statarb_research",
+      "mode": "research",
+      "blocker": "structured StatArb ABI; research-only, not yet wired"
+    },
+    "volatility_factor_features": {
+      "host_interface": "",
+      "consumer": "regime_research",
+      "mode": "research",
+      "blocker": "structured factor ABI; not yet wired"
+    },
+    "statarb_normalized_weights": {
+      "host_interface": "",
+      "consumer": "statarb_research",
+      "mode": "research",
+      "blocker": "long-only engine; statarb weights research-only"
+    },
+    "generate_standard_normals": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "MonteCarloParams ulong ABI; wiring pending"
+    },
+    "correlate_normals": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "structured Cholesky ABI; pipeline not yet wired"
+    },
+    "generate_correlated_returns": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "depends on correlate_normals; not wired"
+    },
+    "portfolio_scenario_pnl": {
+      "host_interface": "",
+      "consumer": "portfolio_risk",
+      "mode": "research",
+      "blocker": "multi-stage MC pipeline; not wired"
+    },
+    "statarb_pair_monte_carlo": {
+      "host_interface": "",
+      "consumer": "statarb_research",
+      "mode": "research",
+      "blocker": "research-only; not wired"
+    },
+    "simulate_portfolio_paths": {
+      "host_interface": "",
+      "consumer": "research",
+      "mode": "research",
+      "blocker": "multi-stage MC pipeline; not wired"
+    },
+    "pnl_to_loss": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "MC aggregation stage; not wired"
+    },
+    "extract_scenario_pnl": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "MC aggregation stage; not wired"
+    },
+    "extract_pair_pnl": {
+      "host_interface": "",
+      "consumer": "statarb_research",
+      "mode": "research",
+      "blocker": "MC aggregation stage; not wired"
+    },
+    "tail_moment_partials": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "feeds reduce_* combine stage; not wired"
+    },
+    "threshold_tail_partials": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "feeds reduce_threshold_tail; not wired"
+    },
+    "apply_stress_shocks": {
+      "host_interface": "",
+      "consumer": "stress_testing",
+      "mode": "research",
+      "blocker": "structured stress ABI; not wired"
+    },
+    "validate_depth_snapshots": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "blocked",
+      "blocker": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    "compute_level_imbalance": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "blocked",
+      "blocker": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    "compute_imbalance_features": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "blocked",
+      "blocker": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    "compute_top_level_imbalance": {
+      "host_interface": "",
+      "consumer": "order_flow,scanner",
+      "mode": "research",
+      "blocker": "L1-compatible; structured depth ABI wiring pending"
+    },
+    "compute_weighted_depth_imbalance": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "blocked",
+      "blocker": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    "compute_depth_shape": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "blocked",
+      "blocker": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    "compute_pair_pressure_features": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "blocked",
+      "blocker": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    "reduce_sum_partials": {
+      "host_interface": "",
+      "consumer": "aggregation,portfolio_stats",
+      "mode": "research",
+      "blocker": "two-stage partial/combine pipeline wiring pending"
+    },
+    "reduce_moment_partials": {
+      "host_interface": "",
+      "consumer": "statistics,volatility",
+      "mode": "research",
+      "blocker": "two-stage partial/combine pipeline wiring pending"
+    },
+    "reduce_minmax_partials": {
+      "host_interface": "",
+      "consumer": "statistics",
+      "mode": "research",
+      "blocker": "two-stage partial/combine pipeline wiring pending"
+    },
+    "reduce_dot_partials": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "combine stage wiring pending"
+    },
+    "reduce_covariance_sufficient_partials": {
+      "host_interface": "",
+      "consumer": "portfolio_optimizer",
+      "mode": "research",
+      "blocker": "pairs with combine_covariance_partials; pending"
+    },
+    "reduce_matrix_column_partials": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "combine stage wiring pending"
+    },
+    "reduce_pnl_partials": {
+      "host_interface": "",
+      "consumer": "portfolio_stats",
+      "mode": "research",
+      "blocker": "pairs with combine_pnl_partials; pending"
+    },
+    "reduce_threshold_tail_partials": {
+      "host_interface": "",
+      "consumer": "risk_scenarios",
+      "mode": "research",
+      "blocker": "pairs with combine_threshold_tail; pending"
+    },
+    "reduce_validation_counts": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "combine stage wiring pending"
+    },
+    "reduce_histogram_partials": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "combine stage wiring pending"
+    },
+    "combine_sum_partials": {
+      "host_interface": "",
+      "consumer": "aggregation",
+      "mode": "research",
+      "blocker": "second stage of reduce_sum; pending"
+    },
+    "combine_covariance_partials": {
+      "host_interface": "",
+      "consumer": "portfolio_optimizer",
+      "mode": "research",
+      "blocker": "second stage; pending"
+    },
+    "combine_pnl_partials": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "second stage; pending"
+    },
+    "combine_threshold_tail_partials": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "second stage; pending"
+    },
+    "normalize_zscores": {
+      "host_interface": "",
+      "consumer": "",
+      "mode": "research",
+      "blocker": "combine stage wiring pending"
+    }
+  }
+}
