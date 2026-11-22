@@ -1,0 +1,49 @@
+{
+  "recorded_utc": "2026-11-22T22:51:55.341510+00:00",
+  "acceptance_items": [
+    "3 - full-scale native symbol registration of the master universe",
+    "6 - live trade/quote promotion lifecycle driven by observed flow"
+  ],
+  "item_3": {
+    "wiring": {
+      "bridge": "cengine/gpu_scanner_bridge.py: EngineGpuDiscovery.register_universe(symbols) bulk-registers the whole master universe into the native DiscoveryEngine up front (grows-only, normalizes+dedups, idempotent); universe_size property exposes the count.",
+      "engine": "trade.py MarketEngine.__init__: after warm-up setup, on GPU discovery + loaded membership (CENGINE_NATIVE_REGISTER_FULL!=0), registers tradable_master_symbols()[:CENGINE_NATIVE_MAX_SYMBOLS] so GPU breadth/compaction/screen kernels see the WHOLE market from the first tick, not just the subset that happened to stream/scan."
+    },
+    "measured_full_scale_run": {
+      "registered": 5601,
+      "universe_size": 5601,
+      "backend": "metal",
+      "register_seconds": 0.005,
+      "sample_symbol_ids": [
+        0,
+        2800,
+        5600
+      ],
+      "all_sample_ids_resolved": true,
+      "reregister_added": 0,
+      "note": "Real in-process run (Apple M5 Max, Metal backend). 5601 == tradable master size. Not fabricated."
+    },
+    "config": {
+      "CENGINE_NATIVE_REGISTER_FULL": "1 (default on; 0 disables)",
+      "CENGINE_NATIVE_MAX_SYMBOLS": "20000 (default cap; effectively full master)"
+    },
+    "offline_verification": "tests/test_gpu_scanner_bridge.py: test_register_universe_full_scale_up_front (500 members, ids resolve, grows-only, idempotent, lazy latecomer still extends), test_register_universe_normalizes_and_skips_blanks."
+  },
+  "item_6": {
+    "wiring": {
+      "tap": "trade.py _publish_market_event: every observed bar/trade/quote tick feeds AdaptiveSubscriptionController.on_observation(Channel, symbol, time.monotonic()); unknown/unsubscribed symbols are a cheap no-op in the manager.",
+      "promotion": "A requested (symbol, channel) advances WARMING_UP -> FRESH ONLY on real data arrival for that channel (per-channel, independent).",
+      "demotion": "_run_adaptive_subscriptions calls controller.mark_stale(now) each tick: a FRESH channel silent past manager.stale_after_s (20s) demotes to STALE. Symmetric lifecycle: flow promotes, silence demotes."
+    },
+    "offline_verification": "tests/test_adaptive_subscription_live.py: test_observation_promotes_warming_to_fresh (per-channel FRESH only on that channel's tick), test_observation_of_unsubscribed_symbol_is_ignored, test_stale_demotes_fresh_after_window (stale bars demote, still-ticking trades stay fresh)."
+  },
+  "test_suite": "431 passed (was 426; +5: 2 item-3 bridge, 3 item-6 lifecycle).",
+  "status": "OPERATIONALLY_WIRED (offline-verified; item-3 full-scale registration measured in-process).",
+  "pending": "Real-time SIP session certification (live provider acks + live observation freshness end-to-end) remains session-gated \u2014 market-hours live run. No live orders during validation.",
+  "invariants_preserved": [
+    "one SIP socket / one scanner / one UniversePublisher / one OrderManager",
+    "GPU discovery never authorizes orders (advisory only)",
+    "-0.5% protection independence untouched",
+    "discovery universe grows-only (never shrinks mid-session)"
+  ]
+}

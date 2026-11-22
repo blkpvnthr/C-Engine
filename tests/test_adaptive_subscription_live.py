@@ -13,7 +13,7 @@ import pytest
 
 from cengine.adaptive_subscription_controller import AdaptiveSubscriptionController
 from market_data.alpaca_stream import AlpacaMarketDataStream, ConnectionState
-from market_scan.adaptive_subscriptions import ChannelCaps
+from market_scan.adaptive_subscriptions import Channel, ChannelCaps, SubState
 
 
 class _FakeSocket:
@@ -121,3 +121,55 @@ async def test_controller_single_connection_only():
     ctl = AdaptiveSubscriptionController(s)
     await ctl.apply(tier1_bars=["AAA"], now=0.0)
     assert ctl._stream is s
+
+
+# ------------------------------------------- live trade/quote promotion lifecycle
+def _state(ctl, channel, sym):
+    sub = ctl.manager._subs.get((channel, sym))
+    return sub.state if sub is not None else None
+
+
+@pytest.mark.asyncio
+async def test_observation_promotes_warming_to_fresh():
+    """Directive item 6: a requested (symbol, channel) advances WARMING_UP -> FRESH
+    only when a real tick is observed on that channel."""
+    s = _live_stream()
+    ctl = AdaptiveSubscriptionController(s)
+    # Request AAA on bars+trades; apply() acks the adds -> WARMING_UP.
+    await ctl.apply(tier1_bars=["AAA"], tier2_trades=["AAA"], now=0.0)
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.WARMING_UP
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.WARMING_UP
+    # A live trade tick promotes ONLY the trades channel to FRESH.
+    ctl.on_observation(Channel.TRADES, "AAA", now=1.0)
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.FRESH
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.WARMING_UP  # bars untouched
+    # A bar tick then promotes bars too.
+    ctl.on_observation(Channel.BARS, "AAA", now=1.5)
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.FRESH
+
+
+@pytest.mark.asyncio
+async def test_observation_of_unsubscribed_symbol_is_ignored():
+    """Ticks for symbols never requested are a cheap no-op (no phantom subs)."""
+    s = _live_stream()
+    ctl = AdaptiveSubscriptionController(s)
+    await ctl.apply(tier1_bars=["AAA"], now=0.0)
+    ctl.on_observation(Channel.TRADES, "ZZZ", now=1.0)  # never requested
+    assert _state(ctl, Channel.TRADES, "ZZZ") is None
+
+
+@pytest.mark.asyncio
+async def test_stale_demotes_fresh_after_window():
+    """The lifecycle is symmetric: silence past the stale window demotes FRESH ->
+    STALE; a still-ticking channel stays FRESH."""
+    s = _live_stream()
+    ctl = AdaptiveSubscriptionController(s)
+    ctl.manager.stale_after_s = 20.0
+    await ctl.apply(tier1_bars=["AAA"], tier2_trades=["AAA"], now=0.0)
+    ctl.on_observation(Channel.BARS, "AAA", now=1.0)
+    ctl.on_observation(Channel.TRADES, "AAA", now=100.0)  # trades keep ticking
+    # 110s: bars last seen at 1 (>20s ago) -> stale; trades at 100 -> still fresh.
+    staled = ctl.mark_stale(now=110.0)
+    assert staled == 1
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.STALE
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.FRESH
