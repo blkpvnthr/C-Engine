@@ -1,0 +1,159 @@
+{
+  "recorded_utc": "2026-11-22T21:03:27.077036+00:00",
+  "feed": "sip",
+  "backend": "metal",
+  "kind": "historical_replay_not_realtime",
+  "pipeline": "SIP bars -> DiscoveryEngine -> technical_features -> screen_market -> market_breadth -> compact_entry_candidates",
+  "ingested_5m_bars": 34489,
+  "ingested_1m_bars": 44220,
+  "symbols_screened": 12,
+  "entry_qualified": 0,
+  "entry_qualified_ids": [],
+  "breadth": {
+    "total": 12,
+    "valid": 12,
+    "entry_qualified": 0,
+    "technical_exit": 0,
+    "bullish": 6,
+    "bearish": 6,
+    "above_vwap": 0,
+    "below_vwap": 12,
+    "data_invalid": 0
+  },
+  "per_symbol": {
+    "SPY": {
+      "di_plus": 25.202,
+      "di_minus": 17.358,
+      "adx": 16.891,
+      "vwap": 701.9584,
+      "sma": 697.3267,
+      "price": 697.49,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "QQQ": {
+      "di_plus": 26.749,
+      "di_minus": 19.864,
+      "adx": 12.637,
+      "vwap": 624.9877,
+      "sma": 617.5898,
+      "price": 617.72,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "AAPL": {
+      "di_plus": 21.477,
+      "di_minus": 19.092,
+      "adx": 9.667,
+      "vwap": 346.1008,
+      "sma": 345.0991,
+      "price": 344.87,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "MSFT": {
+      "di_plus": 29.404,
+      "di_minus": 21.599,
+      "adx": 11.77,
+      "vwap": 490.7434,
+      "sma": 488.4234,
+      "price": 489.5,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "NVDA": {
+      "di_plus": 18.984,
+      "di_minus": 24.728,
+      "adx": 22.304,
+      "vwap": 134.939,
+      "sma": 129.7947,
+      "price": 130.01,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "AMD": {
+      "di_plus": 27.548,
+      "di_minus": 12.801,
+      "adx": 18.687,
+      "vwap": 448.1434,
+      "sma": 436.873,
+      "price": 439.39,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "TSLA": {
+      "di_plus": 18.402,
+      "di_minus": 19.293,
+      "adx": 16.423,
+      "vwap": 357.9405,
+      "sma": 350.7228,
+      "price": 351.1,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "META": {
+      "di_plus": 15.542,
+      "di_minus": 21.256,
+      "adx": 28.851,
+      "vwap": 575.4526,
+      "sma": 567.6413,
+      "price": 567.5001,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "AMZN": {
+      "di_plus": 26.358,
+      "di_minus": 18.584,
+      "adx": 17.236,
+      "vwap": 252.0664,
+      "sma": 250.1556,
+      "price": 251.0,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "GOOGL": {
+      "di_plus": 16.318,
+      "di_minus": 27.2,
+      "adx": 31.125,
+      "vwap": 272.6121,
+      "sma": 270.1876,
+      "price": 270.18,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "AVGO": {
+      "di_plus": 15.615,
+      "di_minus": 22.108,
+      "adx": 23.891,
+      "vwap": 316.9517,
+      "sma": 310.7875,
+      "price": 311.5,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    },
+    "NFLX": {
+      "di_plus": 10.687,
+      "di_minus": 20.089,
+      "adx": 15.281,
+      "vwap": 57.7523,
+      "sma": 57.0635,
+      "price": 57.03,
+      "entry_qualified": false,
+      "technical_exit": false,
+      "tech_valid": 127
+    }
+  },
+  "realtime_certification": "PENDING \u2014 requires an eligible live SIP session (this run is historical replay).",
+  "orders_submitted": 0
+}

@@ -1,0 +1,38 @@
+{
+  "recorded_utc": "2026-11-22T21:03:27.077036+00:00",
+  "feed": "sip",
+  "provider": "alpaca",
+  "basket": [
+    "SPY",
+    "QQQ",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMD",
+    "TSLA",
+    "META",
+    "AMZN",
+    "GOOGL",
+    "AVGO",
+    "NFLX"
+  ],
+  "kind": "historical_replay",
+  "note": "Genuine SIP historical bars; NOT real-time streaming (directive \u00a712).",
+  "bars_5m_fetched": 34489,
+  "bars_1m_fetched": 44220,
+  "per_symbol_5m": {
+    "SPY": 2880,
+    "QQQ": 2880,
+    "AAPL": 2876,
+    "MSFT": 2860,
+    "NVDA": 2880,
+    "AMD": 2880,
+    "TSLA": 2880,
+    "META": 2862,
+    "AMZN": 2879,
+    "GOOGL": 2880,
+    "AVGO": 2879,
+    "NFLX": 2853
+  },
+  "verdict": "OK"
+}
