@@ -603,6 +603,15 @@ class AlpacaMarketDataStream:
         self._stop_event = asyncio.Event()
         self._socket = None
 
+        # Per-channel subscription state (Phase C adaptive tiers). Populated only
+        # when set_channel_subscriptions() is used; when non-empty it takes over
+        # the (re)subscribe frame so different symbol sets can be subscribed to
+        # bars / trades / quotes independently (Alpaca v2 supports per-channel
+        # symbol lists). When empty, the legacy union _subscription path is used
+        # unchanged (backward compatible).
+        self._channel_subs: dict[str, set] = {"bars": set(), "trades": set(),
+                                              "quotes": set()}
+
         self._connection_attempts = 0
         self._reconnects = 0
 
@@ -866,6 +875,61 @@ class AlpacaMarketDataStream:
             request["bars"] = syms
         await socket.send(json.dumps(request, separators=(",", ":")))
 
+    async def set_channel_subscriptions(
+        self,
+        *,
+        bars: Iterable[str] = (),
+        trades: Iterable[str] = (),
+        quotes: Iterable[str] = (),
+    ) -> dict[str, tuple[tuple[str, ...], tuple[str, ...]]]:
+        """Set the DESIRED per-channel subscription sets independently (adaptive
+        tiers). Computes the add/remove delta per channel vs the current state,
+        sends per-channel subscribe/unsubscribe frames with DISTINCT symbol lists
+        (Alpaca v2 supports this), and records the per-channel state so a reconnect
+        re-subscribes correctly. Returns {channel: (added, removed)}.
+
+        This is the single authoritative per-channel subscription entry point; it
+        does not open a second socket. Acks arrive through the normal consume loop.
+        """
+        def _norm(xs):
+            return {s.strip().upper() for s in xs if s and s.strip()}
+
+        desired = {"bars": _norm(bars), "trades": _norm(trades), "quotes": _norm(quotes)}
+        for ch in desired:
+            for s in desired[ch]:
+                _validate_symbol(s)
+        result: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {}
+        socket = self._socket
+        live = socket is not None and self._state == ConnectionState.SUBSCRIBED
+        for ch in ("bars", "trades", "quotes"):
+            current = self._channel_subs[ch]
+            add = tuple(sorted(desired[ch] - current))
+            remove = tuple(sorted(current - desired[ch]))
+            self._channel_subs[ch] = set(desired[ch])
+            result[ch] = (add, remove)
+            if live and (add or remove):
+                if add:
+                    await self._send_single_channel(socket, "subscribe", ch, add)
+                if remove:
+                    await self._send_single_channel(socket, "unsubscribe", ch, remove)
+        return result
+
+    async def _send_single_channel(self, socket, action: str, channel: str,
+                                   symbols: Sequence[str]) -> None:
+        await socket.send(json.dumps(
+            {"action": action, channel: list(symbols)}, separators=(",", ":")))
+
+    def _channel_subs_active(self) -> bool:
+        return any(self._channel_subs[c] for c in self._channel_subs)
+
+    async def _subscribe_channels(self, socket) -> None:
+        """Send the initial per-channel subscribe frame from _channel_subs."""
+        request: dict[str, object] = {"action": "subscribe"}
+        for ch in ("bars", "trades", "quotes"):
+            if self._channel_subs[ch]:
+                request[ch] = sorted(self._channel_subs[ch])
+        await socket.send(json.dumps(request, separators=(",", ":")))
+
     # -------------------------------------------------------------------------
     # CONNECTION
     # -------------------------------------------------------------------------
@@ -965,25 +1029,31 @@ class AlpacaMarketDataStream:
     # -------------------------------------------------------------------------
 
     async def _subscribe(self, socket) -> None:
-        request: dict[str, object] = {"action": "subscribe"}
+        # Adaptive per-channel subscriptions (if active) take over the subscribe
+        # frame so a reconnect restores the exact per-channel state; otherwise the
+        # legacy union subscription is used unchanged.
+        if self._channel_subs_active():
+            await self._subscribe_channels(socket)
+        else:
+            request: dict[str, object] = {"action": "subscribe"}
 
-        symbols = list(self._subscription.symbols)
+            symbols = list(self._subscription.symbols)
 
-        if self._subscription.trades:
-            request["trades"] = symbols
+            if self._subscription.trades:
+                request["trades"] = symbols
 
-        if self._subscription.quotes:
-            request["quotes"] = symbols
+            if self._subscription.quotes:
+                request["quotes"] = symbols
 
-        if self._subscription.bars:
-            request["bars"] = symbols
+            if self._subscription.bars:
+                request["bars"] = symbols
 
-        await socket.send(
-            json.dumps(
-                request,
-                separators=(",", ":"),
+            await socket.send(
+                json.dumps(
+                    request,
+                    separators=(",", ":"),
+                )
             )
-        )
 
         while True:
             raw = await asyncio.wait_for(

@@ -835,6 +835,88 @@ class MarketEngine:
                     LOGGER.warning("dynamic universe sync disabled: %s", exc)
                     self.universe_sync = None
 
+        # Adaptive four-tier subscription controller (directive item 2): makes the
+        # AdaptiveSubscriptionManager the authoritative owner of THIS single SIP
+        # socket, driving per-channel (bars/trades/quotes) subscriptions over the
+        # master universe. Active only on SIP with a loaded membership registry and
+        # CENGINE_ADAPTIVE_SUBSCRIPTIONS!=0; when active it REPLACES the flat
+        # UniverseSubscriptionSync (one authoritative owner). Fail-safe.
+        self._adaptive_controller = None
+        self._canonical_for_adaptive = None
+        feed = str(getattr(config, "alpaca_feed", "") or "").lower()
+        if (self._membership_registry is not None and feed in ("sip", "delayed_sip")
+                and os.environ.get("CENGINE_ADAPTIVE_SUBSCRIPTIONS", "1") != "0"):
+            try:
+                from cengine.adaptive_subscription_controller import (
+                    AdaptiveSubscriptionController,
+                )
+                from market_scan.adaptive_subscriptions import ChannelCaps
+
+                caps = ChannelCaps(
+                    bars=int(os.environ.get("CENGINE_TIER1_MAX_BARS", "4096")),
+                    trades=int(os.environ.get("CENGINE_TIER2_MAX_TRADES", "1000")),
+                    quotes=int(os.environ.get("CENGINE_TIER3_MAX_QUOTES", "250")))
+                self._adaptive_controller = AdaptiveSubscriptionController(
+                    self.stream, caps=caps)
+                up = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "universe.txt")
+                if os.path.exists(up):
+                    self._canonical_for_adaptive = CanonicalUniverseManager(
+                        up, source_feed=config.alpaca_feed)
+                # One authoritative owner: the flat sync yields to the controller.
+                if self.universe_sync is not None:
+                    LOGGER.info("adaptive subscriptions active; disabling legacy "
+                                "flat UniverseSubscriptionSync")
+                    self.universe_sync = None
+                LOGGER.info("adaptive subscription controller active (SIP): "
+                            "bars<=%d trades<=%d quotes<=%d over %d master members",
+                            caps.bars, caps.trades, caps.quotes,
+                            len(self._membership_registry.tradable_master_symbols()))
+            except Exception as exc:  # noqa: BLE001 - never block startup
+                LOGGER.warning("adaptive subscription controller disabled: %s", exc)
+                self._adaptive_controller = None
+
+    def _adaptive_tier_inputs(self) -> dict:
+        """Compute current tier memberships for the adaptive controller."""
+        positions = list(getattr(self.portfolio, "symbols", lambda: [])() or []) \
+            if self.portfolio is not None else []
+        try:
+            pending = list(self.order_manager.open_orders() or [])
+        except Exception:  # noqa: BLE001
+            pending = []
+        refs = ["SPY", "QQQ", "DIA", "IWM"]
+        canonical = []
+        if self._canonical_for_adaptive is not None:
+            try:
+                self._canonical_for_adaptive.refresh_from_file()
+                canonical = list(self._canonical_for_adaptive.symbols())
+            except Exception:  # noqa: BLE001
+                canonical = []
+        tier1 = (self._membership_registry.tradable_master_symbols()
+                 if self._membership_registry is not None else [])
+        protected = sorted(set(positions) | set(pending) | set(refs))
+        # Published canonical candidates are the actionable set -> trades + quotes.
+        actionable = sorted(set(canonical) | set(positions) | set(pending))
+        return {"tier1_bars": tier1, "tier2_trades": actionable,
+                "tier3_quotes": actionable, "protected": protected, "references": refs}
+
+    async def _run_adaptive_subscriptions(self, stop: "asyncio.Event") -> None:
+        import time as _time
+        interval = float(os.environ.get("CENGINE_ADAPTIVE_SUBSCRIPTION_SECONDS", "5"))
+        while not stop.is_set():
+            try:
+                inp = self._adaptive_tier_inputs()
+                out = await self._adaptive_controller.apply(now=_time.monotonic(), **inp)
+                if out.get("degraded"):
+                    LOGGER.warning("adaptive subscriptions degraded: protected "
+                                   "demand exceeds a channel cap")
+            except Exception as exc:  # noqa: BLE001 - never kill the loop
+                LOGGER.warning("adaptive subscription tick failed: %s", exc)
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass
+
     def _start_scanner(self) -> None:
         """Start the in-process market scanner on its own thread, fed by the
         single market-data pipeline (no second websocket). Never raises."""
@@ -968,6 +1050,13 @@ class MarketEngine:
                 self.universe_sync.run(self._stop), name="universe-sync"
             )
 
+        adaptive_sub_task: Optional[asyncio.Task[None]] = None
+        if self._adaptive_controller is not None:
+            adaptive_sub_task = asyncio.create_task(
+                self._run_adaptive_subscriptions(self._stop),
+                name="adaptive-subscriptions",
+            )
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -983,6 +1072,8 @@ class MarketEngine:
             tasks.append(protective_task)
         if universe_sync_task is not None:
             tasks.append(universe_sync_task)
+        if adaptive_sub_task is not None:
+            tasks.append(adaptive_sub_task)
         if factor_task is not None:
             tasks.append(factor_task)
 
