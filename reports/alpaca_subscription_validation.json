@@ -1,0 +1,63 @@
+{
+  "recorded_utc": "2026-11-22T20:54:44.095570+00:00",
+  "data_base": "https://data.alpaca.markets",
+  "sip_ws": "wss://stream.data.alpaca.markets/v2/sip",
+  "credentials_present": true,
+  "tests": {
+    "sip_historical_bars": {
+      "ok": true,
+      "status": 200,
+      "note": "ok",
+      "sample_keys": [
+        "bars",
+        "next_page_token"
+      ]
+    },
+    "sip_latest_quote": {
+      "ok": true,
+      "status": 200,
+      "note": "ok",
+      "sample_keys": [
+        "quote",
+        "symbol"
+      ]
+    },
+    "sip_latest_trade": {
+      "ok": true,
+      "status": 200,
+      "note": "ok",
+      "sample_keys": [
+        "symbol",
+        "trade"
+      ]
+    },
+    "iex_baseline_quote": {
+      "ok": true,
+      "status": 200,
+      "note": "ok",
+      "sample_keys": [
+        "quote",
+        "symbol"
+      ]
+    },
+    "sip_websocket_auth": {
+      "ok": true,
+      "status": "success",
+      "note": "authenticated",
+      "subscription_ack": {
+        "T": "subscription",
+        "bars": [
+          "AAPL"
+        ]
+      }
+    }
+  },
+  "verdict": "SIP_ENTITLED",
+  "reason": "SIP REST + WebSocket both authorized (Algo Trader Plus active).",
+  "entitlement_summary": {
+    "network_reachable": true,
+    "sip_rest_authorized": true,
+    "sip_websocket_authorized": true,
+    "iex_baseline_ok": true
+  }
+}

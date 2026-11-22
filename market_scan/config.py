@@ -1,17 +1,19 @@
-"""Configuration for the real-time IEX market scanner.
+"""Configuration for the real-time market scanner (IEX or SIP).
 
 All scanner knobs live here with the approved Section-4 defaults.
 :meth:`MarketScanConfig.from_env` is the single place ``MARKET_SCAN_*``
 environment variables are parsed; it never raises on malformed input (a bad
 value falls back to the default) so a typo can never take the trading engine
-down. The scanner is IEX-exclusive for equities: a SIP override is coerced
-back to IEX rather than silently honored.
+down. Feed selection is entitlement-aware: ``sip``/``delayed_sip`` are honored
+for Algo Trader Plus accounts (verified separately by the engine), ``iex`` is
+the explicit Basic compatibility profile, and an unrecognized value falls back
+to IEX — never a silent SIP upgrade or downgrade.
 """
 
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -49,7 +51,7 @@ class MarketScanConfig:
     # --- lifecycle / mode ---
     enabled: bool = True                      # MARKET_SCAN_ENABLED (default ON)
     replace_enabled: bool = True              # MARKET_SCAN_REPLACE_ENABLED
-    data_feed: str = "iex"                    # IEX-exclusive for equities
+    data_feed: str = "iex"                    # iex | sip | delayed_sip
 
     # --- cadence ---
     rank_refresh_seconds: float = 3.0         # in-memory ranking refresh
@@ -74,7 +76,7 @@ class MarketScanConfig:
     # --- microstructure / subscriptions ---
     order_flow_windows_s: tuple[int, ...] = (10, 30, 60, 300)
     auto_reconnect: bool = True
-    max_subscriptions: int = 30               # conservative; respects IEX caps
+    max_subscriptions: int = 30               # feed-aware via from_env: IEX 30, SIP 250
 
     # --- loss-removal / replacement ---
     loss_removal_threshold: float = -0.005    # decimal fraction (-0.5%)
@@ -88,10 +90,15 @@ class MarketScanConfig:
     market_refs: tuple[str, ...] = ("SPY", "QQQ", "DIA", "IWM")
 
     def __post_init__(self) -> None:
-        # Equities are IEX-only; never silently substitute SIP.
-        if str(self.data_feed).strip().lower() != "sip":
-            self.data_feed = str(self.data_feed).strip().lower() or "iex"
-        self.data_feed = "iex"
+        # Entitlement-aware feed selection (directive §5). SIP / delayed_sip are
+        # honored for Algo Trader Plus accounts; IEX remains the explicit Basic
+        # compatibility profile. An unrecognized value falls back to IEX (never a
+        # silent SIP upgrade). The engine's startup verifies SIP entitlement
+        # separately (tools/sip_verify.py); this class does not silently downgrade.
+        feed = str(self.data_feed).strip().lower() or "iex"
+        if feed not in ("iex", "sip", "delayed_sip"):
+            feed = "iex"
+        self.data_feed = feed
         self.max_subscriptions = max(1, int(self.max_subscriptions))
         self.target_universe_size = max(1, int(self.target_universe_size))
         # The loss-removal threshold must be strictly negative (a decimal
@@ -105,11 +112,22 @@ class MarketScanConfig:
 
     @classmethod
     def from_env(cls) -> "MarketScanConfig":
-        """Build config from ``MARKET_SCAN_*`` env vars (fail-soft)."""
+        """Build config from ``MARKET_SCAN_*`` env vars (fail-soft).
+
+        The scanner feed defaults to the engine-wide ``CENGINE_ALPACA_FEED`` so a
+        single switch migrates the whole system to SIP. The subscription cap is
+        feed-aware: Basic IEX keeps the conservative 30; SIP (unlimited provider
+        symbols) uses a larger, still hardware-bounded default — "unlimited" at
+        the provider is NOT unlimited compute (directive §5/§8).
+        """
+        feed = os.getenv("MARKET_SCAN_DATA_FEED",
+                         os.getenv("CENGINE_ALPACA_FEED", "iex"))
+        is_sip = str(feed).strip().lower() in ("sip", "delayed_sip")
+        default_subs = 250 if is_sip else 30
         return cls(
             enabled=_env_flag("MARKET_SCAN_ENABLED", True),
             replace_enabled=_env_flag("MARKET_SCAN_REPLACE_ENABLED", True),
-            data_feed=os.getenv("MARKET_SCAN_DATA_FEED", "iex"),
+            data_feed=feed,
             rank_refresh_seconds=_env_float("MARKET_SCAN_RANK_SECONDS", 3.0),
             discovery_interval_seconds=_env_float(
                 "MARKET_SCAN_DISCOVERY_SECONDS", 300.0
@@ -126,7 +144,7 @@ class MarketScanConfig:
             max_spread_pct=_env_float("MARKET_SCAN_MAX_SPREAD_PCT", 0.0010),
             max_quote_age_seconds=_env_float("MARKET_SCAN_MAX_QUOTE_AGE", 10.0),
             auto_reconnect=_env_flag("MARKET_SCAN_AUTO_RECONNECT", True),
-            max_subscriptions=_env_int("MARKET_SCAN_MAX_SUBSCRIPTIONS", 30),
+            max_subscriptions=_env_int("MARKET_SCAN_MAX_SUBSCRIPTIONS", default_subs),
             loss_removal_threshold=_env_float(
                 "MARKET_SCAN_LOSS_THRESHOLD", -0.005
             ),

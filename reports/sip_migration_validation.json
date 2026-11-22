@@ -1,0 +1,40 @@
+{
+  "recorded_utc": "2026-11-22T20:59:01.861964+00:00",
+  "entitlement_verdict": "SIP_ENTITLED",
+  "entitlement_summary": {
+    "network_reachable": true,
+    "sip_rest_authorized": true,
+    "sip_websocket_authorized": true,
+    "iex_baseline_ok": true
+  },
+  "migration": {
+    "operational_feed": "sip",
+    "archive_provider_label": "alpaca-sip",
+    "feed_switch": "CENGINE_ALPACA_FEED=sip (single engine-wide switch; scanner follows it)",
+    "iex_compat_preserved": true,
+    "silent_downgrade_guarded": true,
+    "scanner_feed_aware": true,
+    "subscription_cap": {
+      "iex": 30,
+      "sip_default": 250,
+      "note": "SIP cap is a hardware-bounded default, overridable via MARKET_SCAN_MAX_SUBSCRIPTIONS; adaptive tiers (directive \u00a78) pending"
+    }
+  },
+  "changes": [
+    "market_scan/config.py: removed unconditional data_feed='iex' override; entitlement-aware feed (iex|sip|delayed_sip), feed-aware subscription cap",
+    ".env: CENGINE_ALPACA_FEED iex->sip, CENGINE_ARCHIVE_PROVIDER_LABEL alpaca-iex->alpaca-sip",
+    "tools/sip_verify.py: read-only SIP entitlement harness (REST + WebSocket auth)"
+  ],
+  "tests": {
+    "total": 348,
+    "result": "passed"
+  },
+  "remaining": [
+    "adaptive subscription tiers (\u00a78)",
+    "SIP historical warm-up + feature-state invalidation on feed transition (\u00a711)",
+    "operational consumption of market_breadth + compaction + GPU ranking (\u00a79/\u00a715)",
+    "SIP streaming capacity benchmarks (\u00a722)",
+    "genuine real-time SIP session certification (market closed Sun 2026-11-22; \u00a712)"
+  ],
+  "note": "IEX baseline + historical IEX results preserved; this is the config/entitlement migration layer. Live real-time SIP streaming certification is session-gated."
+}

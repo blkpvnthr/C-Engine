@@ -88,8 +88,38 @@ def test_loss_threshold_clamped_strictly_negative(monkeypatch):
     assert MarketScanConfig.from_env().loss_removal_threshold == -1.0
 
 
-def test_data_feed_never_silently_sip(monkeypatch):
-    # The scanner is IEX-exclusive for equities; a SIP override is coerced back.
+def test_data_feed_sip_honored_when_configured(monkeypatch):
+    # Algo Trader Plus: SIP is now HONORED when explicitly configured (the engine
+    # verifies entitlement separately via tools/sip_verify.py). It is no longer
+    # coerced to IEX. Basic IEX remains the explicit compatibility profile.
     monkeypatch.setenv("MARKET_SCAN_DATA_FEED", "sip")
-    c = MarketScanConfig.from_env()
-    assert c.data_feed == "iex"
+    assert MarketScanConfig.from_env().data_feed == "sip"
+
+
+def test_data_feed_unknown_falls_back_to_iex(monkeypatch):
+    # An unrecognized feed is never a silent SIP upgrade -> falls back to IEX.
+    monkeypatch.setenv("MARKET_SCAN_DATA_FEED", "bogus")
+    assert MarketScanConfig.from_env().data_feed == "iex"
+
+
+def test_data_feed_defaults_to_iex(monkeypatch):
+    monkeypatch.delenv("MARKET_SCAN_DATA_FEED", raising=False)
+    monkeypatch.delenv("CENGINE_ALPACA_FEED", raising=False)
+    assert MarketScanConfig.from_env().data_feed == "iex"
+
+
+def test_sip_lifts_subscription_cap(monkeypatch):
+    # The 30-symbol cap is a Basic-IEX constraint; SIP lifts it to a larger but
+    # still hardware-bounded default (directive §5/§8).
+    monkeypatch.delenv("MARKET_SCAN_MAX_SUBSCRIPTIONS", raising=False)
+    monkeypatch.setenv("MARKET_SCAN_DATA_FEED", "sip")
+    assert MarketScanConfig.from_env().max_subscriptions > 30
+    monkeypatch.setenv("MARKET_SCAN_DATA_FEED", "iex")
+    assert MarketScanConfig.from_env().max_subscriptions == 30
+
+
+def test_scanner_feed_follows_engine_feed(monkeypatch):
+    # A single CENGINE_ALPACA_FEED switch migrates the scanner too.
+    monkeypatch.delenv("MARKET_SCAN_DATA_FEED", raising=False)
+    monkeypatch.setenv("CENGINE_ALPACA_FEED", "sip")
+    assert MarketScanConfig.from_env().data_feed == "sip"
