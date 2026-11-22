@@ -1,0 +1,38 @@
+{
+  "recorded_utc": "2026-11-22T21:47:19.553714+00:00",
+  "membership_version": 1,
+  "degraded": false,
+  "sources": {
+    "universe": "alpaca_assets",
+    "sp500": "not_configured",
+    "djia": "not_configured",
+    "configured": "universe.txt"
+  },
+  "index_sources_configured": {
+    "sp500": false,
+    "djia": false
+  },
+  "coverage_denominators": {
+    "MASTER_MEMBERSHIP": 5601,
+    "PROVIDER_SUPPORTED": 14426,
+    "TRADABLE": 13509,
+    "FRACTIONABLE": 7921
+  },
+  "group_counts": {
+    "nasdaq_member": 5600,
+    "sp500_member": 0,
+    "djia_member": 0,
+    "configured_member": 1,
+    "master_universe_deduplicated": 5601,
+    "master_tradable": 5565
+  },
+  "changes": {
+    "added": [],
+    "added_count": 0,
+    "changed": [],
+    "changed_count": 0,
+    "removed": [],
+    "removed_count": 0
+  },
+  "note": "Master universe = NASDAQ-listed \u222a S&P500 \u222a DJIA \u222a configured, deduplicated. Index constituents are loaded from configured source files only and never fabricated; absent sources are reported, not inferred from exchange. Tradability is distinct from discovery membership. Cache: data/membership_snapshot.json."
+}

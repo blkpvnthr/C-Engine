@@ -41,3 +41,6 @@ logs/
 # Local development
 playground-*.mongodb.js
 .DS_Store
+
+# Regenerable master-universe cache (rebuild via tools/build_membership.py)
+data/membership_snapshot.json
