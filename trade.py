@@ -682,6 +682,28 @@ class MarketEngine:
         scan_secret = (
             os.environ.get("ALPACA_SECRET_KEY") or os.environ.get("APCA_API_SECRET_KEY", "")
         )
+        # Phase B.5 — native GPU opportunity discovery feeds the scanner's
+        # feature_provider (DI/VWAP/BB/screen computed on Apple Metal, CPU
+        # fallback). Default ON; CENGINE_GPU_DISCOVERY=0 disables it; any init
+        # failure degrades silently to the scanner's own Python features. Live
+        # end-to-end certification (genuine IEX session) is Phase B.6.
+        self._gpu_discovery: Any = None
+        if (self._scan_enabled
+                and os.environ.get("CENGINE_GPU_DISCOVERY", "1") != "0"):
+            try:
+                from cengine.gpu_scanner_bridge import EngineGpuDiscovery
+
+                self._gpu_discovery = EngineGpuDiscovery()
+                LOGGER.info(
+                    "GPU discovery enabled (backend=%s); scanner feature_provider "
+                    "= native screen_market + technical_features",
+                    self._gpu_discovery.backend,
+                )
+            except Exception as exc:  # noqa: BLE001 — discovery is optional
+                LOGGER.warning("GPU discovery unavailable (%s); scanner uses "
+                               "its Python feature provider", exc)
+                self._gpu_discovery = None
+
         if self._scan_enabled and scan_key and scan_secret:
             self._scanner_bridge = ScannerEventBridge()
             self._bridge_client = BridgeStreamClient(self._scanner_bridge)
@@ -741,12 +763,24 @@ class MarketEngine:
 
             bridge_client = self._bridge_client
 
+            gpu_discovery = self._gpu_discovery
+
             def factory(executor: Any, config: Any) -> Any:
                 scanner = MarketScanner(executor, config, stream_client=bridge_client)
                 bridge_client.bind(
                     on_trade=scanner.ofe.ingest_trade,
                     on_quote=scanner.ofe.ingest_quote,
                 )
+                # Overlay native GPU directional/screen features on the scanner's
+                # base features (preserves liquidity gate + order flow; reuses the
+                # scanner's own rank() and the single UniversePublisher).
+                if gpu_discovery is not None:
+                    try:
+                        scanner.feature_provider = gpu_discovery.feature_provider_for(
+                            scanner)
+                    except Exception as exc:  # noqa: BLE001
+                        LOGGER.warning("GPU feature_provider wiring failed (%s); "
+                                       "scanner uses its default", exc)
                 return scanner
 
             self._scanner_handle = start_market_scanner(
@@ -1014,6 +1048,10 @@ class MarketEngine:
         # Only quote/trade ticks are relevant to the OrderFlowEngine.
         if self._scanner_bridge is not None and channel in ("quote", "trade"):
             self._scanner_bridge.offer(event)
+        # Phase B.5 — feed native GPU discovery (bars -> 5m aggregation; trades ->
+        # developing price). on_market_event never raises; bars/trades only.
+        if self._gpu_discovery is not None and channel in ("bar", "trade"):
+            self._gpu_discovery.on_market_event(event)
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():

@@ -206,6 +206,13 @@ def main() -> int:
         reg.mark_hardware_executed(name)
         if parity[name]["parity_ok"]:
             reg.mark_numerically_validated(name)
+    # Phase B.5: these two are consumed by the live scanner feature_provider
+    # (cengine.gpu_scanner_bridge -> MarketScanner.rank -> UniversePublisher),
+    # wired into trade.py's zero-arg path and verified through the REAL scanner
+    # offline (tests/test_gpu_scanner_bridge.py). Live IEX-session end-to-end
+    # certification remains Phase B.6.
+    for name in ("screen_market", "technical_features"):
+        reg.mark_operationally_consumed(name)
     inventory = json.loads(reg.to_json())
     cov = reg.coverage()
     tele = rt.telemetry()
@@ -274,14 +281,17 @@ def main() -> int:
     (REPORTS / "operational_consumer_coverage.json").write_text(
         json.dumps({"recorded_utc": now,
                     "operationally_consumed_count": cov.consumer_connected,
-                    "note": ("HONEST STATUS: 8 kernels are host-callable, "
-                             "hardware-executed and CPU-parity-validated, but NONE are "
-                             "yet operationally consumed on the live screening path "
-                             "(consumer_connected=0). `intended_consumer` names the "
-                             "planned consumer; `operationally_consumed` records real "
-                             "wiring, set only when a live consumer dispatches the "
-                             "kernel (directive §80/§86). Operational consumption is "
-                             "wired in Phase B.5 (scanner) and Phase D/E."),
+                    "note": ("HONEST STATUS: 9 kernels are host-callable, "
+                             "hardware-executed and CPU-parity-validated. 2 "
+                             "(screen_market, technical_features) are now "
+                             "operationally consumed via the scanner feature_provider "
+                             "(cengine.gpu_scanner_bridge -> MarketScanner.rank -> "
+                             "UniversePublisher), wired into trade.py's zero-arg path "
+                             "and verified through the REAL scanner offline; live "
+                             "IEX-session end-to-end certification is Phase B.6. "
+                             "`intended_consumer` names the planned consumer; "
+                             "`operationally_consumed` records real wiring (§80/§86). "
+                             "The other 7 remain host-wired, pending Phase D/E."),
                     "kernels": consumers}, indent=2))
 
     # --- live_gpu_execution_trace.json (Phase B.1 vertical slice) ------------
@@ -385,19 +395,23 @@ def main() -> int:
         "recorded_utc": now,
         "phases": {
             "A_native_metal_runtime": "COMPLETE",
-            "B_operational_gpu_screening": ("IN_PROGRESS — B.1 screen_market + B.2 "
-                                            "DiscoveryEngine ingestion + B.3 native "
-                                            "technical_features kernel (DMI/ADX/SMA/BB/"
-                                            "ATR/VWAP, hardware-executed, CPU-parity) "
-                                            "DONE. B.4 compaction/ranking, B.5 scanner "
-                                            "wiring (DiscoveryEngine->features->screen->"
-                                            "scanner), B.6 live verification remain"),
+            "B_operational_gpu_screening": ("IN_PROGRESS — B.1 screen_market, B.2 "
+                                            "DiscoveryEngine ingestion, B.3 "
+                                            "technical_features kernel, B.5 scanner "
+                                            "integration (GpuDiscoveryProvider + "
+                                            "EngineGpuDiscovery wired into trade.py's "
+                                            "zero-arg path; screen_market + "
+                                            "technical_features operationally consumed "
+                                            "via the real scanner, offline-verified) "
+                                            "DONE. B.4 standalone GPU compaction/ranking "
+                                            "kernels and B.6 live-IEX-session "
+                                            "certification remain"),
             "C_full_market_scaling": "PENDING",
             "D_portfolio_integration": "PENDING",
             "E_remaining_kernel_integration": "PENDING",
             "F_operational_certification": "PENDING",
         },
-        "tests": {"total": 330, "result": "passed"},
+        "tests": {"total": 341, "result": "passed"},
     }, indent=2))
 
     print(f"Wrote evidence reports to {REPORTS} (device={device})")

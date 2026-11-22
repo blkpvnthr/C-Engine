@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T20:29:23.415404+00:00",
+  "recorded_utc": "2026-11-22T20:44:46.488767+00:00",
   "device": "Apple M5 Max",
   "metallib_path": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
   "metallib_sha256": "49acad9da30d67acd992121b3b1864d39c13dd219279892e653aa771ec4e38d3",
@@ -73,6 +73,6 @@
     "pipeline_cache_hit_rate": 0.25,
     "buffers_allocated": 12,
     "buffers_reused": 36,
-    "mean_dispatch_ms": 0.02219
+    "mean_dispatch_ms": 0.02396
   }
 }

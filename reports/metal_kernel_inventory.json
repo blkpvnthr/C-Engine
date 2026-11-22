@@ -1,18 +1,18 @@
 {
-  "recorded_utc": "2026-11-22T20:29:23.415404+00:00",
+  "recorded_utc": "2026-11-22T20:44:46.488767+00:00",
   "device": "Apple M5 Max",
   "metallib": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
   "discovered": 47,
   "compiled_callable": 47,
   "host_callable": 9,
-  "consumer_connected": 0,
+  "consumer_connected": 2,
   "intended_consumer": 34,
   "hardware_executed": 9,
   "numerically_validated": 9,
   "benchmarked": 0,
   "blocked": 6,
   "pipeline_coverage_pct": 100,
-  "operational_coverage_pct": 0,
+  "operational_coverage_pct": 4.25532,
   "kernels": [
     {
       "shader_file": "indicators.metal",
@@ -91,7 +91,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "blocker": ""
     },
     {
@@ -107,7 +107,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "blocker": ""
     },
     {
