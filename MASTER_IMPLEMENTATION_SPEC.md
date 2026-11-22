@@ -1,4 +1,4 @@
-# Sustenance — Master Implementation Spec (living status)
+# C-Engine — Master Implementation Spec (living status)
 
 This tracks the **Native Metal Architectural Correction**: making Apple Metal the
 operational market-wide computational engine for opportunity discovery, backed by a
@@ -7,8 +7,10 @@ status mirror of the user's correction directive — the authoritative requireme
 live there; this file records **what is done, how it was verified, and what remains**.
 
 Single entry point (unchanged): `python3 trade.py`. Canonical interpreter: **pyenv
-Python 3.11.8**. Free Alpaca IEX only; ≤30 WebSocket subscriptions; no live orders
-for testing; mandatory −0.5% native protection stays independent of GPU/Metal.
+Python 3.11.8**. Market data: **Alpaca SIP (Algo Trader Plus), entitlement-verified**
+(IEX retained as compat profile); SIP symbol cap currently a flat 250 application
+limit (adaptive four-tier target). No live orders for testing; mandatory −0.5%
+native protection stays independent of GPU/Metal.
 
 ## Baseline the correction fixes (measured in the audit)
 - Metal PyObjC-hosted, synchronous one-shot dispatch, **no pipeline cache**.
@@ -23,18 +25,23 @@ for testing; mandatory −0.5% native protection stays independent of GPU/Metal.
 | Phase | Scope | Status |
 |---|---|---|
 | **A** | Native Obj-C++ Metal runtime: device/queue/library, **pipeline cache**, **persistent buffers**, async + completion handlers, telemetry, CPU fallback, native kernel registry, batched pybind; 7 wired kernels native + CPU parity | **COMPLETE** |
-| B | New discovery kernels (DMI/DI/ADX/SMA20/Bollinger/VWAP/ATR/rel-vol/1m-momentum/accel/entry/exit/compaction/scoring/ranking/breadth); live IEX→native→GPU→scanner pathway on the ~31-symbol set | NEXT |
-| C | Full NASDAQ∪SP500∪DJIA master universe + daily refresh; batched IEX REST sweeps; per-symbol native state; market-wide GPU screening/ranking; dynamic 30-sym WS promotion; scale to full universe | PENDING |
+| **B** | New discovery kernels (`technical_features` DMI/DI/ADX/SMA20/Bollinger/VWAP/ATR, `screen_market`, `compact_entry_candidates`, `rank_candidates`, `market_breadth`); native `DiscoveryEngine`; live native→GPU→scanner pathway; GPU market-wide ranking (identical to Python ranker). 5 operationally consumed. Real-time SIP session cert pending. | **COMPLETE** (offline-verified) |
+| **SIP** | Algo Trader Plus entitlement verification + feed migration (`tools/sip_verify.py`); feed-aware config; IEX compat retained | **COMPLETE** |
+| C | Adaptive four-tier subscriptions (per-channel capacity, promotion/demotion); full NASDAQ∪SP500∪DJIA master-universe membership + daily refresh; batched SIP REST warm-up; market-wide scaling; per-group breadth | IN PROGRESS |
 | D | GPU covariance/EWMA/correlation/vol → optimizer → native sizing → native risk → OrderManager; portfolio replacement | PENDING |
-| E | Remaining 38 kernels (reductions/MC/statarb; L1-imbalance research; L2 blocked) with legitimate consumers | PENDING |
+| E | Remaining ~38 kernels (reductions/MC/statarb; L1-imbalance research; L2 blocked) with legitimate consumers | PENDING |
 | F | 1-second dashboard; `--benchmark-discovery`; backtest/replay/research; fault injection; benchmark ladder; OOS; certification | PENDING |
 
-## Phase A evidence (Apple M5 Max, pyenv 3.11.8)
-- 45/45 kernels pipeline-callable on device; 7 hardware-executed + parity-validated
-  (indicators exact; covariance/EWMA `< 1e-6`).
+## Evidence (Apple M5 Max, pyenv 3.11.8) — current
+- **50 kernels** compiled + pipeline-callable on device (45 baseline + 5 new discovery
+  kernels); **12 hardware-executed + CPU-parity-validated**; **5 operationally consumed**
+  (`technical_features`, `screen_market`, `compact_entry_candidates`, `rank_candidates`,
+  `market_breadth`). GPU ranking parity vs Python ranker: scores <1e-4, order identical.
 - Pipeline cache + persistent buffer reuse confirmed via telemetry.
 - Native-vs-legacy-PyObjC numerical parity proven (migration regression gate).
-- Tests: **313 passed** (298 baseline + 15 new); single entry point `--validate` READY.
+- SIP entitlement verified from real account responses; historical SIP certification
+  harness drove 78,709 real SIP bars through the full pipeline.
+- Tests: **353 passed**; single entry point `--validate` READY.
 - Reports: `reports/architecture_correction.json`, `metal_kernel_inventory.json`,
   `metal_kernel_coverage.json`, `metal_hardware_validation.json`,
   `metal_cpu_parity.json`, `operational_consumer_coverage.json`,

@@ -1,12 +1,18 @@
-# QQ-Trader → Sustenance Integration
+# QQ-Trader → C-Engine Integration
 
 Status of integrating QQ-Trader's trading intelligence + dynamic market scanner
-into Sustenance's native engine. Work proceeds incrementally on the branch
+into C-Engine's native engine. Work proceeds incrementally on the branch
 `feature/qq-trader-integration`; validated milestones are committed.
 
 The original QQ-Trader repo (`/Users/blkpvnthr/qq-trader`) is the authoritative
-source and is **never modified**. All work happens in Sustenance. At runtime the
+source and is **never modified**. All work happens in C-Engine. At runtime the
 application has **no dependency on the QQ-Trader repository**.
+
+> **Note (current):** the project migrated from the former "Sustenance" name to
+> **C-Engine**; the canonical interpreter is **pyenv Python 3.11.8** (the native
+> `.so` uses the CPython 3.11 ABI); the operational feed is **Alpaca SIP (Algo
+> Trader Plus)**. Older "Sustenance"/"3.14"/"IEX-only" references in the Phase-0
+> audit below are preserved as historical record.
 
 ---
 
