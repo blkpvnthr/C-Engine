@@ -55,6 +55,7 @@ class MarketScanner:
         context_path: str | Path | None = None,
         stream_client: Any = None,
         feature_provider: Optional[Callable[[list[str], float], dict]] = None,
+        rank_fn: Optional[Callable[..., Any]] = None,
         discovery_fn: Optional[Callable[..., Any]] = None,
         sleep_fn=None,
         now_fn=None,
@@ -82,6 +83,10 @@ class MarketScanner:
         )
         self.stream = stream_client if stream_client is not None else self._make_stream()
         self.feature_provider = feature_provider or self._default_features
+        # Ranking backend: defaults to the pure-Python ranking.rank; the engine
+        # injects a GPU-backed rank_fn (identical semantics, composite score on
+        # Metal) to put market-wide ranking on the GPU (directive §3/§5).
+        self.rank_fn = rank_fn or ranking_mod.rank
         self.discovery_fn = discovery_fn or discovery_mod.discover_us_listed
 
         self._now_fn = now_fn
@@ -245,7 +250,7 @@ class MarketScanner:
 
         market_ctx = self._market_context(feats)
         rank_inputs = [feats[s] for s in entry_pool if s in feats]
-        ranked = ranking_mod.rank(rank_inputs, config=self.config, market=market_ctx)
+        ranked = self.rank_fn(rank_inputs, config=self.config, market=market_ctx)
 
         # Accumulate scores so the published universe is the STABLE top-N across
         # rotation (not just this 3s window). BUT only record a score when the

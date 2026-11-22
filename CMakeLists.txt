@@ -113,7 +113,7 @@ if(CENGINE_METAL_ENABLED)
   # additions to the preserved 45-kernel baseline, not a rewrite of it).
   set(METAL_SOURCES covariance imbalance indicators monte-carlo
                     opportunity_screening technical_indicators market_breadth
-                    reductions)
+                    opportunity_ranking reductions)
   foreach(NAME IN LISTS METAL_SOURCES)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.air
       COMMAND ${XCRUN} ${METAL_XCRUN_ARGS} metal -c

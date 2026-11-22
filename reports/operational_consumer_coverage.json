@@ -1,7 +1,7 @@
 {
-  "recorded_utc": "2026-11-22T21:01:53.474229+00:00",
-  "operationally_consumed_count": 3,
-  "note": "HONEST STATUS: 11 kernels are host-callable, hardware-executed and CPU-parity-validated. 3 (screen_market, technical_features, market_breadth) are operationally consumed via the engine glue (cengine.gpu_scanner_bridge): screen_market + technical_features through the scanner feature_provider -> MarketScanner.rank -> UniversePublisher; market_breadth via EngineGpuDiscovery.update_breadth each rank tick. All wired into trade.py's zero-arg path and verified through the REAL scanner offline; live SIP-session end-to-end certification is pending (market closed). compact_entry_candidates remains host-validated but not yet consumed (no GPU top-K consumer yet). `operationally_consumed` records real wiring (\u00a780/\u00a786); the other 7 remain host-wired pending Phase D/E.",
+  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
+  "operationally_consumed_count": 5,
+  "note": "HONEST STATUS: 12 kernels host-callable, hardware-executed and CPU-parity-validated; 5 operationally consumed via the engine glue (cengine.gpu_scanner_bridge) wired into trade.py's zero-arg scanner path: screen_market + technical_features -> scanner feature_provider; market_breadth + compact_entry_candidates -> EngineGpuDiscovery.update_breadth each rank tick; rank_candidates -> scanner.rank_fn (GPU cross-sectional ranking, output identical to the Python ranker). All verified through the REAL scanner offline; live SIP-session end-to-end certification pending (market closed). `operationally_consumed` records real wiring (\u00a780/\u00a786); the remaining baseline kernels are host-wired pending Phase D/E.",
   "kernels": {
     "rolling_sma_ticks": {
       "host_interface": "MetalRuntime.sma",
@@ -55,7 +55,14 @@
     "compact_entry_candidates": {
       "host_interface": "MetalRuntime.compact_entry_candidates",
       "intended_consumer": "opportunity_discovery",
-      "operationally_consumed": false,
+      "operationally_consumed": true,
+      "mode": "operational",
+      "blocker": ""
+    },
+    "rank_candidates": {
+      "host_interface": "MetalRuntime.rank_candidates",
+      "intended_consumer": "scanner,opportunity_discovery",
+      "operationally_consumed": true,
       "mode": "operational",
       "blocker": ""
     },

@@ -43,6 +43,13 @@ namespace trading::metal::cpu_ref {
     const std::vector<std::uint32_t>& flags, std::uint32_t capacity,
     std::uint32_t& total_qualified);
 
+// --- cross-sectional ranking (exact float32 parity with -------------------
+// metal/opportunity_ranking.metal, which mirrors market_scan.ranking.
+// score_candidate). One RankOutput per RankInput; sorting/top-K is done by the
+// host after scoring.
+[[nodiscard]] std::vector<RankOutput> rank_scores(
+    const std::vector<RankInput>& inputs, const RankParams& params);
+
 // Integer division truncating toward zero (matches Metal/C `long` /).
 [[nodiscard]] std::int64_t trunc_div(std::int64_t a, std::int64_t b) noexcept;
 

@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T21:01:53.474229+00:00",
+  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
   "device": "Apple M5 Max",
   "parity": {
     "rolling_sma_ticks": {
@@ -67,6 +67,12 @@
       "parity_ok": true,
       "detail": "2 qualified; id-set + overflow parity",
       "max_abs_error": 0.0
+    },
+    "rank_candidates": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "3 candidates; max_abs_error=5.960e-08 (tol 1e-5)",
+      "max_abs_error": 5.960464477539063e-08
     }
   }
 }

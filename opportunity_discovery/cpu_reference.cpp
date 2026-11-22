@@ -397,4 +397,67 @@ std::vector<std::uint32_t> compact_entry_candidates(
     return ids;
 }
 
+namespace {
+inline float clip01(float x) { return x < 0.0f ? 0.0f : (x > 1.0f ? 1.0f : x); }
+inline float clampf(float x, float lo, float hi) {
+    return x < lo ? lo : (x > hi ? hi : x);
+}
+}  // namespace
+
+std::vector<RankOutput> rank_scores(const std::vector<RankInput>& inputs,
+                                    const RankParams& p) {
+    std::vector<RankOutput> out(inputs.size());
+    const float total_w = p.w_rel_strength + p.w_momentum + p.w_volume_expansion +
+                          p.w_liquidity + p.w_order_flow + p.w_regime_align;
+    for (std::size_t i = 0; i < inputs.size(); ++i) {
+        const RankInput& f = inputs[i];
+        RankOutput r;
+
+        float rel_strength;
+        if (f.has_rs) {
+            const float market_avg = 0.5f * (p.spy_score + p.qqq_score);
+            rel_strength = clip01(0.5f + (f.rs - market_avg) / 200.0f);
+        } else {
+            rel_strength = 0.3f;
+        }
+
+        float structure = 0.0f;
+        if (f.vwap_dist > 0.0f) structure += 0.5f;
+        if (f.bb_mid_dist > 0.0f) structure += 0.5f;
+        const float momentum = clip01(
+            0.5f * (0.5f + 0.5f * clampf(f.short_mom * 20.0f, -1.0f, 1.0f)) +
+            0.5f * structure);
+
+        const float volume_expansion = clip01((f.rel_volume - 0.5f) / 1.5f);
+
+        const float addv_norm = f.addv > 0.0f ? f.addv / (f.addv + 1.0e8f) : 0.0f;
+        const float spread_norm =
+            f.has_spread ? 1.0f - clip01(f.spread_pct / (0.02f > 1e-9f ? 0.02f : 1e-9f))
+                         : 0.5f;
+        const float liquidity = clip01(0.6f * addv_norm + 0.4f * spread_norm);
+
+        const float order_flow = clip01(f.order_flow);
+
+        const float regime_align = clip01(
+            0.5f + 0.5f * clampf(p.regime_score * f.dir_sign / 100.0f, -1.0f, 1.0f));
+
+        float score = p.w_rel_strength * rel_strength + p.w_momentum * momentum +
+                      p.w_volume_expansion * volume_expansion +
+                      p.w_liquidity * liquidity + p.w_order_flow * order_flow +
+                      p.w_regime_align * regime_align;
+        score = clip01(total_w > 0.0f ? score / total_w : 0.0f);
+
+        r.total_score = score;
+        r.rel_strength = rel_strength;
+        r.momentum = momentum;
+        r.volume_expansion = volume_expansion;
+        r.liquidity = liquidity;
+        r.order_flow = order_flow;
+        r.regime_align = regime_align;
+        r.eligible = f.eligible;
+        out[i] = r;
+    }
+    return out;
+}
+
 }  // namespace trading::metal::cpu_ref

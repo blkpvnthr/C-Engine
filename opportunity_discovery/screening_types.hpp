@@ -206,6 +206,58 @@ struct BreadthCounters {
     std::uint32_t data_invalid{0};
 };
 
+// ---------------------------------------------------------------------------
+// Cross-sectional ranking contract (Phase B GPU ranking).
+//
+// metal/opportunity_ranking.metal computes the composite candidate score
+// (one GPU thread per candidate) that previously ran in Python
+// market_scan.ranking.score_candidate. The per-candidate raw components
+// (directional_score rs, order_flow, direction sign, passes_liquidity) are
+// precomputed host-side by REUSING the exact scanner functions, so the GPU path
+// cannot drift from validated ranking semantics; the GPU does the normalization
+// + weighted composite (the cross-sectional, market-relative part). The CPU
+// oracle cpu_ref::rank_scores mirrors the kernel float-for-float. Sorting /
+// top-K is a deterministic host step (trivial + stable for N<=4096; directive §4).
+// ---------------------------------------------------------------------------
+struct RankInput {
+    float rs{0.0f};            // directional_score (valid iff has_rs)
+    float short_mom{0.0f};
+    float vwap_dist{0.0f};
+    float bb_mid_dist{0.0f};
+    float rel_volume{1.0f};    // host defaults None -> 1.0
+    float addv{0.0f};          // avg_daily_dollar_volume
+    float spread_pct{0.0f};    // valid iff has_spread
+    float order_flow{0.0f};    // [0,1], precomputed from the OFE snapshot
+    float dir_sign{1.0f};      // +1 long / -1 inverse ETF
+    std::uint32_t has_rs{0};
+    std::uint32_t has_spread{0};
+    std::uint32_t eligible{0}; // passes_liquidity hard filter (precomputed)
+};
+
+struct RankParams {
+    float w_rel_strength{0.30f};
+    float w_momentum{0.15f};
+    float w_volume_expansion{0.10f};
+    float w_liquidity{0.10f};
+    float w_order_flow{0.20f};
+    float w_regime_align{0.15f};
+    float spy_score{0.0f};
+    float qqq_score{0.0f};
+    float regime_score{0.0f};
+    std::uint32_t count{0};
+};
+
+struct RankOutput {
+    float total_score{0.0f};
+    float rel_strength{0.0f};
+    float momentum{0.0f};
+    float volume_expansion{0.0f};
+    float liquidity{0.0f};
+    float order_flow{0.0f};
+    float regime_align{0.0f};
+    std::uint32_t eligible{0};
+};
+
 struct RuntimeTelemetry {
     std::uint64_t dispatches_submitted{0};
     std::uint64_t dispatches_completed{0};

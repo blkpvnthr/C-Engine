@@ -51,9 +51,9 @@ def test_runtime_initializes_on_device(runtime):
     # 45 preserved baseline kernels + the Phase B kernels newly added by the
     # native discovery layer: screen_market (B.1), technical_features (B.3),
     # market_breadth + compact_entry_candidates (B.4).
-    assert len(names) == 49, f"expected 49 entry points, got {len(names)}"
+    assert len(names) == 50, f"expected 50 entry points, got {len(names)}"
     for k in ("screen_market", "technical_features", "market_breadth",
-              "compact_entry_candidates"):
+              "compact_entry_candidates", "rank_candidates"):
         assert k in names
 
 
@@ -154,9 +154,9 @@ def test_kernel_registry_reconciles_against_device(runtime):
     reg.reconcile_with_device(runtime)
     cov = reg.coverage()
     # 45 baseline + Phase B screen_market + technical_features (directive §13/§80).
-    assert cov.discovered == 49
-    assert cov.compiled_callable == 49  # every kernel builds a pipeline on device
-    assert cov.host_callable == 11  # 7 baseline + screen/tech/breadth/compaction
+    assert cov.discovered == 50
+    assert cov.compiled_callable == 50  # every kernel builds a pipeline on device
+    assert cov.host_callable == 12  # 7 baseline + screen/tech/breadth/compaction/rank
     # HONESTY GATE: a hardware-validated kernel is NOT operationally integrated.
     # Nothing is wired to a live consumer yet, so consumer_connected must be 0
     # even though several kernels name an intended consumer (directive §80/§86).
@@ -166,8 +166,8 @@ def test_kernel_registry_reconciles_against_device(runtime):
     import json
 
     doc = json.loads(reg.to_json())
-    assert doc["discovered"] == 49
-    assert len(doc["kernels"]) == 49
+    assert doc["discovered"] == 50
+    assert len(doc["kernels"]) == 50
     assert doc["consumer_connected"] == 0
 
 
@@ -401,3 +401,39 @@ def test_breadth_rejects_empty(runtime):
         runtime.market_breadth([])
     with pytest.raises(native.MetalError):
         runtime.compact_entry_candidates([], 10)
+
+
+# ------------------------------------------- Phase B GPU cross-sectional ranking
+def _rank_inputs():
+    RI = native.RankInput
+    return [
+        RI(rs=60.0, short_mom=0.01, vwap_dist=0.02, bb_mid_dist=0.01, rel_volume=2.0,
+           addv=3.0e8, spread_pct=0.0005, order_flow=0.7, dir_sign=1.0,
+           has_rs=1, has_spread=1, eligible=1),
+        RI(rs=-40.0, short_mom=-0.01, vwap_dist=-0.02, bb_mid_dist=-0.01, rel_volume=0.8,
+           addv=5.0e7, spread_pct=0.0015, order_flow=0.2, dir_sign=1.0,
+           has_rs=1, has_spread=1, eligible=0),
+        RI(short_mom=0.0, rel_volume=1.0, addv=1.0e8, order_flow=0.5, dir_sign=-1.0,
+           has_rs=0, has_spread=0, eligible=1),  # NaN rs -> 0.3; no spread -> 0.5
+    ]
+
+
+def test_rank_candidates_gpu_cpu_parity(runtime):
+    inputs = _rank_inputs()
+    p = native.RankParams(spy_score=25.0, qqq_score=30.0, regime_score=40.0)
+    gpu = runtime.rank_candidates(inputs, p)
+    cpu = native.rank_scores_cpu(inputs, p)
+    assert len(gpu) == len(cpu) == len(inputs)
+    for g, c in zip(gpu, cpu, strict=True):
+        assert g.eligible == c.eligible
+        for a in ("total_score", "rel_strength", "momentum", "volume_expansion",
+                  "liquidity", "order_flow", "regime_align"):
+            assert abs(getattr(g, a) - getattr(c, a)) < 1e-5
+    assert 0.0 <= gpu[0].total_score <= 1.0
+    # NaN-rs candidate falls back to rel_strength 0.3 (matches score_candidate).
+    assert abs(gpu[2].rel_strength - 0.3) < 1e-6
+
+
+def test_rank_candidates_rejects_empty(runtime):
+    with pytest.raises(native.MetalError):
+        runtime.rank_candidates([], native.RankParams())

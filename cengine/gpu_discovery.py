@@ -197,6 +197,32 @@ class GpuDiscoveryProvider:
             return self._runtime.market_breadth(flags)
         return native.market_breadth_cpu(flags)
 
+    def breadth_and_compaction(self, symbols: list[str], capacity: int = 0):
+        """Compute screen flags ONCE, then reduce them with BOTH the market_breadth
+        and compact_entry_candidates GPU kernels (CPU fallback). Returns
+        (BreadthCounters|None, (entry_qualified_ids, total_qualified)). This is the
+        operational consumer of compact_entry_candidates (directive §5)."""
+        rows = self.compute(symbols)
+        flags = [rows[s].flags for s in symbols if s in rows]
+        if not flags:
+            return None, ([], 0)
+        cap = capacity if capacity > 0 else len(flags)
+        if self._runtime is not None:
+            breadth = self._runtime.market_breadth(flags)
+            ids, total = self._runtime.compact_entry_candidates(flags, cap)
+        else:
+            breadth = native.market_breadth_cpu(flags)
+            ids, total = native.compact_entry_candidates_cpu(flags, cap)
+        return breadth, (ids, total)
+
+    def rank(self, inputs: list, params):
+        """Dispatch the GPU rank_candidates kernel (CPU oracle fallback)."""
+        if not inputs:
+            return []
+        if self._runtime is not None:
+            return self._runtime.rank_candidates(inputs, params)
+        return native.rank_scores_cpu(inputs, params)
+
     def compute(self, symbols: list[str]) -> dict[str, ScreenRow]:
         """Run the native discovery pipeline for `symbols`, returning per-symbol
         technical features + screen output. Symbols unknown to the engine (never

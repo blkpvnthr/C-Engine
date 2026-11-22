@@ -240,6 +240,77 @@ def test_market_breadth_operationally_consumed(tmp_path):
     assert snap["entry_qualified"] == b.entry_qualified
 
 
+def test_gpu_rank_matches_python_rank():
+    """The GPU rank_fn must produce RankedCandidate output identical to the Python
+    ranking.rank it replaces (scores within 1e-4, eligibility + order identical)."""
+    import random
+
+    from cengine.gpu_discovery import GpuDiscoveryProvider
+    from cengine.gpu_scanner_bridge import make_gpu_rank
+    from market_scan import ranking as rk
+    from market_scan.config import MarketScanConfig
+
+    prov = GpuDiscoveryProvider()
+    gpu_rank = make_gpu_rank(prov)
+    cfg = MarketScanConfig()
+    mkt = rk.MarketContext(regime_label="BULL", regime_score=40.0, spy_score=25.0,
+                           qqq_score=30.0, cfg=None)
+    random.seed(11)
+    feats = []
+    for i in range(25):
+        snap = (SimpleNamespace(ok=True, buy_pressure=random.random(),
+                                cvd_trend=random.random(),
+                                seller_exhaustion=random.random(),
+                                seller_exhaustion_l1=random.random())
+                if i % 3 else None)
+        feats.append(rk.CandidateFeatures(
+            symbol=f"S{i}", price=random.uniform(6, 500),
+            avg_daily_volume=random.uniform(4e5, 1e7),
+            avg_daily_dollar_volume=random.uniform(2e7, 5e8),
+            rel_volume=random.uniform(0.3, 3), spread_pct=random.uniform(1e-4, 2e-3),
+            directional_row={"pdi": random.uniform(10, 40),
+                             "mdi": random.uniform(10, 40),
+                             "adx": random.uniform(5, 40),
+                             "vwap_dist": random.uniform(-.03, .03),
+                             "bb_dist": random.uniform(-.03, .03),
+                             "short_mom": random.uniform(-.02, .02)},
+            snapshot=snap, vwap_dist=random.uniform(-.03, .03),
+            bb_mid_dist=random.uniform(-.03, .03)))
+    py = rk.rank(feats, config=cfg, market=mkt)
+    gp = gpu_rank(feats, config=cfg, market=mkt)
+    assert [r.symbol for r in py] == [r.symbol for r in gp]  # identical order
+    pyd = {r.symbol: r for r in py}
+    for r in gp:
+        assert r.eligible == pyd[r.symbol].eligible
+        assert abs(r.score - pyd[r.symbol].score) < 1e-4
+
+
+def test_scanner_uses_gpu_rank_and_consumes_compaction(tmp_path):
+    egd = EngineGpuDiscovery(bar_capacity=256, window=64)
+    px = 100.0
+    for i in range(80):
+        o = px
+        px *= 1.004
+        egd.on_market_event(BarEvent("WIN", i * _NS_MIN, _t(o),
+                                     _t(max(o, px) * 1.001), _t(min(o, px) * 0.999),
+                                     _t(px), 1000 + i))
+    egd.on_market_event(TradeEvent("WIN", 81 * _NS_MIN, _t(px * 1.004)))
+
+    scanner = _build_scanner(tmp_path, provider=lambda s, n: {})
+    scanner._daily_stats = {"WIN": {"price": 50.0, "adv": 5_000_000,
+                                    "addv": 250_000_000}}
+    scanner._discovered = ["WIN"]
+    _feed_ofe(scanner, "WIN", 1000.0)
+    scanner.feature_provider = egd.feature_provider_for(scanner)
+    scanner.rank_fn = egd.rank_fn()  # GPU-backed ranking
+
+    asyncio.run(scanner._rank_tick(1000.0))
+    assert "WIN" in (tmp_path / "universe.txt").read_text()  # ranked+published via GPU
+    # compaction consumed during the rank tick (update_breadth)
+    ids, total = egd.latest_compaction
+    assert total >= 1  # the uptrend symbol is entry-qualified
+
+
 def test_composed_provider_is_failsafe(tmp_path):
     # A GPU provider with no data must not break the scanner; base features pass
     # through and WIN still qualifies on daily stats alone.

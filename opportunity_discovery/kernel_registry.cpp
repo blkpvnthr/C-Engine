@@ -111,6 +111,12 @@ KernelRegistry::KernelRegistry() {
                           "count[u32@3] capacity[u32@4]",
                           "opportunity_discovery", "screen_flags"));
 
+    // --- opportunity_ranking.metal (1) : Phase B GPU cross-sectional ranking ---
+    kernels_.push_back(op("opportunity_ranking.metal", "rank_candidates",
+                          "MetalRuntime.rank_candidates",
+                          "inputs[RankInput@0] out[RankOutput@1] params[RankParams@2]",
+                          "scanner,opportunity_discovery", "candidate_features"));
+
     // --- covariance.metal (7) : 3 wired, 4 research/blocked -------------------
     kernels_.push_back(op("covariance.metal", "column_means",
                           "MetalRuntime.column_means",

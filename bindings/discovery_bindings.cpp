@@ -154,6 +154,58 @@ void register_discovery(py::module_& m) {
         .def_readonly("data_invalid", &BreadthCounters::data_invalid);
 
     m.def("market_breadth_cpu", &cpu_ref::market_breadth, py::arg("flags"));
+
+    // --- cross-sectional ranking (Phase B GPU ranking) ---------------------
+    py::class_<RankInput>(m, "RankInput")
+        .def(py::init([](float rs, float short_mom, float vwap_dist,
+                         float bb_mid_dist, float rel_volume, float addv,
+                         float spread_pct, float order_flow, float dir_sign,
+                         std::uint32_t has_rs, std::uint32_t has_spread,
+                         std::uint32_t eligible) {
+                 RankInput r;
+                 r.rs = rs; r.short_mom = short_mom; r.vwap_dist = vwap_dist;
+                 r.bb_mid_dist = bb_mid_dist; r.rel_volume = rel_volume;
+                 r.addv = addv; r.spread_pct = spread_pct;
+                 r.order_flow = order_flow; r.dir_sign = dir_sign;
+                 r.has_rs = has_rs; r.has_spread = has_spread; r.eligible = eligible;
+                 return r;
+             }),
+             py::arg("rs") = 0.0f, py::arg("short_mom") = 0.0f,
+             py::arg("vwap_dist") = 0.0f, py::arg("bb_mid_dist") = 0.0f,
+             py::arg("rel_volume") = 1.0f, py::arg("addv") = 0.0f,
+             py::arg("spread_pct") = 0.0f, py::arg("order_flow") = 0.0f,
+             py::arg("dir_sign") = 1.0f, py::arg("has_rs") = 0u,
+             py::arg("has_spread") = 0u, py::arg("eligible") = 0u);
+
+    py::class_<RankParams>(m, "RankParams")
+        .def(py::init([](float w_rs, float w_mom, float w_vol, float w_liq,
+                         float w_of, float w_reg, float spy, float qqq,
+                         float regime) {
+                 RankParams p;
+                 p.w_rel_strength = w_rs; p.w_momentum = w_mom;
+                 p.w_volume_expansion = w_vol; p.w_liquidity = w_liq;
+                 p.w_order_flow = w_of; p.w_regime_align = w_reg;
+                 p.spy_score = spy; p.qqq_score = qqq; p.regime_score = regime;
+                 return p;
+             }),
+             py::arg("w_rel_strength") = 0.30f, py::arg("w_momentum") = 0.15f,
+             py::arg("w_volume_expansion") = 0.10f, py::arg("w_liquidity") = 0.10f,
+             py::arg("w_order_flow") = 0.20f, py::arg("w_regime_align") = 0.15f,
+             py::arg("spy_score") = 0.0f, py::arg("qqq_score") = 0.0f,
+             py::arg("regime_score") = 0.0f);
+
+    py::class_<RankOutput>(m, "RankOutput")
+        .def_readonly("total_score", &RankOutput::total_score)
+        .def_readonly("rel_strength", &RankOutput::rel_strength)
+        .def_readonly("momentum", &RankOutput::momentum)
+        .def_readonly("volume_expansion", &RankOutput::volume_expansion)
+        .def_readonly("liquidity", &RankOutput::liquidity)
+        .def_readonly("order_flow", &RankOutput::order_flow)
+        .def_readonly("regime_align", &RankOutput::regime_align)
+        .def_readonly("eligible", &RankOutput::eligible);
+
+    m.def("rank_scores_cpu", &cpu_ref::rank_scores, py::arg("inputs"),
+          py::arg("params"));
     m.def("compact_entry_candidates_cpu",
           [](const std::vector<std::uint32_t>& flags, std::uint32_t capacity) {
               std::uint32_t total = 0;
@@ -223,7 +275,9 @@ void register_discovery(py::module_& m) {
              py::call_guard<py::gil_scoped_release>())
         .def("compact_entry_candidates", &MetalRuntime::compact_entry_candidates,
              py::arg("flags"), py::arg("capacity"),
-             py::call_guard<py::gil_scoped_release>());
+             py::call_guard<py::gil_scoped_release>())
+        .def("rank_candidates", &MetalRuntime::rank_candidates, py::arg("inputs"),
+             py::arg("params"), py::call_guard<py::gil_scoped_release>());
 
     py::class_<KernelInfo>(m, "KernelInfo")
         .def_readonly("shader_file", &KernelInfo::shader_file)

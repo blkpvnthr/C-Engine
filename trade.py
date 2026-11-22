@@ -772,15 +772,17 @@ class MarketEngine:
                     on_quote=scanner.ofe.ingest_quote,
                 )
                 # Overlay native GPU directional/screen features on the scanner's
-                # base features (preserves liquidity gate + order flow; reuses the
-                # scanner's own rank() and the single UniversePublisher).
+                # base features AND move the cross-sectional ranking onto the GPU
+                # (identical semantics). The scanner keeps orchestration, lifecycle
+                # filtering, and the single UniversePublisher.
                 if gpu_discovery is not None:
                     try:
                         scanner.feature_provider = gpu_discovery.feature_provider_for(
                             scanner)
+                        scanner.rank_fn = gpu_discovery.rank_fn()
                     except Exception as exc:  # noqa: BLE001
-                        LOGGER.warning("GPU feature_provider wiring failed (%s); "
-                                       "scanner uses its default", exc)
+                        LOGGER.warning("GPU discovery wiring failed (%s); scanner "
+                                       "uses its Python features/ranking", exc)
                 return scanner
 
             self._scanner_handle = start_market_scanner(

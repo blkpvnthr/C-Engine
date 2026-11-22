@@ -136,6 +136,11 @@ public:
     compact_entry_candidates(const std::vector<std::uint32_t>& flags,
                              std::uint32_t capacity);
 
+    // Cross-sectional candidate scoring (one GPU thread per candidate). Matches
+    // cpu_ref::rank_scores exactly; sorting/top-K is a host step.
+    [[nodiscard]] std::vector<RankOutput> rank_candidates(
+        const std::vector<RankInput>& inputs, const RankParams& params);
+
     // --- introspection / telemetry -----------------------------------------
     [[nodiscard]] RuntimeTelemetry telemetry() const;
     [[nodiscard]] std::size_t cached_pipeline_count() const;

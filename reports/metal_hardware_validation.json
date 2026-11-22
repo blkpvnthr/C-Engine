@@ -1,8 +1,8 @@
 {
-  "recorded_utc": "2026-11-22T21:01:53.474229+00:00",
+  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
   "device": "Apple M5 Max",
   "metallib_path": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
-  "metallib_sha256": "94a1d032c27b538056c5881a736b98b33a3e708ee7949c00a614afeb20c8f7e9",
+  "metallib_sha256": "1dc894b5236588b2e9ffeab6c90696024fcd9499dd03d472ed247f95920ba86d",
   "native_module": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/_cengine_native.cpython-311-darwin.so",
   "pipeline_status": {
     "rolling_sma_ticks": true,
@@ -13,6 +13,7 @@
     "technical_features": true,
     "market_breadth": true,
     "compact_entry_candidates": true,
+    "rank_candidates": true,
     "column_means": true,
     "covariance_matrix": true,
     "ewma_covariance_matrix": true,
@@ -66,17 +67,18 @@
     "screen_market",
     "technical_features",
     "market_breadth",
-    "compact_entry_candidates"
+    "compact_entry_candidates",
+    "rank_candidates"
   ],
   "telemetry": {
-    "dispatches_submitted": 14,
-    "dispatches_completed": 14,
+    "dispatches_submitted": 15,
+    "dispatches_completed": 15,
     "dispatch_failures": 0,
     "pipeline_cache_hits": 3,
-    "pipeline_cache_misses": 11,
-    "pipeline_cache_hit_rate": 0.2143,
+    "pipeline_cache_misses": 12,
+    "pipeline_cache_hit_rate": 0.2,
     "buffers_allocated": 12,
-    "buffers_reused": 44,
-    "mean_dispatch_ms": 0.02241
+    "buffers_reused": 47,
+    "mean_dispatch_ms": 0.02158
   }
 }

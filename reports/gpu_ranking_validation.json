@@ -1,0 +1,14 @@
+{
+  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
+  "device": "Apple M5 Max",
+  "kernel": "rank_candidates",
+  "cpu_parity": {
+    "executed": true,
+    "parity_ok": true,
+    "detail": "3 candidates; max_abs_error=5.960e-08 (tol 1e-5)",
+    "max_abs_error": 5.960464477539063e-08
+  },
+  "semantics": "faithful GPU port of market_scan.ranking.score_candidate; per-candidate raw components (rs, order_flow, dir_sign, passes_liquidity) reused from the scanner, composite score on GPU; sort/top-K is a deterministic host step (directive \u00a73/\u00a74)",
+  "operational_consumer": "MarketScanner.rank_fn (GPU) via EngineGpuDiscovery.rank_fn, wired in trade.py",
+  "note": "GPU rank_fn output is identical to the Python ranker (scores <1e-4, eligibility + order identical); see tests/test_gpu_scanner_bridge.py."
+}

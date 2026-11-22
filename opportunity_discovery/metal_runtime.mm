@@ -527,6 +527,29 @@ MetalRuntime::compact_entry_candidates(const std::vector<std::uint32_t>& flags,
     return {out, total};
 }
 
+std::vector<RankOutput> MetalRuntime::rank_candidates(
+    const std::vector<RankInput>& inputs, const RankParams& params) {
+    if (!available()) throw MetalError("Metal runtime unavailable");
+    if (inputs.empty()) throw MetalError("inputs cannot be empty");
+    const std::size_t n = inputs.size();
+    RankParams p = params;
+    p.count = static_cast<std::uint32_t>(n);
+    auto& pool = *impl_->pool;
+    GpuBuffer ib = pool.upload_bytes(inputs.data(), n * sizeof(RankInput));
+    GpuBuffer ob = pool.acquire(n * sizeof(RankOutput), true);
+    GpuBuffer pb = pool.upload_bytes(&p, sizeof(p));
+    const bool ok = dispatch("rank_candidates", {ib, ob, pb}, n);
+    std::vector<RankOutput> out(n);
+    if (ok && ob.contents) {
+        std::memcpy(out.data(), ob.contents, n * sizeof(RankOutput));
+    }
+    pool.release(ib);
+    pool.release(ob);
+    pool.release(pb);
+    if (!ok) throw MetalError("rank_candidates dispatch failed");
+    return out;
+}
+
 RuntimeTelemetry MetalRuntime::telemetry() const {
     std::lock_guard<std::mutex> lk(impl_->mtx);
     return impl_->tele;

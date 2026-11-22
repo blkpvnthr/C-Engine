@@ -90,6 +90,8 @@ class EngineGpuDiscovery:
         # Latest operationally-consumed market breadth (BreadthCounters | None).
         self.latest_breadth: Any = None
         self.latest_breadth_backend: str = ""
+        # Latest GPU candidate compaction: (entry_qualified_ids, total_qualified).
+        self.latest_compaction: tuple = ([], 0)
 
     @property
     def backend(self) -> str:
@@ -138,16 +140,19 @@ class EngineGpuDiscovery:
             pass
 
     def update_breadth(self) -> Any:
-        """Compute + store market breadth over the full active universe via the GPU
-        market_breadth kernel (CPU fallback). This is the operational consumer of
-        the breadth kernel (invoked each rank tick). Returns the BreadthCounters."""
+        """Compute + store market breadth AND candidate compaction over the full
+        active universe (one flag computation feeding both GPU kernels, CPU
+        fallback). Operational consumer of market_breadth + compact_entry_candidates
+        (invoked each rank tick). Returns the BreadthCounters."""
         syms = sorted(self._universe)
         if not syms:
             return None
         try:
-            self.latest_breadth = self.provider.market_breadth(syms)
+            breadth, compaction = self.provider.breadth_and_compaction(syms)
+            self.latest_breadth = breadth
+            self.latest_compaction = compaction
             self.latest_breadth_backend = self.provider.backend
-        except Exception:  # noqa: BLE001 — breadth is advisory telemetry
+        except Exception:  # noqa: BLE001 — breadth/compaction are advisory telemetry
             return self.latest_breadth
         return self.latest_breadth
 
@@ -165,6 +170,11 @@ class EngineGpuDiscovery:
                 "above_vwap": b.above_vwap, "below_vwap": b.below_vwap,
                 "data_invalid": b.data_invalid}
 
+    def rank_fn(self):
+        """A drop-in replacement for market_scan.ranking.rank that computes the
+        composite score on the GPU (CPU fallback)."""
+        return make_gpu_rank(self.provider)
+
     def feature_provider_for(self, scanner: Any) -> Callable[[list[str], float], dict]:
         """Return a feature_provider bound to `scanner` that flushes cached trades,
         overlays GPU directional features on the scanner's base features, and
@@ -179,6 +189,67 @@ class EngineGpuDiscovery:
             return feats
 
         return provider
+
+
+def make_gpu_rank(gpu: GpuDiscoveryProvider) -> Callable:
+    """Build a rank() replacement that computes the composite candidate score on
+    the GPU rank_candidates kernel (CPU fallback), producing RankedCandidate output
+    IDENTICAL to market_scan.ranking.rank. The per-candidate raw components are
+    computed by REUSING the exact scanner functions (directional_score,
+    _order_flow_component, _direction_sign, passes_liquidity), so only the
+    composite arithmetic moves to the GPU — no semantic drift (directive §3)."""
+    import amps_v4_regime
+    from market_scan import ranking as rk
+
+    def gpu_rank(features, *, config, market, weights=None):
+        feats = list(features)
+        if not feats:
+            return []
+        w = weights or rk.RankWeights()
+        cfg = market.cfg or amps_v4_regime.RegimeConfig()
+        inputs = []
+        meta = []
+        for f in feats:
+            rs = amps_v4_regime.directional_score(f.directional_row, cfg)
+            has_rs = rs == rs  # not NaN
+            spread = f.spread_pct
+            elig, reason = rk.passes_liquidity(f, config)
+            inputs.append(native.RankInput(
+                rs=float(rs) if has_rs else 0.0,
+                short_mom=float(f.directional_row.get("short_mom", 0.0) or 0.0),
+                vwap_dist=float(f.vwap_dist or 0.0),
+                bb_mid_dist=float(f.bb_mid_dist or 0.0),
+                rel_volume=float(f.rel_volume if f.rel_volume is not None else 1.0),
+                addv=float(f.avg_daily_dollar_volume or 0.0),
+                spread_pct=float(spread) if spread is not None else 0.0,
+                order_flow=float(rk._order_flow_component(f.snapshot)),
+                dir_sign=float(rk._direction_sign(f.symbol)),
+                has_rs=1 if has_rs else 0,
+                has_spread=1 if spread is not None else 0,
+                eligible=1 if elig else 0))
+            meta.append((f.symbol, elig, reason, rs if has_rs else float("nan")))
+        params = native.RankParams(
+            w_rel_strength=w.rel_strength, w_momentum=w.momentum,
+            w_volume_expansion=w.volume_expansion, w_liquidity=w.liquidity,
+            w_order_flow=w.order_flow, w_regime_align=w.regime_align,
+            spy_score=market.spy_score, qqq_score=market.qqq_score,
+            regime_score=market.regime_score)
+        outs = gpu.rank(inputs, params)
+        ranked = []
+        for (sym, elig, reason, rs), o in zip(meta, outs, strict=True):
+            detail = {"rel_strength": round(o.rel_strength, 4),
+                      "momentum": round(o.momentum, 4),
+                      "volume_expansion": round(o.volume_expansion, 4),
+                      "liquidity": round(o.liquidity, 4),
+                      "order_flow": round(o.order_flow, 4),
+                      "regime_align": round(o.regime_align, 4),
+                      "directional_score": None if rs != rs else round(rs, 2),
+                      "backend": gpu.backend}
+            ranked.append(rk.RankedCandidate(sym, o.total_score, elig, reason, detail))
+        ranked.sort(key=lambda r: (r.eligible, r.score), reverse=True)
+        return ranked
+
+    return gpu_rank
 
 
 def make_composed_feature_provider(
