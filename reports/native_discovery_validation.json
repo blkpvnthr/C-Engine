@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
+  "recorded_utc": "2026-11-22T20:11:19.409059+00:00",
   "device": "Apple M5 Max",
   "phase": "B.1 \u2014 native GPU opportunity screening kernel",
   "kernel": {
@@ -15,6 +15,7 @@
     "hardware_executed": true,
     "numerically_validated": true,
     "benchmarked": false,
+    "operationally_consumed": false,
     "blocker": ""
   },
   "compiled_into_metallib": true,

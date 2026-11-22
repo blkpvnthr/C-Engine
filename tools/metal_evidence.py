@@ -185,7 +185,8 @@ def main() -> int:
             "discovered": cov.discovered,
             "compiled_callable": cov.compiled_callable,
             "host_callable": cov.host_callable,
-            "consumer_connected": cov.consumer_connected,
+            "consumer_connected": cov.consumer_connected,  # real live-path wiring
+            "intended_consumer": cov.intended_consumer,    # named intent only
             "hardware_executed": cov.hardware_executed,
             "numerically_validated": cov.numerically_validated,
             "blocked": cov.blocked,
@@ -224,15 +225,21 @@ def main() -> int:
 
     # --- operational_consumer_coverage.json ---------------------------------
     consumers = {k["kernel_name"]: {"host_interface": k["host_interface"],
-                                    "consumer": k["consumer"], "mode": k["mode"],
-                                    "blocker": k["blocker"]}
+                                    "intended_consumer": k["consumer"],
+                                    "operationally_consumed": k["operationally_consumed"],
+                                    "mode": k["mode"], "blocker": k["blocker"]}
                  for k in inventory["kernels"]}
     (REPORTS / "operational_consumer_coverage.json").write_text(
         json.dumps({"recorded_utc": now,
-                    "note": ("Phase A wires the 7 indicator/covariance kernels to the "
-                             "native runtime host. Full operational consumption via the "
-                             "discovery engine arrives in Phase B; the 38 others are "
-                             "research/blocked with documented reasons."),
+                    "operationally_consumed_count": cov.consumer_connected,
+                    "note": ("HONEST STATUS: 8 kernels are host-callable, "
+                             "hardware-executed and CPU-parity-validated, but NONE are "
+                             "yet operationally consumed on the live screening path "
+                             "(consumer_connected=0). `intended_consumer` names the "
+                             "planned consumer; `operationally_consumed` records real "
+                             "wiring, set only when a live consumer dispatches the "
+                             "kernel (directive §80/§86). Operational consumption is "
+                             "wired in Phase B.5 (scanner) and Phase D/E."),
                     "kernels": consumers}, indent=2))
 
     # --- live_gpu_execution_trace.json (Phase B.1 vertical slice) ------------

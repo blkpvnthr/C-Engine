@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
+  "recorded_utc": "2026-11-22T20:11:19.409059+00:00",
   "phases": {
     "A_native_metal_runtime": "COMPLETE",
     "B_operational_gpu_screening": "IN_PROGRESS \u2014 B.1 native screen_market kernel compiled, hardware-executed, CPU-parity-validated; operational ingest/scanner wiring remaining",

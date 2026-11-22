@@ -69,7 +69,7 @@ struct KernelInfo {
     std::string resolved_name;      // name used to look it up (may add "gme::")
     std::string host_interface;     // dotted native/py host, or "" if none
     std::string buffer_contract;    // short human description of the ABI
-    std::string consumer;           // legitimate downstream consumer, or ""
+    std::string consumer;           // INTENDED downstream consumer, or ""
     std::string required_data;      // e.g. "l1", "l2_depth", "returns_matrix"
     std::string blocker;            // reason if blocked, else ""
     KernelMode mode{KernelMode::Blocked};
@@ -77,6 +77,11 @@ struct KernelInfo {
     bool hardware_executed{false};
     bool numerically_validated{false};
     bool benchmarked{false};
+    // A kernel is operationally_consumed ONLY when a real operational consumer
+    // actually dispatches it on the live path. `consumer` names the *intended*
+    // consumer; this flag records the *actual* wiring. A hardware-validated
+    // kernel is NOT automatically operationally integrated (directive §80/§86).
+    bool operationally_consumed{false};
 };
 
 // Monotonic runtime counters. Everything the live dashboard and the

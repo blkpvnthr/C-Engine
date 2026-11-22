@@ -257,6 +257,9 @@ void KernelRegistry::mark_numerically_validated(const std::string& name) {
 void KernelRegistry::mark_benchmarked(const std::string& name) {
     if (KernelInfo* k = find(name)) k->benchmarked = true;
 }
+void KernelRegistry::mark_operationally_consumed(const std::string& name) {
+    if (KernelInfo* k = find(name)) k->operationally_consumed = true;
+}
 
 KernelRegistry::Coverage KernelRegistry::coverage() const {
     Coverage c;
@@ -264,7 +267,10 @@ KernelRegistry::Coverage KernelRegistry::coverage() const {
     for (const auto& k : kernels_) {
         if (k.pipeline_cached) ++c.compiled_callable;
         if (!k.host_interface.empty()) ++c.host_callable;
-        if (!k.consumer.empty()) ++c.consumer_connected;
+        // consumer_connected counts REAL operational wiring, not intent. A named
+        // `consumer` only increments intended_consumer (directive §80/§86).
+        if (k.operationally_consumed) ++c.consumer_connected;
+        if (!k.consumer.empty()) ++c.intended_consumer;
         if (k.hardware_executed) ++c.hardware_executed;
         if (k.numerically_validated) ++c.numerically_validated;
         if (k.benchmarked) ++c.benchmarked;
@@ -298,6 +304,7 @@ std::string KernelRegistry::to_json() const {
       << ",\n  \"compiled_callable\": " << c.compiled_callable
       << ",\n  \"host_callable\": " << c.host_callable
       << ",\n  \"consumer_connected\": " << c.consumer_connected
+      << ",\n  \"intended_consumer\": " << c.intended_consumer
       << ",\n  \"hardware_executed\": " << c.hardware_executed
       << ",\n  \"numerically_validated\": " << c.numerically_validated
       << ",\n  \"benchmarked\": " << c.benchmarked
@@ -320,6 +327,8 @@ std::string KernelRegistry::to_json() const {
           << ", \"numerically_validated\": "
           << (k.numerically_validated ? "true" : "false")
           << ", \"benchmarked\": " << (k.benchmarked ? "true" : "false")
+          << ", \"operationally_consumed\": "
+          << (k.operationally_consumed ? "true" : "false")
           << ", \"blocker\": \"" << esc(k.blocker) << "\"}";
         o << (i + 1 < kernels_.size() ? ",\n" : "\n");
     }

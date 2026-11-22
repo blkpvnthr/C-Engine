@@ -166,13 +166,15 @@ void register_discovery(py::module_& m) {
         .def_readonly("pipeline_cached", &KernelInfo::pipeline_cached)
         .def_readonly("hardware_executed", &KernelInfo::hardware_executed)
         .def_readonly("numerically_validated", &KernelInfo::numerically_validated)
-        .def_readonly("benchmarked", &KernelInfo::benchmarked);
+        .def_readonly("benchmarked", &KernelInfo::benchmarked)
+        .def_readonly("operationally_consumed", &KernelInfo::operationally_consumed);
 
     py::class_<KernelRegistry::Coverage>(m, "KernelCoverage")
         .def_readonly("discovered", &KernelRegistry::Coverage::discovered)
         .def_readonly("compiled_callable", &KernelRegistry::Coverage::compiled_callable)
         .def_readonly("host_callable", &KernelRegistry::Coverage::host_callable)
         .def_readonly("consumer_connected", &KernelRegistry::Coverage::consumer_connected)
+        .def_readonly("intended_consumer", &KernelRegistry::Coverage::intended_consumer)
         .def_readonly("hardware_executed", &KernelRegistry::Coverage::hardware_executed)
         .def_readonly("numerically_validated", &KernelRegistry::Coverage::numerically_validated)
         .def_readonly("benchmarked", &KernelRegistry::Coverage::benchmarked)
@@ -189,6 +191,7 @@ void register_discovery(py::module_& m) {
         .def("mark_hardware_executed", &KernelRegistry::mark_hardware_executed)
         .def("mark_numerically_validated", &KernelRegistry::mark_numerically_validated)
         .def("mark_benchmarked", &KernelRegistry::mark_benchmarked)
+        .def("mark_operationally_consumed", &KernelRegistry::mark_operationally_consumed)
         .def("coverage", &KernelRegistry::coverage)
         .def("to_json", &KernelRegistry::to_json);
 

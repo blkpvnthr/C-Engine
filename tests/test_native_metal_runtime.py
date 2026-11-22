@@ -154,12 +154,29 @@ def test_kernel_registry_reconciles_against_device(runtime):
     assert cov.discovered == 46
     assert cov.compiled_callable == 46  # every kernel builds a pipeline on device
     assert cov.host_callable == 8  # 7 baseline wired kernels + screen_market
+    # HONESTY GATE: a hardware-validated kernel is NOT operationally integrated.
+    # Nothing is wired to a live consumer yet, so consumer_connected must be 0
+    # even though several kernels name an intended consumer (directive §80/§86).
+    assert cov.consumer_connected == 0
+    assert cov.intended_consumer >= 8
     # JSON serialization is well-formed and reflects the live counts.
     import json
 
     doc = json.loads(reg.to_json())
     assert doc["discovered"] == 46
     assert len(doc["kernels"]) == 46
+    assert doc["consumer_connected"] == 0
+
+
+def test_operational_consumption_is_explicit(runtime):
+    """mark_operationally_consumed is the ONLY way consumer_connected rises."""
+    reg = native.KernelRegistry()
+    reg.reconcile_with_device(runtime)
+    assert reg.coverage().consumer_connected == 0
+    reg.mark_operationally_consumed("screen_market")
+    assert reg.coverage().consumer_connected == 1
+    sm = next(k for k in reg.kernels() if k.kernel_name == "screen_market")
+    assert sm.operationally_consumed is True
 
 
 # ------------------------------------------------- regression parity vs legacy PyObjC

@@ -1,17 +1,18 @@
 {
-  "recorded_utc": "2026-11-22T19:56:17.371572+00:00",
+  "recorded_utc": "2026-11-22T20:11:19.409059+00:00",
   "device": "Apple M5 Max",
   "metallib": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
   "discovered": 46,
   "compiled_callable": 46,
   "host_callable": 8,
-  "consumer_connected": 33,
+  "consumer_connected": 0,
+  "intended_consumer": 33,
   "hardware_executed": 8,
   "numerically_validated": 8,
   "benchmarked": 0,
   "blocked": 6,
   "pipeline_coverage_pct": 100,
-  "operational_coverage_pct": 71.7391,
+  "operational_coverage_pct": 0,
   "kernels": [
     {
       "shader_file": "indicators.metal",
@@ -26,6 +27,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -41,6 +43,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -56,6 +59,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -71,6 +75,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -86,6 +91,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -101,6 +107,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -116,6 +123,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -131,6 +139,7 @@
       "hardware_executed": true,
       "numerically_validated": true,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": ""
     },
     {
@@ -146,6 +155,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "structured StatArb ABI; research-only, not yet wired"
     },
     {
@@ -161,6 +171,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "structured StatArb ABI; research-only, not yet wired"
     },
     {
@@ -176,6 +187,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "structured factor ABI; not yet wired"
     },
     {
@@ -191,6 +203,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "long-only engine; statarb weights research-only"
     },
     {
@@ -206,6 +219,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "MonteCarloParams ulong ABI; wiring pending"
     },
     {
@@ -221,6 +235,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "structured Cholesky ABI; pipeline not yet wired"
     },
     {
@@ -236,6 +251,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "depends on correlate_normals; not wired"
     },
     {
@@ -251,6 +267,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "multi-stage MC pipeline; not wired"
     },
     {
@@ -266,6 +283,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "research-only; not wired"
     },
     {
@@ -281,6 +299,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "multi-stage MC pipeline; not wired"
     },
     {
@@ -296,6 +315,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "MC aggregation stage; not wired"
     },
     {
@@ -311,6 +331,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "MC aggregation stage; not wired"
     },
     {
@@ -326,6 +347,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "MC aggregation stage; not wired"
     },
     {
@@ -341,6 +363,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "feeds reduce_* combine stage; not wired"
     },
     {
@@ -356,6 +379,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "feeds reduce_threshold_tail; not wired"
     },
     {
@@ -371,6 +395,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "structured stress ABI; not wired"
     },
     {
@@ -386,6 +411,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "requires genuine L2 depth; IEX provides L1 only"
     },
     {
@@ -401,6 +427,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "requires genuine L2 depth; IEX provides L1 only"
     },
     {
@@ -416,6 +443,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "requires genuine L2 depth; IEX provides L1 only"
     },
     {
@@ -431,6 +459,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "L1-compatible; structured depth ABI wiring pending"
     },
     {
@@ -446,6 +475,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "requires genuine L2 depth; IEX provides L1 only"
     },
     {
@@ -461,6 +491,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "requires genuine L2 depth; IEX provides L1 only"
     },
     {
@@ -476,6 +507,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "requires genuine L2 depth; IEX provides L1 only"
     },
     {
@@ -491,6 +523,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "two-stage partial/combine pipeline wiring pending"
     },
     {
@@ -506,6 +539,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "two-stage partial/combine pipeline wiring pending"
     },
     {
@@ -521,6 +555,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "two-stage partial/combine pipeline wiring pending"
     },
     {
@@ -536,6 +571,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "combine stage wiring pending"
     },
     {
@@ -551,6 +587,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "pairs with combine_covariance_partials; pending"
     },
     {
@@ -566,6 +603,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "combine stage wiring pending"
     },
     {
@@ -581,6 +619,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "pairs with combine_pnl_partials; pending"
     },
     {
@@ -596,6 +635,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "pairs with combine_threshold_tail; pending"
     },
     {
@@ -611,6 +651,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "combine stage wiring pending"
     },
     {
@@ -626,6 +667,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "combine stage wiring pending"
     },
     {
@@ -641,6 +683,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "second stage of reduce_sum; pending"
     },
     {
@@ -656,6 +699,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "second stage; pending"
     },
     {
@@ -671,6 +715,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "second stage; pending"
     },
     {
@@ -686,6 +731,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "second stage; pending"
     },
     {
@@ -701,6 +747,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
+      "operationally_consumed": false,
       "blocker": "combine stage wiring pending"
     }
   ]

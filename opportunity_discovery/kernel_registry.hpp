@@ -43,13 +43,17 @@ public:
     void mark_hardware_executed(const std::string& kernel_name);
     void mark_numerically_validated(const std::string& kernel_name);
     void mark_benchmarked(const std::string& kernel_name);
+    // Set once a real operational consumer actually dispatches the kernel on the
+    // live path (NOT merely because an intended consumer is named).
+    void mark_operationally_consumed(const std::string& kernel_name);
 
     // Coverage summary, computed from live flags.
     struct Coverage {
         std::size_t discovered{0};         // total registered
         std::size_t compiled_callable{0};  // pipeline_cached true
         std::size_t host_callable{0};      // has a host_interface
-        std::size_t consumer_connected{0}; // has a consumer
+        std::size_t consumer_connected{0}; // operationally_consumed (real wiring)
+        std::size_t intended_consumer{0};  // has a named (intended) consumer
         std::size_t hardware_executed{0};
         std::size_t numerically_validated{0};
         std::size_t benchmarked{0};
