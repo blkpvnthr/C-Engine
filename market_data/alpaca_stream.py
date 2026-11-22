@@ -362,6 +362,10 @@ QuoteHandler = Callable[[QuoteEvent], Optional[Awaitable[None]]]
 TradeHandler = Callable[[TradeEvent], Optional[Awaitable[None]]]
 BarHandler = Callable[[BarEvent], Optional[Awaitable[None]]]
 StateHandler = Callable[[ConnectionState], Optional[Awaitable[None]]]
+# Receives the provider's AUTHORITATIVE per-channel confirmed membership from a
+# genuine Alpaca `subscription` frame: {"bars": [...], "trades": [...],
+# "quotes": [...], "generation": int}. Never fired on mere send success.
+SubscriptionHandler = Callable[[dict], Optional[Awaitable[None]]]
 
 
 # =============================================================================
@@ -540,6 +544,7 @@ class AlpacaMarketDataStream:
         on_trade: Optional[TradeHandler] = None,
         on_bar: Optional[BarHandler] = None,
         on_state: Optional[StateHandler] = None,
+        on_subscription: Optional[SubscriptionHandler] = None,
     ) -> None:
         normalized = _normalize_symbols(symbols)
 
@@ -597,6 +602,7 @@ class AlpacaMarketDataStream:
         self._on_trade = on_trade
         self._on_bar = on_bar
         self._on_state = on_state
+        self._on_subscription = on_subscription
 
         self._state = ConnectionState.DISCONNECTED
 
@@ -611,6 +617,13 @@ class AlpacaMarketDataStream:
         # unchanged (backward compatible).
         self._channel_subs: dict[str, set] = {"bars": set(), "trades": set(),
                                               "quotes": set()}
+        # Provider-confirmed per-channel membership, parsed from genuine Alpaca
+        # `subscription` frames (authoritative; the server reports the FULL current
+        # set per channel). Reset on each (re)connection; `_subscription_generation`
+        # increments per connection so a confirmation can be tied to its socket.
+        self._confirmed_channels: dict[str, set] = {"bars": set(), "trades": set(),
+                                                    "quotes": set()}
+        self._subscription_generation = 0
 
         self._connection_attempts = 0
         self._reconnects = 0
@@ -654,6 +667,15 @@ class AlpacaMarketDataStream:
     @property
     def subscription_acknowledged(self) -> bool:
         return self._subscription_acknowledged
+
+    @property
+    def subscription_generation(self) -> int:
+        return self._subscription_generation
+
+    def confirmed_channels(self) -> dict[str, tuple[str, ...]]:
+        """The provider's authoritative per-channel confirmed membership (from the
+        latest genuine `subscription` frame on the current socket)."""
+        return {ch: tuple(sorted(syms)) for ch, syms in self._confirmed_channels.items()}
 
     @property
     def state(self) -> ConnectionState:
@@ -937,6 +959,10 @@ class AlpacaMarketDataStream:
     async def _connect_and_consume(self) -> None:
         self._connection_attempts += 1
         self._subscription_acknowledged = False
+        # A new socket must be re-confirmed from scratch: discard any prior
+        # provider-confirmed membership and bump the subscription generation.
+        self._confirmed_channels = {"bars": set(), "trades": set(), "quotes": set()}
+        self._subscription_generation += 1
 
         LOGGER.info(
             "connecting feed=%s endpoint=%s symbols=%d attempt=%d",
@@ -1071,7 +1097,7 @@ class AlpacaMarketDataStream:
 
                 if msg_type == "subscription":
                     self._verify_subscription(message)
-                    self._subscription_acknowledged = True
+                    await self._process_subscription_message(message)
                     LOGGER.info(
                         "subscription acknowledged feed=%s symbols=%d "
                         "channels=%s",
@@ -1092,6 +1118,25 @@ class AlpacaMarketDataStream:
                 # Alpaca can theoretically deliver data adjacent to the
                 # subscription acknowledgement. Do not discard it.
                 await self._dispatch_message(message)
+
+    async def _process_subscription_message(self, message: dict[str, object]) -> None:
+        """Parse a genuine Alpaca `subscription` frame (the authoritative FULL
+        per-channel membership) into ``_confirmed_channels`` and notify the
+        subscription handler. Called from BOTH the initial subscribe ack loop and
+        the live consume loop, so dynamic per-channel (un)subscriptions are
+        confirmed by the provider — never by send success."""
+        for ch in ("bars", "trades", "quotes"):
+            raw = message.get(ch)
+            if isinstance(raw, (list, tuple)):
+                self._confirmed_channels[ch] = {str(s).upper() for s in raw}
+            elif ch in message:  # present but empty -> confirmed empty
+                self._confirmed_channels[ch] = set()
+        self._subscription_acknowledged = True
+        if self._on_subscription is not None:
+            payload = {ch: sorted(self._confirmed_channels[ch])
+                       for ch in ("bars", "trades", "quotes")}
+            payload["generation"] = self._subscription_generation
+            await _maybe_await(self._on_subscription(payload))
 
     def _verify_subscription(
         self,
@@ -1191,12 +1236,18 @@ class AlpacaMarketDataStream:
 
                 return
 
+            if msg_type == "subscription":
+                # Dynamic (un)subscription confirmation on the live socket: the
+                # provider reports the full current per-channel membership. This is
+                # the ONLY path that confirms adaptive per-channel subscriptions.
+                await self._process_subscription_message(message)
+                return
+
             if msg_type == "error":
                 self._raise_server_error(message)
 
-            # subscription, success, status, correction, LULD, and other
-            # message types can be added without contaminating downstream
-            # market-data structures.
+            # success, status, correction, LULD, and other message types can be
+            # added without contaminating downstream market-data structures.
 
         except (
             KeyError,

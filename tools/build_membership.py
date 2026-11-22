@@ -43,10 +43,34 @@ def _load_env() -> None:
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
-def _index_source(env_var: str, default_rel: str) -> tuple[list[str], str]:
+def _read_index_provenance(path: str) -> dict:
+    """Parse the provenance header (# source / # retrieved_at / # as_of / # count)
+    written by tools/fetch_index_constituents.py. Returns a provenance dict so the
+    snapshot records point-in-time source identity + effective date."""
+    prov: dict = {}
+    p = Path(path)
+    if not p.exists():
+        return prov
+    for line in p.read_text().splitlines():
+        s = line.strip()
+        if not s.startswith("#") or ":" not in s:
+            continue
+        key, _, val = s.lstrip("#").strip().partition(":")
+        key = key.strip().lower()
+        if key in ("source", "retrieved_at", "as_of", "count"):
+            prov[key] = val.strip()
+    return prov
+
+
+def _index_source(env_var: str, default_rel: str) -> tuple[list[str], dict]:
     path = os.environ.get(env_var) or str(REPO / default_rel)
     syms = _read_symbol_file(path)
-    return syms, (path if syms else "not_configured")
+    if not syms:
+        return syms, {"status": "not_configured"}
+    prov = _read_index_provenance(path)
+    prov.update({"status": "configured", "path": os.path.relpath(path, REPO),
+                 "effective_members": len(syms)})
+    return syms, prov
 
 
 def main() -> int:

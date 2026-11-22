@@ -92,3 +92,38 @@ def test_group_filters_and_tradable_master():
     # ZZZ is nasdaq but non-tradable -> excluded from tradable master
     assert "ZZZ" not in r.tradable_master_symbols()
     assert "AAPL" in r.tradable_master_symbols()
+
+
+def test_index_source_provenance_parsing(tmp_path):
+    """build_membership reads the provenance header (source/retrieved_at/as_of/count)
+    written by fetch_index_constituents, so the snapshot records point-in-time
+    source identity + effective date (directive item 5). Constituents are never
+    fabricated: an absent file reports not_configured."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "build_membership", "tools/build_membership.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    f = tmp_path / "sp500.txt"
+    f.write_text("# S&P 500 constituents — verifiable source, NEVER fabricated.\n"
+                 "# source: https://example.test/constituents.csv\n"
+                 "# retrieved_at: 2026-11-22T00:00:00Z\n"
+                 "# as_of: 2026-11-20\n"
+                 "# count: 2\n\nAAPL\nMSFT\n")
+    prov = mod._read_index_provenance(str(f))
+    assert prov["source"] == "https://example.test/constituents.csv"
+    assert prov["as_of"] == "2026-11-20" and prov["count"] == "2"
+
+    import os
+    os.environ["CENGINE_SP500_FILE"] = str(f)
+    try:
+        syms, src = mod._index_source("CENGINE_SP500_FILE", "data/sp500.txt")
+    finally:
+        del os.environ["CENGINE_SP500_FILE"]
+    assert syms == ["AAPL", "MSFT"]
+    assert src["status"] == "configured" and src["effective_members"] == 2
+    assert src["source"] == "https://example.test/constituents.csv"
+
+    missing = mod._index_source("CENGINE_SP500_FILE_MISSING", "does/not/exist.txt")
+    assert missing[1]["status"] == "not_configured"

@@ -44,3 +44,6 @@ playground-*.mongodb.js
 
 # Regenerable master-universe cache (rebuild via tools/build_membership.py)
 data/membership_snapshot.json
+# Regenerable continuous warm-up progress (rebuilt by the scheduler at runtime)
+data/warmup_progress.json
+trade.txt

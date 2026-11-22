@@ -77,6 +77,42 @@ async def test_reconnect_resubscribes_per_channel():
     assert "quotes" not in frame  # empty channel omitted
 
 
+@pytest.mark.asyncio
+async def test_stream_parses_subscription_frame_and_notifies():
+    """The stream parses a genuine Alpaca `subscription` frame into authoritative
+    per-channel confirmed membership and fires on_subscription (not on send)."""
+    seen = []
+
+    async def on_sub(payload):
+        seen.append(payload)
+
+    s = AlpacaMarketDataStream(["AAPL"], api_key="k", api_secret="s", on_subscription=on_sub)
+    s._socket = _FakeSocket()
+    s._state = ConnectionState.SUBSCRIBED
+    s._subscription_generation = 7
+    # Simulate a live dynamic subscription confirmation arriving on the socket.
+    await s._dispatch_message({"T": "subscription", "bars": ["AAA", "BBB"],
+                              "trades": ["AAA"], "quotes": []})
+    assert s.confirmed_channels()["bars"] == ("AAA", "BBB")
+    assert s.confirmed_channels()["trades"] == ("AAA",)
+    assert s.confirmed_channels()["quotes"] == ()
+    assert s.subscription_acknowledged
+    assert seen and seen[0]["bars"] == ["AAA", "BBB"]
+    assert seen[0]["trades"] == ["AAA"] and seen[0]["generation"] == 7
+
+
+@pytest.mark.asyncio
+async def test_stream_subscription_frame_updates_on_unsubscribe():
+    s = AlpacaMarketDataStream(["AAPL"], api_key="k", api_secret="s")
+    s._socket = _FakeSocket()
+    s._state = ConnectionState.SUBSCRIBED
+    await s._dispatch_message({"T": "subscription", "trades": ["AAA", "BBB"]})
+    assert s.confirmed_channels()["trades"] == ("AAA", "BBB")
+    # Provider reports the reduced full set after an unsubscribe.
+    await s._dispatch_message({"T": "subscription", "trades": ["AAA"]})
+    assert s.confirmed_channels()["trades"] == ("AAA",)
+
+
 def test_channel_subs_gate_selects_path():
     # Empty channel state -> legacy union path; populated -> per-channel path.
     s = AlpacaMarketDataStream(["AAPL"], api_key="k", api_secret="s")
@@ -130,22 +166,35 @@ def _state(ctl, channel, sym):
 
 
 @pytest.mark.asyncio
-async def test_observation_promotes_warming_to_fresh():
-    """Directive item 6: a requested (symbol, channel) advances WARMING_UP -> FRESH
-    only when a real tick is observed on that channel."""
+async def test_apply_does_not_confirm_without_provider_ack():
+    """apply() sends subscribe frames but NEVER confirms: channels stay REQUESTED
+    until a genuine provider subscription frame arrives (no optimistic ack)."""
     s = _live_stream()
     ctl = AdaptiveSubscriptionController(s)
-    # Request AAA on bars+trades; apply() acks the adds -> WARMING_UP.
+    out = await ctl.apply(tier1_bars=["AAA"], tier2_trades=["AAA"], now=0.0)
+    assert out["applied"]
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.REQUESTED
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.REQUESTED
+    assert "AAA" not in ctl.manager.confirmed(Channel.BARS)
+
+
+@pytest.mark.asyncio
+async def test_provider_confirmation_then_observation_lifecycle():
+    """Genuine provider frame -> PROVIDER_CONFIRMED; first tick -> WARMING_UP;
+    sustained -> FRESH; per channel, independently."""
+    s = _live_stream()
+    ctl = AdaptiveSubscriptionController(s)
     await ctl.apply(tier1_bars=["AAA"], tier2_trades=["AAA"], now=0.0)
-    assert _state(ctl, Channel.BARS, "AAA") == SubState.WARMING_UP
+    # Provider confirms both channels (authoritative subscription frame).
+    ctl.on_provider_confirmation({"bars": ["AAA"], "trades": ["AAA"]}, now=1.0)
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.PROVIDER_CONFIRMED
+    # Trade ticks: first -> WARMING_UP, second -> FRESH (bars untouched).
+    ctl.on_observation(Channel.TRADES, "AAA", now=2.0)
     assert _state(ctl, Channel.TRADES, "AAA") == SubState.WARMING_UP
-    # A live trade tick promotes ONLY the trades channel to FRESH.
-    ctl.on_observation(Channel.TRADES, "AAA", now=1.0)
+    ctl.on_observation(Channel.TRADES, "AAA", now=3.0)
     assert _state(ctl, Channel.TRADES, "AAA") == SubState.FRESH
-    assert _state(ctl, Channel.BARS, "AAA") == SubState.WARMING_UP  # bars untouched
-    # A bar tick then promotes bars too.
-    ctl.on_observation(Channel.BARS, "AAA", now=1.5)
-    assert _state(ctl, Channel.BARS, "AAA") == SubState.FRESH
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.PROVIDER_CONFIRMED
+    assert "AAA" in ctl.fresh(Channel.TRADES)
 
 
 @pytest.mark.asyncio
@@ -159,6 +208,23 @@ async def test_observation_of_unsubscribed_symbol_is_ignored():
 
 
 @pytest.mark.asyncio
+async def test_reconnect_voids_confirmation_until_reconfirmed():
+    s = _live_stream()
+    ctl = AdaptiveSubscriptionController(s)
+    await ctl.apply(tier1_bars=["AAA"], tier2_trades=["AAA"], now=0.0)
+    ctl.on_provider_confirmation({"bars": ["AAA"], "trades": ["AAA"]}, now=1.0)
+    ctl.on_observation(Channel.TRADES, "AAA", now=2.0)
+    ctl.on_observation(Channel.TRADES, "AAA", now=3.0)
+    assert "AAA" in ctl.fresh(Channel.TRADES)
+    n = ctl.on_reconnect(now=4.0)  # reconnect
+    assert n >= 1
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.RECOVERING
+    assert "AAA" not in ctl.manager.confirmed(Channel.TRADES)
+    ctl.on_provider_confirmation({"trades": ["AAA"]}, now=5.0)  # re-confirm
+    assert _state(ctl, Channel.TRADES, "AAA") == SubState.PROVIDER_CONFIRMED
+
+
+@pytest.mark.asyncio
 async def test_stale_demotes_fresh_after_window():
     """The lifecycle is symmetric: silence past the stale window demotes FRESH ->
     STALE; a still-ticking channel stays FRESH."""
@@ -166,8 +232,13 @@ async def test_stale_demotes_fresh_after_window():
     ctl = AdaptiveSubscriptionController(s)
     ctl.manager.stale_after_s = 20.0
     await ctl.apply(tier1_bars=["AAA"], tier2_trades=["AAA"], now=0.0)
+    ctl.on_provider_confirmation({"bars": ["AAA"], "trades": ["AAA"]}, now=0.5)
+    # Drive BARS to FRESH (2 ticks) with last at t=1; keep TRADES fresh at t=100.
+    ctl.on_observation(Channel.BARS, "AAA", now=0.6)
     ctl.on_observation(Channel.BARS, "AAA", now=1.0)
-    ctl.on_observation(Channel.TRADES, "AAA", now=100.0)  # trades keep ticking
+    ctl.on_observation(Channel.TRADES, "AAA", now=99.0)
+    ctl.on_observation(Channel.TRADES, "AAA", now=100.0)
+    assert _state(ctl, Channel.BARS, "AAA") == SubState.FRESH
     # 110s: bars last seen at 1 (>20s ago) -> stale; trades at 100 -> still fresh.
     staled = ctl.mark_stale(now=110.0)
     assert staled == 1

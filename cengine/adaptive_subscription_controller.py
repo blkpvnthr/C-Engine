@@ -36,6 +36,8 @@ class AdaptiveSubscriptionController:
         self.manager = manager or AdaptiveSubscriptionManager(caps)
         self._last_plan: Any = None
         self._applies = 0
+        self._confirmations = 0
+        self._reconnects = 0
 
     async def apply(self, *, tier1_bars=None, tier2_trades=None, tier3_quotes=None,
                     protected=None, references=None, now: float = 0.0) -> dict:
@@ -57,11 +59,10 @@ class AdaptiveSubscriptionController:
             return {"applied": False, "error": f"{type(exc).__name__}: {exc}",
                     "degraded": plan.degraded}
         self.manager.commit(plan, now)
-        # Treat the stream's returned adds as acknowledged requests advancing to
-        # WARMING_UP (real provider acks arrive via the consume loop -> on_ack).
-        for ch_name, (add, _remove) in applied.items():
-            ch = Channel(ch_name)
-            self.manager.on_ack(ch, add, now=now)
+        # A successful send means REQUESTED only. Channels are NOT marked confirmed
+        # here: genuine provider confirmation arrives via on_provider_confirmation()
+        # (driven by real Alpaca `subscription` frames). This eliminates optimistic
+        # acknowledgement-on-send.
         self._applies += 1
         return {
             "applied": True, "degraded": plan.degraded,
@@ -72,6 +73,41 @@ class AdaptiveSubscriptionController:
                                   ("bars", "trades", "quotes") if plan.mandatory_dropped.get(c)},
         }
 
+    def on_provider_confirmation(self, confirmed_by_channel: dict,
+                                 now: float = 0.0, *, generation: int | None = None) -> dict:
+        """Process a genuine Alpaca ``subscription`` frame: reconcile the provider's
+        authoritative per-channel confirmed membership into the manager so requested
+        subscriptions advance REQUESTED -> PROVIDER_CONFIRMED (and unsubscriptions
+        settle). ``confirmed_by_channel`` maps 'bars'/'trades'/'quotes' -> symbols."""
+        summary = {}
+        for ch_name in ("bars", "trades", "quotes"):
+            if ch_name not in confirmed_by_channel:
+                continue
+            summary[ch_name] = self.manager.reconcile_confirmation(
+                Channel(ch_name), confirmed_by_channel.get(ch_name) or [], now,
+                generation=generation)
+        self._confirmations += 1
+        return summary
+
+    def on_reconnect(self, now: float = 0.0) -> int:
+        """Connection loss/reconnection: drop confirmed/fresh channels to RECOVERING
+        so nothing is treated as live until the provider re-confirms on the new
+        socket."""
+        self._reconnects += 1
+        return self.manager.mark_recovering(now)
+
+    def fresh(self, channel: Channel) -> set:
+        return self.manager.fresh(channel)
+
+    def flowing(self, channel: Channel) -> set:
+        return self.manager.flowing(channel)
+
+    def fresh_trades(self) -> set:
+        return self.manager.fresh(Channel.TRADES)
+
+    def fresh_quotes(self) -> set:
+        return self.manager.fresh(Channel.QUOTES)
+
     def on_observation(self, channel: Channel, symbol: str, now: float = 0.0) -> None:
         self.manager.on_observation(channel, symbol, now)
 
@@ -81,5 +117,7 @@ class AdaptiveSubscriptionController:
     def telemetry(self, now: float = 0.0) -> dict:
         t = self.manager.telemetry(now)
         t["applies"] = self._applies
+        t["provider_confirmations"] = self._confirmations
+        t["reconnects"] = self._reconnects
         t["degraded"] = bool(self._last_plan and self._last_plan.degraded)
         return t

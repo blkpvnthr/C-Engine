@@ -268,6 +268,34 @@ def test_market_breadth_operationally_consumed(tmp_path):
     assert snap["entry_qualified"] == b.entry_qualified
 
 
+def test_momentum_confirmed_gates_uptrend_only():
+    """Directive item 3: the momentum gate between a trade and a quote subscription
+    confirms only symbols with valid DMI, DI+>DI-, and positive developing 1m
+    momentum. A downtrend (and a bare/no-history symbol) is NOT confirmed."""
+    egd = EngineGpuDiscovery(bar_capacity=256, window=64)
+    up = 100.0
+    dn = 100.0
+    for i in range(80):
+        uo, up = up, up * 1.004           # steady uptrend
+        do, dn = dn, dn * 0.996           # steady downtrend
+        egd.on_market_event(BarEvent("WIN", i * _NS_MIN, _t(uo),
+                                     _t(max(uo, up) * 1.001), _t(min(uo, up) * 0.999),
+                                     _t(up), 1000 + i))
+        egd.on_market_event(BarEvent("LOSE", i * _NS_MIN, _t(do),
+                                     _t(max(do, dn) * 1.001), _t(min(do, dn) * 0.999),
+                                     _t(dn), 1000 + i))
+    # developing trades: WIN above last close (positive 1m momentum), LOSE below
+    egd.on_market_event(TradeEvent("WIN", 81 * _NS_MIN, _t(up * 1.004)))
+    egd.on_market_event(TradeEvent("LOSE", 81 * _NS_MIN, _t(dn * 0.996)))
+    egd._flush_trades()  # fold developing trades into native state
+
+    confirmed = egd.momentum_confirmed(["WIN", "LOSE", "UNKNOWN"])
+    assert "WIN" in confirmed
+    assert "LOSE" not in confirmed       # downtrend: di-> di+, momentum<0
+    assert "UNKNOWN" not in confirmed    # no history -> not confirmed
+    assert egd.momentum_confirmed([]) == set()
+
+
 def test_gpu_rank_matches_python_rank():
     """The GPU rank_fn must produce RankedCandidate output identical to the Python
     ranking.rank it replaces (scores within 1e-4, eligibility + order identical)."""

@@ -92,18 +92,71 @@ def test_dwell_prevents_churn():
 
 
 def test_state_machine_transitions():
+    # Provider-driven lifecycle: send -> REQUESTED; genuine provider ack ->
+    # PROVIDER_CONFIRMED; first observation -> WARMING_UP; sustained -> FRESH;
+    # silence -> STALE. A send that was never provider-confirmed never advances.
     m = _mgr()
     now = 0.0
     p = m.update_tiers(tier2_trades=["X"], now=now)
     m.commit(p, now)
     assert m._subs[(Channel.TRADES, "X")].state == SubState.REQUESTED
     m.on_ack(Channel.TRADES, ["X"], now=1.0)
-    assert m._subs[(Channel.TRADES, "X")].state == SubState.WARMING_UP
+    assert m._subs[(Channel.TRADES, "X")].state == SubState.PROVIDER_CONFIRMED
     m.on_observation(Channel.TRADES, "X", now=2.0)
+    assert m._subs[(Channel.TRADES, "X")].state == SubState.WARMING_UP
+    m.on_observation(Channel.TRADES, "X", now=3.0)
     assert m._subs[(Channel.TRADES, "X")].state == SubState.FRESH
     staled = m.mark_stale(now=100.0)  # > stale_after_s since last obs
     assert staled == 1
     assert m._subs[(Channel.TRADES, "X")].state == SubState.STALE
+
+
+def test_no_confirmation_without_provider_ack():
+    # A subscribe frame that is sent but NEVER provider-confirmed stays REQUESTED,
+    # and observations racing ahead of the ack do not confirm it.
+    m = _mgr()
+    p = m.update_tiers(tier2_trades=["X"], now=0.0)
+    m.commit(p, 0.0)
+    m.on_observation(Channel.TRADES, "X", now=1.0)  # early obs, no ack yet
+    assert m._subs[(Channel.TRADES, "X")].state == SubState.REQUESTED
+    assert "X" not in m.confirmed(Channel.TRADES)
+    # once the provider confirms, the buffered early observation advances it.
+    m.on_ack(Channel.TRADES, ["X"], now=2.0)
+    assert m._subs[(Channel.TRADES, "X")].state == SubState.WARMING_UP
+
+
+def test_reconcile_confirmation_partial_and_unsubscribe():
+    m = _mgr()
+    p = m.update_tiers(tier2_trades=["A", "B"], now=0.0)
+    m.commit(p, 0.0)
+    # Provider confirms only A (partial ack): A -> confirmed, B stays REQUESTED.
+    m.reconcile_confirmation(Channel.TRADES, ["A"], now=1.0)
+    assert m.state_of(Channel.TRADES, "A") == SubState.PROVIDER_CONFIRMED
+    assert m.state_of(Channel.TRADES, "B") == SubState.REQUESTED
+    # Duplicate confirmation is idempotent.
+    m.reconcile_confirmation(Channel.TRADES, ["A"], now=1.5)
+    assert m.state_of(Channel.TRADES, "A") == SubState.PROVIDER_CONFIRMED
+    # Drop B from tiers, then provider confirms the reduced set -> B unsubscribed.
+    p2 = m.update_tiers(tier2_trades=["A"], now=100.0)
+    m.commit(p2, 100.0)
+    out = m.reconcile_confirmation(Channel.TRADES, ["A"], now=101.0)
+    assert m.state_of(Channel.TRADES, "B") == SubState.UNREQUESTED
+    assert out["unsubscribed"] == 1
+
+
+def test_reconnect_marks_recovering():
+    m = _mgr()
+    p = m.update_tiers(tier2_trades=["X"], now=0.0)
+    m.commit(p, 0.0)
+    m.reconcile_confirmation(Channel.TRADES, ["X"], now=1.0)
+    m.on_observation(Channel.TRADES, "X", now=2.0)
+    m.on_observation(Channel.TRADES, "X", now=3.0)
+    assert m.state_of(Channel.TRADES, "X") == SubState.FRESH
+    n = m.mark_recovering(now=4.0)  # reconnect voids prior confirmation
+    assert n == 1 and m.state_of(Channel.TRADES, "X") == SubState.RECOVERING
+    assert "X" not in m.confirmed(Channel.TRADES)  # must be re-confirmed
+    m.reconcile_confirmation(Channel.TRADES, ["X"], now=5.0)  # provider re-confirms
+    assert m.state_of(Channel.TRADES, "X") == SubState.PROVIDER_CONFIRMED
 
 
 def test_unsubscribe_on_tier_removal():
@@ -129,3 +182,36 @@ def test_telemetry_shape():
     assert t["channels"]["bars"]["requested"] == 2
     assert t["channels"]["trades"]["cap"] == 5
     assert 0.0 <= t["channels"]["bars"]["utilization"] <= 1.0
+
+
+def test_deterministic_rotation_when_demand_exceeds_cap():
+    """Directive item 6: when elective bar demand exceeds the cap, coverage ROTATES
+    deterministically across successive ticks (no symbol is permanently excluded),
+    and the per-tick target never exceeds the cap."""
+    m = _mgr(caps=ChannelCaps(bars=2, trades=5, quotes=3), min_dwell_s=0.0)
+    universe = ["A", "B", "C", "D"]
+    covered: set = set()
+    seen_targets = []
+    for i in range(6):
+        p = m.update_tiers(tier1_bars=universe, now=float(i))
+        m.commit(p, float(i))
+        assert len(p.target["bars"]) == 2          # never exceeds the cap
+        assert len(p.dropped["bars"]) == 2         # overflow explicitly reported
+        covered |= set(p.target["bars"])
+        seen_targets.append(tuple(p.target["bars"]))
+    # Every symbol is eventually covered by rotation (no permanent exclusion).
+    assert covered == set(universe)
+    # Rotation actually changes the covered subset over time.
+    assert len(set(seen_targets)) > 1
+
+
+def test_protected_never_rotated_out():
+    """Protected instruments are exempt from rotation: they hold coverage every tick
+    even when the cap is saturated by electives."""
+    m = _mgr(caps=ChannelCaps(bars=2, trades=5, quotes=3), min_dwell_s=0.0)
+    for i in range(5):
+        p = m.update_tiers(tier1_bars=["A", "B", "C", "D"], protected=["HELD"],
+                           now=float(i))
+        m.commit(p, float(i))
+        assert "HELD" in p.target["bars"]  # protected never rotated out
+        assert not p.mandatory_dropped["bars"]
