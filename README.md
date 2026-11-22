@@ -1,16 +1,27 @@
 # C-Engine
 
-C-Engine is a paper-first, hardware-accelerated trading engine combining Alpaca IEX market data, native C++ market and portfolio state, risk enforcement, an internal limit-order book, HDF5 persistence, strategy evaluation, and an Alpaca execution adapter.
+C-Engine is a paper-first, hardware-accelerated trading engine combining Alpaca market data (SIP / Algo Trader Plus, entitlement-verified; IEX retained as a compatibility profile), native C++ market and portfolio state, risk enforcement, an internal limit-order book, HDF5 persistence, strategy evaluation, and an Alpaca execution adapter.
 
-The target architecture uses Apple Metal as the primary broad-market numerical compute backend, Objective-C++ to manage GPU resources, C++ for authoritative state and execution-critical decisions, and Python for data acquisition, orchestration, and research.
+The architecture uses Apple Metal as the primary broad-market numerical compute backend, Objective-C++ to manage GPU resources, C++ for authoritative state and execution-critical decisions, and Python for data acquisition, orchestration, and research.
 
-**Implementation status:** The existing C++ core, Python bindings, and five Metal shader files have compiled successfully. The native Objective-C++ runtime, operational GPU discovery, expanded universe, and portfolio integration are architectural milestones under development, not certified production capabilities.
+**Implementation status (verified on Apple M5 Max, Python 3.11.8):**
+
+- Native Objective-C++ Metal runtime, persistent pipeline cache and BufferPool — **complete** (Phase A).
+- Native `DiscoveryEngine` (market ingestion, 1m/5m bar ring buffers, symbol id/generation, dirty tracking) — **complete**.
+- **8 Metal shader files / 50 compiled kernels**; 12 host-callable, hardware-executed and CPU-parity-validated; **5 operationally consumed on the live discovery path**: `technical_features`, `screen_market`, `compact_entry_candidates`, `rank_candidates`, `market_breadth`.
+- Market-wide ranking runs on the GPU (`rank_candidates`), output identical to the prior Python ranker (scores <1e-4, eligibility and order identical).
+- **SIP is the verified operational feed** (`tools/sip_verify.py`: REST + WebSocket authenticated against the real account). Historical SIP certification harness (`tools/phase_b_certify.py`) has driven real SIP bars through the full pipeline; **real-time session certification is pending an eligible market session**.
+- Regression suite: **353 tests passing**.
+
+- **Operational discovery runs over the master universe.** The scanner's discovery source is the deduplicated master-universe membership (5,651 members incl. the 56 curated ETFs; ~5,616 tradable), feeding the already-wired GPU feature_provider (`screen_market` + `technical_features`), GPU `rank_candidates`, the sole `UniversePublisher`, and the exposure-authorization gate in `CandidateRouter` — not the legacy flat list. A traceable path from membership → metadata → authorization → `OrderManager` → mock fill is validated per instrument category (equity / broad / sector / leveraged-bull / inverse / leveraged-inverse).
+
+In progress / not yet certified: the adaptive four-tier subscription manager is built and tested but is **not yet the live SIP-socket owner** (per-tick evaluation is still bounded by the scanner's subscription window); automatic master-universe historical warm-up scheduling; operational portfolio-optimizer consumers; the remaining Metal kernels; the regime engine and five-family strategy consolidation; the unified dashboard; and out-of-sample/**real-time SIP session** certification. Nodes marked *(target)* below are not certified production capabilities.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    T[trade.py supervisor] --> A[Alpaca IEX acquisition]
+    T[trade.py supervisor] --> A[Alpaca SIP acquisition]
     A --> N[Normalized market events]
     N --> H[HDF5 archive and audit journal]
     N --> C[Authoritative C++ market state]
@@ -72,9 +83,9 @@ flowchart TD
 
 ## Market-data feed
 
-Alpaca IEX is the default feed (`wss://stream.data.alpaca.markets/v2/iex`). The authoritative resolver in `market_data/feed.py` determines the feed, endpoint, and archive provenance. An omitted feed resolves to IEX. Connection failures are surfaced without automatic feed switching. Startup verifies the actual endpoint against configuration; mismatches fail closed.
+**Alpaca SIP (Algo Trader Plus) is the verified operational feed** (`wss://stream.data.alpaca.markets/v2/sip`), selected via `CENGINE_ALPACA_FEED=sip`. Entitlement is confirmed from actual account responses — `tools/sip_verify.py` authenticates SIP historical REST, SIP latest quote/trade, and the SIP WebSocket (evidence in `reports/alpaca_subscription_validation.json`); entitlement is derived from responses, never assumed from payment. The authoritative resolver in `market_data/feed.py` determines the feed, endpoint, and archive provenance. An omitted feed resolves to IEX (never a silent SIP upgrade); an unentitled SIP selection is surfaced, never silently downgraded. Startup verifies the actual endpoint against configuration; mismatches fail closed.
 
-Daily HDF5 files record provider and feed (for example, `alpaca-iex` and `iex`). Replay rejects incompatible feed combinations through `assert_feed_consistency`.
+IEX remains an explicit compatibility profile (`CENGINE_ALPACA_FEED=iex`) with its applicable restrictions (including the 30-symbol streaming cap). Daily HDF5 files record provider and feed (for example, `alpaca-sip` and `sip`). Replay rejects incompatible feed combinations through `assert_feed_consistency`; SIP and IEX numerical histories are never mixed without an explicitly validated methodology.
 
 ### IEX limitations
 
@@ -82,9 +93,11 @@ IEX is a single exchange, not consolidated SIP coverage. Its quotes are exchange
 
 ### Discovery universe (target architecture)
 
-The deduplicated master universe includes supported NASDAQ-listed equities, S&P 500 constituents, DJIA constituents, and configured instruments. Membership flags and versions preserve overlapping group identities. Batched IEX REST acquisition supplies broad discovery and historical warm-up; one dynamic WebSocket subscription manager enforces a maximum of 30 unique symbols under the intended Basic IEX configuration. Held positions, pending orders and required references receive priority. Actual account limits must be verified.
+The deduplicated master universe includes supported NASDAQ-listed equities, S&P 500 constituents, DJIA constituents, and configured instruments. Membership flags and versions preserve overlapping group identities. **Full master-universe membership acquisition is a target** (current discovery operates over the configured research universe).
 
-REST sampling is not continuous streaming. Missing, stale, incomplete, and warming-up observations remain explicitly classified. Coverage and sweep latency must be measured against the shared request budget. No silent paid-feed upgrade, invented observations, or yfinance substitution is permitted on the operational IEX path.
+Streaming capacity is feed-aware. Under Basic IEX a single WebSocket enforces a maximum of 30 unique symbols. Under SIP the provider imposes no documented symbol cap; the engine currently applies a **flat 250-symbol application safety limit** (`MARKET_SCAN_MAX_SUBSCRIPTIONS`), which is an internal capacity setting, not a provider restriction. The **target** is an adaptive four-tier subscription manager (Tier 1 full-universe bars → Tier 2 ranked trades → Tier 3 actionable quotes → Tier 4 protected instruments) with independent per-channel capacity, promotion/demotion hysteresis, and server-confirmed acknowledgement tracking. Held positions, pending orders and required references always receive priority.
+
+REST sampling is not continuous streaming. Missing, stale, incomplete, and warming-up observations remain explicitly classified. Coverage and sweep latency must be measured against the shared request budget. No invented observations or feed substitution is permitted on the operational path.
 
 ### Market discovery and streaming allocation
 
@@ -101,16 +114,16 @@ flowchart TD
     G --> M[Canonical universe publisher]
     M --> A[Subscription allocator]
     P[Held positions, pending orders and references] --> A
-    A --> B[One IEX WebSocket - max 30 unique symbols]
+    A --> B[One SIP WebSocket - adaptive tiered subscriptions]
     B --> F[Fresh streaming confirmation]
     F --> X[Native entry revalidation]
 ```
 
 *Target discovery architecture. REST coverage is distinct from streaming coverage.*
 
-### Explicit SIP selection
+### Feed configuration
 
-The existing opt-in configuration is retained for entitled accounts; SIP is outside the current IEX-only implementation target. Feed selection is independent of paper versus live execution.
+SIP is the verified operational feed and is selected explicitly; feed selection is independent of paper versus live execution.
 
 ```text
 CENGINE_ALPACA_FEED=sip
@@ -122,7 +135,7 @@ Alternatively:
 CENGINE_ALPACA_URL=wss://stream.data.alpaca.markets/v2/sip
 ```
 
-The URL scheme, host and path are validated. Archive provenance defaults to `alpaca-sip`; `CENGINE_ARCHIVE_PROVIDER_LABEL` is an explicit label override, not a change of feed. Authentication failures never trigger automatic fallback.
+The URL scheme, host and path are validated. Archive provenance is `alpaca-sip` under SIP; `CENGINE_ARCHIVE_PROVIDER_LABEL` is an explicit label override, not a change of feed. Set `CENGINE_ALPACA_FEED=iex` to run the Basic compatibility profile. Authentication failures never trigger automatic fallback.
 
 ## Native macOS build
 
@@ -192,7 +205,7 @@ flowchart TD
     CPU -->|Unavailable or invalid| Z[Block affected elective entries]
 ```
 
-*Target runtime; source compilation alone does not establish hardware execution or consumer integration.*
+*The runtime, pipeline cache, buffers, and five of these kernels (`technical_features`, `screen_market`, `compact_entry_candidates`, `rank_candidates`, `market_breadth`) are operational and CPU-parity-validated on device; full-market scaling and the remaining kernels are target. Source compilation alone does not establish hardware execution or consumer integration — these are tracked as separate gates.*
 
 ### Build and kernel evidence lifecycle
 
@@ -429,14 +442,15 @@ flowchart TD
 
 ## Implementation roadmap and validation
 
-| Phase | Deliverable |
-| --- | --- |
-| A | Native Objective-C++ Metal runtime, registry, buffers, caching and hardware parity |
-| B | Genuine IEX-to-GPU-to-scanner operational screening proof |
-| C | Full supported master universe, REST budgeting, breadth and dynamic stream promotion |
-| D | Operational covariance, allocation, quantity and replacement integration |
-| E | Remaining kernels with legitimate operational or research consumers |
-| F | Benchmarks, telemetry, fault injection, replay, OOS and paper certification |
+| Phase | Deliverable | Status |
+| --- | --- | --- |
+| A | Native Objective-C++ Metal runtime, registry, buffers, caching and hardware parity | **Complete** |
+| B | GPU screening → features → compaction → ranking → breadth, consumed by the scanner | **Complete** (offline-verified; real-time SIP session certification pending) |
+| SIP | Algo Trader Plus entitlement verification and feed migration | **Complete** |
+| C | Full master universe, membership acquisition, adaptive subscriptions, REST budgeting, breadth, dynamic stream promotion | In progress |
+| D | Operational covariance, allocation, quantity and replacement integration | Pending |
+| E | Remaining kernels with legitimate operational or research consumers | Pending |
+| F | Benchmarks, telemetry, fault injection, replay, OOS and paper certification | Pending |
 
 ```mermaid
 flowchart LR
@@ -449,7 +463,7 @@ flowchart LR
 
 *Planned milestone order; completion requires independent evidence.*
 
-The initial audit reported seven connected kernels out of 45 and no GPU live-screening consumer. Treat these numbers as a historical audit baseline, not a current measurement. Track compiled, hardware-executed, numerically validated, and consumer-connected kernels separately.
+The initial audit reported seven connected kernels out of 45 and no GPU live-screening consumer — a historical audit baseline, not a current measurement. **Current measurement:** 50 compiled kernels (45 baseline + 5 newly authored discovery kernels), 12 host-callable / hardware-executed / CPU-parity-validated, and 5 operationally consumed on the live discovery path. Compiled, hardware-executed, numerically validated, and consumer-connected kernels are tracked separately in `reports/metal_kernel_coverage.json` and `reports/operational_consumer_coverage.json`; a hardware-validated kernel is not counted as operationally consumed until a real live consumer dispatches it.
 
 The unified terminal target is a one-second heartbeat displaying actual discovery coverage, ranked opportunities, strategy decisions, subscriptions, GPU activity, risk, positions, optimizer activity, orders and fills. It must not block critical processing.
 

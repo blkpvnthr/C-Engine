@@ -1,0 +1,33 @@
+{
+  "recorded_utc": "2026-11-22T22:15:19.716040+00:00",
+  "integration": "membership-backed discovery_fn wired into MarketScanner.discovery_fn (trade.py)",
+  "master_universe_discovered": 5616,
+  "etfs_present_in_discovery": [
+    "SPY",
+    "TQQQ",
+    "SQQQ",
+    "SH",
+    "SOXS",
+    "XLK"
+  ],
+  "equities": 5560,
+  "etfs_classified": 56,
+  "extra_included": true,
+  "example_symbols_beyond_flat_250": [
+    "AAAP",
+    "AACG",
+    "AACI"
+  ],
+  "already_wired_consumers": [
+    "feature_provider=GPU screen_market+technical_features",
+    "rank_fn=GPU rank_candidates",
+    "UniversePublisher (sole writer)",
+    "exposure authorization gate in CandidateRouter"
+  ],
+  "now_wired": "discovery_fn source = master universe (5,651) instead of discover_us_listed",
+  "status_legend": {
+    "OPERATIONALLY_CONNECTED": "discovery source + GPU ranking + publisher + exposure gate wired into trade.py zero-arg path",
+    "REAL_TIME_VALIDATED": "PENDING live SIP session"
+  },
+  "scope_note": "The scanner now ranks+publishes over the master universe via the already-wired GPU feature_provider/rank_fn. Per-tick evaluation is bounded by the subscription window; adaptive 4-tier socket wiring + live-session trace remain. Gated by CENGINE_MEMBERSHIP_DISCOVERY (default on) unless CENGINE_SYMBOLS is pinned (diagnostic)."
+}

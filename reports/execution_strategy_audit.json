@@ -1,0 +1,86 @@
+{
+  "recorded_utc": "2026-11-22T22:02:44.051359+00:00",
+  "method": "static code-path audit of actual order-producing path (no inference from class existence)",
+  "live_signal_path": "MarketEngine._handle_bar -> StrategyCoordinator.on_bar -> CandidateRouter.route -> OrderManager.submit -> native RiskEngine",
+  "strategies": [
+    {
+      "name": "TurtleStrategy",
+      "file": "strategies.py:141",
+      "implemented": true,
+      "default_on": true,
+      "gate": "CENGINE_TURTLE_ENTRY_LOOKBACK/_EXIT_LOOKBACK (no on/off)",
+      "tests": false,
+      "direction": "long+short+exits",
+      "family": "VOLATILITY_BREAKOUT"
+    },
+    {
+      "name": "DualMAStrategy",
+      "file": "strategies.py:264",
+      "implemented": true,
+      "default_on": true,
+      "gate": "CENGINE_DUAL_MA_FAST/_SLOW_PERIOD (no on/off)",
+      "tests": false,
+      "direction": "long+short+exits",
+      "family": "MOMENTUM_CONTINUATION"
+    },
+    {
+      "name": "APOMeanReversionStrategy",
+      "file": "strategies.py:365",
+      "implemented": true,
+      "default_on": true,
+      "gate": "CENGINE_APO_* (no on/off)",
+      "tests": false,
+      "direction": "long+short+exits",
+      "family": "MEAN_REVERSION"
+    },
+    {
+      "name": "DIBBStrategy",
+      "file": "strategies.py:523",
+      "implemented": true,
+      "default_on": false,
+      "gate": "CENGINE_DIBB_ENABLED (default 0)",
+      "tests": true,
+      "direction": "long-only (+EXIT_LONG)",
+      "family": "TREND_PULLBACK"
+    }
+  ],
+  "implemented_not_on_order_path": [
+    {
+      "name": "amps_v4_regime",
+      "role": "regime scoring + bull/bear/leveraged/inverse ETF registry; scanner/ranking eligibility only, emits no orders"
+    },
+    {
+      "name": "OrderFlowEngine",
+      "role": "order-flow/exhaustion features for ranking; emits no orders"
+    },
+    {
+      "name": "ProtectiveExitCoordinator",
+      "role": "mandatory -0.5% stop backstop, not a signal strategy"
+    }
+  ],
+  "not_implemented": [
+    "standalone momentum-breakout",
+    "opening-range",
+    "pullback",
+    "DailyGreen",
+    "vwap-continuation",
+    "multi-day-swing"
+  ],
+  "family_mapping": {
+    "MOMENTUM_CONTINUATION": "DualMAStrategy (partial; no dedicated momentum/order-flow entry)",
+    "VOLATILITY_BREAKOUT": "TurtleStrategy (Donchian; opening-range variant missing)",
+    "TREND_PULLBACK": "DIBBStrategy (OFF by default)",
+    "MEAN_REVERSION": "APOMeanReversionStrategy (recovery-confirmed variant to validate)",
+    "MULTI_DAY_SWING": "NOT IMPLEMENTED"
+  },
+  "risks": [
+    "Turtle/DualMA/APO always-on, no individual disable, no dedicated unit tests",
+    "Inverse/leveraged participation only at scanner eligibility (AMPS), not order-emitting strategies",
+    "Consolidation to 5 families must add per-family enable flags + tests before changing default behavior (directive \u00a772)"
+  ],
+  "default_enabled_under_zero_arg": [
+    "TurtleStrategy",
+    "DualMAStrategy",
+    "APOMeanReversionStrategy"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "recorded_utc": "2026-11-22T19:12:23.340008+00:00",
+  "module": "_cengine_native",
+  "path": "/Users/blkpvnthr/.pyenv/versions/3.11.8/lib/python3.11/site-packages/_cengine_native.cpython-311-darwin.so",
+  "exists": true,
+  "size_bytes": 395560,
+  "sha256": "84c523102db1a13f1b21f743c294af8e034e443b1a3b5ca87daf0675c8a9c218",
+  "python_tag": "cpython-311-darwin",
+  "bound_symbols": [
+    "Execution",
+    "LimitOrderBook",
+    "OpenOrderRiskState",
+    "RiskAccountState",
+    "RiskDecision",
+    "RiskEngine",
+    "RiskMarketState",
+    "RiskRejectReason",
+    "RiskRequest",
+    "RiskResult",
+    "Side"
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "recorded_utc": "2026-11-22T21:53:01.256873+00:00",
+  "reconciliation": {
+    "seeded": 56,
+    "present_in_alpaca": 56,
+    "missing": 0
+  },
+  "counts": {
+    "total_seeded": 56,
+    "broad_market": 8,
+    "sector_industry": 17,
+    "leveraged_long": 12,
+    "inverse": 4,
+    "leveraged_inverse": 15,
+    "execution_authorized_default": 25,
+    "tradable": 56,
+    "exposure_groups": 20
+  },
+  "metadata_source": "curated fund objectives (directive \u00a75 seed lists); reconcile vs issuer prospectus in production",
+  "safety": {
+    "leveraged_inverse_auto_authorized": true,
+    "execution_authorized_default_symbols": [
+      "DIA",
+      "IBB",
+      "IWM",
+      "KRE",
+      "QQQ",
+      "RSP",
+      "SCHB",
+      "SMH",
+      "SOXX",
+      "SPY",
+      "VOO",
+      "VTI",
+      "XBI",
+      "XLB",
+      "XLC",
+      "XLE",
+      "XLF",
+      "XLI",
+      "XLK",
+      "XLP",
+      "XLRE",
+      "XLU",
+      "XLV",
+      "XLY",
+      "XOP"
+    ]
+  },
+  "seed_not_tradable_on_alpaca": [],
+  "note": "Exposure is curated from documented fund objectives, never inferred from ticker names (\u00a76). Leveraged/inverse products never auto-authorize execution (\u00a77)."
+}

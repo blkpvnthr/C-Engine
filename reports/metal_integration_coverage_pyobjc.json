@@ -1,0 +1,206 @@
+{
+  "device": "Apple M5 Max",
+  "available": true,
+  "shader_files_discovered": 5,
+  "kernel_entry_points_discovered": 45,
+  "kernels_compiled_and_callable": 45,
+  "kernels_host_interfaced": 7,
+  "kernels_consumer_connected": 21,
+  "kernels_hardware_executed": 7,
+  "kernels_parity_validated": 7,
+  "kernels_blocked": 38,
+  "integration_coverage_pct": 15.6,
+  "pipeline_coverage_pct": 100.0,
+  "blocked": [
+    {
+      "kernel": "statarb_pair_regression",
+      "shader": "covariance.metal",
+      "reason": "structured StatArb ABI; research-only, not yet wired"
+    },
+    {
+      "kernel": "statarb_residual_series",
+      "shader": "covariance.metal",
+      "reason": "structured StatArb ABI; research-only, not yet wired"
+    },
+    {
+      "kernel": "volatility_factor_features",
+      "shader": "covariance.metal",
+      "reason": "structured factor ABI; not yet wired"
+    },
+    {
+      "kernel": "statarb_normalized_weights",
+      "shader": "covariance.metal",
+      "reason": "long-only engine; statarb weights research-only, not wired"
+    },
+    {
+      "kernel": "generate_standard_normals",
+      "shader": "monte-carlo.metal",
+      "reason": "MonteCarloParams ulong-aligned ABI + stochastic validation; wiring pending"
+    },
+    {
+      "kernel": "correlate_normals",
+      "shader": "monte-carlo.metal",
+      "reason": "structured Cholesky ABI; research pipeline not yet wired"
+    },
+    {
+      "kernel": "generate_correlated_returns",
+      "shader": "monte-carlo.metal",
+      "reason": "depends on correlate_normals pipeline; not yet wired"
+    },
+    {
+      "kernel": "portfolio_scenario_pnl",
+      "shader": "monte-carlo.metal",
+      "reason": "multi-stage MC pipeline; not yet wired"
+    },
+    {
+      "kernel": "statarb_pair_monte_carlo",
+      "shader": "monte-carlo.metal",
+      "reason": "research-only; not yet wired"
+    },
+    {
+      "kernel": "simulate_portfolio_paths",
+      "shader": "monte-carlo.metal",
+      "reason": "multi-stage MC pipeline; not yet wired"
+    },
+    {
+      "kernel": "pnl_to_loss",
+      "shader": "monte-carlo.metal",
+      "reason": "MC aggregation stage; not yet wired"
+    },
+    {
+      "kernel": "extract_scenario_pnl",
+      "shader": "monte-carlo.metal",
+      "reason": "MC aggregation stage; not yet wired"
+    },
+    {
+      "kernel": "extract_pair_pnl",
+      "shader": "monte-carlo.metal",
+      "reason": "MC aggregation stage; not yet wired"
+    },
+    {
+      "kernel": "tail_moment_partials",
+      "shader": "monte-carlo.metal",
+      "reason": "feeds reduce_* combine stage; not yet wired"
+    },
+    {
+      "kernel": "threshold_tail_partials",
+      "shader": "monte-carlo.metal",
+      "reason": "feeds reduce_threshold_tail; not yet wired"
+    },
+    {
+      "kernel": "apply_stress_shocks",
+      "shader": "monte-carlo.metal",
+      "reason": "structured stress ABI; not yet wired"
+    },
+    {
+      "kernel": "validate_depth_snapshots",
+      "shader": "imbalance.metal",
+      "reason": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    {
+      "kernel": "compute_level_imbalance",
+      "shader": "imbalance.metal",
+      "reason": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    {
+      "kernel": "compute_imbalance_features",
+      "shader": "imbalance.metal",
+      "reason": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    {
+      "kernel": "compute_top_level_imbalance",
+      "shader": "imbalance.metal",
+      "reason": "L1-compatible; structured depth ABI wiring pending"
+    },
+    {
+      "kernel": "compute_weighted_depth_imbalance",
+      "shader": "imbalance.metal",
+      "reason": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    {
+      "kernel": "compute_depth_shape",
+      "shader": "imbalance.metal",
+      "reason": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    {
+      "kernel": "compute_pair_pressure_features",
+      "shader": "imbalance.metal",
+      "reason": "requires genuine L2 depth; IEX provides L1 only"
+    },
+    {
+      "kernel": "reduce_sum_partials",
+      "shader": "reductions.metal",
+      "reason": "two-stage partial/combine pipeline wiring pending"
+    },
+    {
+      "kernel": "reduce_moment_partials",
+      "shader": "reductions.metal",
+      "reason": "two-stage partial/combine pipeline wiring pending"
+    },
+    {
+      "kernel": "reduce_minmax_partials",
+      "shader": "reductions.metal",
+      "reason": "two-stage partial/combine pipeline wiring pending"
+    },
+    {
+      "kernel": "reduce_dot_partials",
+      "shader": "reductions.metal",
+      "reason": "combine stage wiring pending"
+    },
+    {
+      "kernel": "reduce_covariance_sufficient_partials",
+      "shader": "reductions.metal",
+      "reason": "pairs with combine_covariance_partials; pending"
+    },
+    {
+      "kernel": "reduce_matrix_column_partials",
+      "shader": "reductions.metal",
+      "reason": "combine stage wiring pending"
+    },
+    {
+      "kernel": "reduce_pnl_partials",
+      "shader": "reductions.metal",
+      "reason": "pairs with combine_pnl_partials; pending"
+    },
+    {
+      "kernel": "reduce_threshold_tail_partials",
+      "shader": "reductions.metal",
+      "reason": "pairs with combine_threshold_tail_partials; pending"
+    },
+    {
+      "kernel": "reduce_validation_counts",
+      "shader": "reductions.metal",
+      "reason": "combine stage wiring pending"
+    },
+    {
+      "kernel": "reduce_histogram_partials",
+      "shader": "reductions.metal",
+      "reason": "combine stage wiring pending"
+    },
+    {
+      "kernel": "combine_sum_partials",
+      "shader": "reductions.metal",
+      "reason": "second stage of reduce_sum; pending full pipeline"
+    },
+    {
+      "kernel": "combine_covariance_partials",
+      "shader": "reductions.metal",
+      "reason": "second stage; pending full pipeline"
+    },
+    {
+      "kernel": "combine_pnl_partials",
+      "shader": "reductions.metal",
+      "reason": "second stage; pending full pipeline"
+    },
+    {
+      "kernel": "combine_threshold_tail_partials",
+      "shader": "reductions.metal",
+      "reason": "second stage; pending full pipeline"
+    },
+    {
+      "kernel": "normalize_zscores",
+      "shader": "reductions.metal",
+      "reason": "combine stage wiring pending"
+    }
+  ]
+}

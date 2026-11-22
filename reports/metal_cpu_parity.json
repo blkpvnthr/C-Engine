@@ -1,0 +1,78 @@
+{
+  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
+  "device": "Apple M5 Max",
+  "parity": {
+    "rolling_sma_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity",
+      "max_abs_error": 0.0
+    },
+    "exponential_moving_average_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity",
+      "max_abs_error": 0.0
+    },
+    "average_price_oscillator_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity",
+      "max_abs_error": 0.0
+    },
+    "true_range_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity",
+      "max_abs_error": 0.0
+    },
+    "column_means": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_error=2.539e-08 (tol 1e-4)",
+      "max_abs_error": 2.539359386655171e-08
+    },
+    "covariance_matrix": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_error=8.250e-08 (tol 1e-4)",
+      "max_abs_error": 8.249813854277477e-08
+    },
+    "ewma_covariance_matrix": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_error=1.296e-07 (tol 1e-4)",
+      "max_abs_error": 1.29648491054013e-07
+    },
+    "screen_market": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "4 symbols; exact flag parity + NaN-safe float parity (tol 1e-4)",
+      "max_abs_error": 0.0
+    },
+    "technical_features": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "3 symbols; identical validity masks; max_abs_error=3.052e-05 (tol 1e-2)",
+      "max_abs_error": 3.0517578125e-05
+    },
+    "market_breadth": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "7 symbols; exact atomic-counter parity",
+      "max_abs_error": 0.0
+    },
+    "compact_entry_candidates": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "2 qualified; id-set + overflow parity",
+      "max_abs_error": 0.0
+    },
+    "rank_candidates": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "3 candidates; max_abs_error=5.960e-08 (tol 1e-5)",
+      "max_abs_error": 5.960464477539063e-08
+    }
+  }
+}

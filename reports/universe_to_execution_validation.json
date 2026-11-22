@@ -1,0 +1,97 @@
+{
+  "recorded_utc": "2026-11-22T22:04:40.647570+00:00",
+  "acceptance_test": "tests/test_universe_to_execution.py (17 passed)",
+  "completion_status_legend": {
+    "COMPONENT_IMPLEMENTED": "class/module exists + unit tested",
+    "OPERATIONALLY_CONNECTED": "wired into the live order path (CandidateRouter/OrderManager)",
+    "END_TO_END_VALIDATED": "traceable membership->...->mock-venue->fill proven in tests",
+    "REAL_TIME_VALIDATED": "PENDING \u2014 requires an eligible live SIP session"
+  },
+  "scope_note": "Traces the WIRED authorization+execution path with a mock broker venue (no live orders). The full live SIP discovery loop (subscribe/warm-up/GPU-rank every master-universe symbol into the scanner) is a broader integration tracked separately; this does NOT claim all 5,601 master symbols are subscribed/warmed/actionable.",
+  "categories": {
+    "conventional_equity": {
+      "symbol": "AAPL",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "COMMON_EQUITY(not_in_registry)",
+      "signed_target_daily_leverage": 1.0,
+      "exposure_direction": "LONG",
+      "auto_execution_authorized": true,
+      "authorization_reason": "not_in_exposure_registry_assumed_common_equity",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "broad_market_etf": {
+      "symbol": "SPY",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "BROAD_MARKET_ETF",
+      "signed_target_daily_leverage": 1.0,
+      "exposure_direction": "LONG",
+      "auto_execution_authorized": true,
+      "authorization_reason": "execution_authorized",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "sector_etf": {
+      "symbol": "XLK",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "SECTOR_ETF",
+      "signed_target_daily_leverage": 1.0,
+      "exposure_direction": "LONG",
+      "auto_execution_authorized": true,
+      "authorization_reason": "execution_authorized",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "leveraged_bull_etf": {
+      "symbol": "TQQQ",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "LEVERAGED_LONG_ETF",
+      "signed_target_daily_leverage": 3.0,
+      "exposure_direction": "LONG",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:LEVERAGED_LONG_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "inverse_etf": {
+      "symbol": "SH",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "INVERSE_ETF",
+      "signed_target_daily_leverage": -1.0,
+      "exposure_direction": "INVERSE",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:INVERSE_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "leveraged_inverse_etf": {
+      "symbol": "SQQQ",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "LEVERAGED_INVERSE_ETF",
+      "signed_target_daily_leverage": -3.0,
+      "exposure_direction": "INVERSE",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:LEVERAGED_INVERSE_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "leveraged_inverse_sector_etf": {
+      "symbol": "SOXS",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "LEVERAGED_INVERSE_ETF",
+      "signed_target_daily_leverage": -3.0,
+      "exposure_direction": "INVERSE",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:LEVERAGED_INVERSE_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    }
+  }
+}

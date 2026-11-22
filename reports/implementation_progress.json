@@ -1,0 +1,36 @@
+{
+  "recorded_utc": "2026-11-22T22:19:34.265448+00:00",
+  "head": "f6b6c97",
+  "tests_passing": 414,
+  "master_universe": 5651,
+  "master_tradable": 5616,
+  "operational_metal_consumers": 5,
+  "definition_of_done_25": {
+    "1_zero_arg_expanded_universe": "DONE (membership-backed discovery wired)",
+    "2_adaptive_mgr_controls_sip": "PENDING (manager built+tested, not yet live socket owner)",
+    "3_native_registry_registration": "PARTIAL (via GpuDiscoveryProvider; full-scale warm-up registration pending)",
+    "4_historical_warmup_feeds_discovery": "PARTIAL (pipeline proven on real SIP historical; auto startup warm-up pending)",
+    "5_instruments_beyond_flat_subset_reach_screening": "DONE",
+    "6_trade_quote_promotions": "PENDING (adaptive manager built, not live-wired)",
+    "7_final_candidates_reach_publisher": "DONE",
+    "8_published_reach_strategies": "DONE",
+    "9_recommendations_reach_router": "DONE",
+    "10_exposure_authorization_enforced": "DONE",
+    "11_risk_and_ordermanager_receive_intents": "DONE",
+    "12_representative_categories_full_path": "DONE (mock venue, acceptance harness)",
+    "13_independent_protection_intact": "DONE",
+    "14_full_regression_passes": "DONE (414)",
+    "15_docs_evidence": "DONE (this refresh)"
+  },
+  "remaining": [
+    "adaptive 4-tier live SIP socket ownership",
+    "automatic master-universe historical warm-up scheduling",
+    "regime engine",
+    "5-family strategy consolidation",
+    "portfolio optimizer operational consumers",
+    "ML/RL Parquet-DuckDB platform",
+    "unified dashboard",
+    "real-time SIP session certification (session-gated)"
+  ],
+  "note": "Primary directive bottleneck (legacy flat discovery -> master universe) RESOLVED. No live orders; no fabricated data; -0.5% protection independence intact."
+}

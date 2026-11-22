@@ -55,7 +55,7 @@ def test_reordered_and_missing_bars_trip_gates():
 
 
 def test_interleaved_channels_do_not_trip_ordering_gate():
-    # A real SIP feed multiplexes quotes and trades whose cross-channel
+    # A real market-data feed multiplexes quotes and trades whose cross-channel
     # timestamps are not mutually monotonic. Ordering is enforced per channel,
     # so this interleaving must be accepted, while freshness reflects the
     # newest observation across all channels for the symbol.

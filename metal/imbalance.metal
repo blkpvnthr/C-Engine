@@ -17,13 +17,17 @@ using namespace metal;
 // This file NEVER:
 //   - inserts/cancels/amends orders,
 //   - matches orders,
-//   - treats SIP NBBO as fabricated Level-II,
+//   - treats a top-of-book quote as fabricated Level-II,
 //   - approves risk,
 //   - generates broker orders.
 //
 // A snapshot may represent:
 //   1. genuine provider depth, or
-//   2. top-of-book-only consolidated quote.
+//   2. top-of-book-only quote (DEPTH_SOURCE_CONSOLIDATED_QUOTE). NOTE: on the
+//      default IEX feed this top-of-book is a SINGLE exchange's best bid/offer,
+//      NOT the consolidated NBBO, so a resulting imbalance is single-exchange
+//      and MUST NOT be reported as consolidated / market-wide order-book
+//      imbalance. Only a SIP (or genuine provider-depth) source is market-wide.
 //
 // depth_source and valid_bid_levels / valid_ask_levels tell kernels what data
 // actually exists. Padded zeros are never interpreted as market liquidity.

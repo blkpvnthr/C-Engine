@@ -1,0 +1,1 @@
+'ANT', 'GPN', 'DVA', 'HUM', 'UNH', 'HCA', 'UHS', 'GIS', 'WMT', 'COST', 'NVDA', 'AMD', 'AVGO', 'AAPL', 'MU', 'TSLA', 'SPY', 'QQQ', 'DIA', 'IWM', 'XLP', 'XLV', 'GLD', 'SQQQ', 'SOXS', 'SPXU', 'SDOW', 'TZA', 'TQQQ', 'SOXL', 'UPRO'

@@ -22,8 +22,9 @@ class MarketGateConfig:
 class MarketSafetyGate:
     """Per-channel freshness and ordering gate.
 
-    A real SIP feed multiplexes independent channels (quote, trade, bar, and
-    licensed index factors). Each channel is monotonic per symbol, but the
+    A real market-data feed (IEX or SIP) multiplexes independent channels
+    (quote, trade, bar, and licensed index factors). Each channel is monotonic
+    per symbol, but the
     channels are delivered interleaved and are NOT mutually monotonic, so
     ordering is enforced per ``(symbol, channel)`` rather than per symbol.
     Feed-liveness (``require_fresh``) uses the freshest observation across all

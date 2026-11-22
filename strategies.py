@@ -44,6 +44,8 @@ from enum import Enum
 from math import fsum
 from typing import Iterable, Optional, Protocol, Sequence
 
+from indicators import SessionVWAP, momentum, sma, wilder_dmi
+
 
 class SignalSide(str, Enum):
     LONG = "long"
@@ -56,6 +58,7 @@ class StrategyName(str, Enum):
     TURTLE = "turtle"
     DUAL_MA = "dual_ma"
     APO_MEAN_REVERSION = "apo_mean_reversion"
+    DI_BB = "di_bb"
 
 
 @dataclass(frozen=True, slots=True)
@@ -488,6 +491,140 @@ class APOMeanReversionStrategy:
 
 
 @dataclass(frozen=True, slots=True)
+class DIBBConfig:
+    """DI/BB entry + inverse-exit strategy (spec §14/§15).
+
+    Long-only initially (inverse ETFs provide bearish exposure). Entry requires
+    DI+ > DI- and price above the Bollinger middle band, plus the configurable
+    mandatory confirmations (session VWAP and positive momentum). Exit is the
+    inverse rule. Missing mandatory features block the affected entry (fail
+    closed); they never force an exit — mandatory protective exits are handled
+    independently by the ProtectiveExitCoordinator.
+    """
+
+    di_period: int = 14
+    bb_period: int = 20
+    momentum_lookback: int = 5
+    min_adx: float = 0.0
+    require_vwap: bool = True
+    require_momentum: bool = True
+
+    def validate(self) -> None:
+        if self.di_period < 1:
+            raise ValueError("di_period must be >= 1")
+        if self.bb_period < 2:
+            raise ValueError("bb_period must be >= 2")
+        if self.momentum_lookback < 1:
+            raise ValueError("momentum_lookback must be >= 1")
+        if self.min_adx < 0:
+            raise ValueError("min_adx cannot be negative")
+
+
+class DIBBStrategy:
+    """Directional-movement + Bollinger-middle-band strategy (long-only).
+
+    Entry (flat -> long):
+        DI+ > DI- and close > BB_mid [and close > session VWAP] [and momentum > 0]
+    Exit (long -> flat):
+        DI- > DI+ and close < BB_mid
+
+    All indicators are computed from completed prior bars (no look-ahead). Signal
+    state is reconciled from the execution layer via :meth:`on_position`.
+    """
+
+    def __init__(self, config: DIBBConfig) -> None:
+        config.validate()
+        self.config = config
+        self._need = max(config.di_period + 1, config.bb_period, config.momentum_lookback + 1)
+        self._bars: dict[str, deque[Bar]] = {}
+        self._positions: dict[str, int] = {}
+        self._vwap = SessionVWAP()
+
+    @property
+    def name(self) -> StrategyName:
+        return StrategyName.DI_BB
+
+    def on_position(self, symbol: str, quantity: int) -> None:
+        self._positions[symbol.strip().upper()] = quantity
+
+    def on_bar(self, bar: Bar) -> tuple[TradeCandidate, ...]:
+        bar.validate()
+        symbol = bar.symbol.strip().upper()
+        history = self._bars.setdefault(symbol, deque(maxlen=self._need + 5))
+        history.append(bar)
+
+        # Always fold the bar into the running session VWAP so it stays accurate,
+        # even on bars where we cannot (yet) act.
+        typical = (bar.high_ticks + bar.low_ticks + bar.close_ticks) / 3.0
+        vwap = self._vwap.update(
+            symbol, bar.timestamp_ns, typical_price=typical, volume=bar.volume
+        )
+
+        if len(history) < self._need:
+            return ()
+
+        highs = [b.high_ticks for b in history]
+        lows = [b.low_ticks for b in history]
+        closes = [b.close_ticks for b in history]
+
+        dmi = wilder_dmi(highs, lows, closes, self.config.di_period)
+        bb_mid = sma(closes, self.config.bb_period)
+        if dmi is None or bb_mid is None:
+            # Mandatory DI/BB features unavailable -> evaluate nothing (fail
+            # closed). Protective exits are independent of this path.
+            return ()
+
+        price = float(bar.close_ticks)
+        state = self._positions.get(symbol, 0)
+
+        # Inverse exit takes precedence over a new entry.
+        if dmi.di_minus > dmi.di_plus and price < bb_mid and state > 0:
+            return (
+                TradeCandidate(
+                    strategy=StrategyName.DI_BB,
+                    symbol=symbol,
+                    side=SignalSide.EXIT_LONG,
+                    timestamp_ns=bar.timestamp_ns,
+                    reference_price_ticks=bar.close_ticks,
+                    reason="di_bb inverse exit: DI- > DI+ and price < BB-mid",
+                    signal_value=dmi.di_plus - dmi.di_minus,
+                    fast_value=dmi.di_plus,
+                    slow_value=dmi.di_minus,
+                    upper_level_ticks=int(bb_mid),
+                    lower_level_ticks=int(vwap),
+                ),
+            )
+
+        if state > 0:
+            return ()  # already long; no new entry while long (long-only)
+
+        entry = dmi.di_plus > dmi.di_minus and price > bb_mid and dmi.adx >= self.config.min_adx
+        if entry and self.config.require_vwap:
+            entry = entry and price > vwap
+        if entry and self.config.require_momentum:
+            mom = momentum(closes, self.config.momentum_lookback)
+            entry = entry and (mom is not None and mom > 0)
+
+        if entry:
+            return (
+                TradeCandidate(
+                    strategy=StrategyName.DI_BB,
+                    symbol=symbol,
+                    side=SignalSide.LONG,
+                    timestamp_ns=bar.timestamp_ns,
+                    reference_price_ticks=bar.close_ticks,
+                    reason="di_bb entry: DI+ > DI- and price > BB-mid",
+                    signal_value=dmi.di_plus - dmi.di_minus,
+                    fast_value=dmi.di_plus,
+                    slow_value=dmi.di_minus,
+                    upper_level_ticks=int(bb_mid),
+                    lower_level_ticks=int(vwap),
+                ),
+            )
+        return ()
+
+
+@dataclass(frozen=True, slots=True)
 class StrategyBatch:
     symbol: str
     timestamp_ns: int
@@ -556,23 +693,29 @@ class StrategySetConfig:
     turtle: TurtleConfig
     dual_ma: DualMAConfig
     apo: APOConfig
+    # Optional DI/BB strategy (migrated from QQ-Trader). Off unless a config is
+    # supplied, so an unvalidated strategy never silently gains execution
+    # eligibility (spec §16).
+    di_bb: Optional[DIBBConfig] = None
 
 
 def build_strategy_coordinator(
     config: StrategySetConfig,
 ) -> StrategyCoordinator:
-    """Construct all three strategies.
+    """Construct the strategy set.
 
-    Configuration is mandatory; this function intentionally supplies no
-    trading-period or threshold defaults.
+    The three native strategies are always built; the DI/BB strategy is added
+    only when ``config.di_bb`` is supplied. Configuration is otherwise mandatory;
+    this function supplies no trading-period or threshold defaults.
     """
-    return StrategyCoordinator(
-        (
-            TurtleStrategy(config.turtle),
-            DualMAStrategy(config.dual_ma),
-            APOMeanReversionStrategy(config.apo),
-        )
-    )
+    strategies: list[Strategy] = [
+        TurtleStrategy(config.turtle),
+        DualMAStrategy(config.dual_ma),
+        APOMeanReversionStrategy(config.apo),
+    ]
+    if config.di_bb is not None:
+        strategies.append(DIBBStrategy(config.di_bb))
+    return StrategyCoordinator(tuple(strategies))
 
 
 def candidate_direction(candidate: TradeCandidate) -> int:
@@ -613,6 +756,8 @@ __all__ = [
     "APOConfig",
     "APOMeanReversionStrategy",
     "Bar",
+    "DIBBConfig",
+    "DIBBStrategy",
     "DualMAConfig",
     "DualMAStrategy",
     "SignalSide",

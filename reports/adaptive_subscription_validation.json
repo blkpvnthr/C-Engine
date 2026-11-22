@@ -1,0 +1,66 @@
+{
+  "recorded_utc": "2026-11-22T21:43:48.063663+00:00",
+  "component": "market_scan.adaptive_subscriptions.AdaptiveSubscriptionManager",
+  "channels": [
+    "bars",
+    "trades",
+    "quotes"
+  ],
+  "tiers": {
+    "tier1_bars": "full universe",
+    "tier2_trades": "500-1000",
+    "tier3_quotes": "100-250",
+    "tier4": "protected"
+  },
+  "validated_behaviors": {
+    "channel_dedup": true,
+    "bars_superset_trades_superset_quotes": true,
+    "discovery_promotion_progression_no_deadlock": true,
+    "protected_never_dropped_degraded_flag": true,
+    "dwell_hysteresis_prevents_churn": true,
+    "state_machine": [
+      "UNREQUESTED",
+      "REQUESTED",
+      "ACKNOWLEDGED",
+      "WARMING_UP",
+      "FRESH",
+      "STALE",
+      "DEMOTION_PENDING",
+      "UNSUBSCRIBE_REQUESTED",
+      "RECOVERING",
+      "FAILED"
+    ]
+  },
+  "synthetic_scenario_final_telemetry": {
+    "caps": {
+      "bars": 4096,
+      "trades": 1000,
+      "quotes": 250
+    },
+    "channels": {
+      "bars": {
+        "requested": 504,
+        "confirmed": 0,
+        "cap": 4096,
+        "utilization": 0.123
+      },
+      "trades": {
+        "requested": 102,
+        "confirmed": 0,
+        "cap": 1000,
+        "utilization": 0.102
+      },
+      "quotes": {
+        "requested": 22,
+        "confirmed": 0,
+        "cap": 250,
+        "utilization": 0.088
+      }
+    },
+    "states": {
+      "requested": 628
+    }
+  },
+  "tests": "tests/test_adaptive_subscriptions.py (9 passed)",
+  "note": "Deterministic, no-network unit validation. Live SIP wiring into the single shared socket + real-session capacity benchmarks (sip_streaming_capacity.json) are the next steps; cap is still a flat 250 in the running engine until wired."
+}

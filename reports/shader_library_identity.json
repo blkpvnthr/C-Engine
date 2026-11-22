@@ -1,0 +1,81 @@
+{
+  "recorded_utc": "2026-11-22T19:12:23.340008+00:00",
+  "active_metallib": "/Users/blkpvnthr/sustenance/build-metal/cengine.metallib",
+  "metallib_size_bytes": 263525,
+  "metallib_sha256": "925c00ade207d17003728608b698358c7413cfb19ec6d20ea5c1ce0754dbf6c8",
+  "metallib_mtime_utc": "2026-11-22T19:02:21.912271+00:00",
+  "entry_point_count": 45,
+  "entry_points": [
+    "average_price_oscillator_ticks",
+    "exponential_moving_average_ticks",
+    "gme::apply_stress_shocks",
+    "gme::column_means",
+    "gme::combine_covariance_partials",
+    "gme::combine_pnl_partials",
+    "gme::combine_sum_partials",
+    "gme::combine_threshold_tail_partials",
+    "gme::compute_depth_shape",
+    "gme::compute_imbalance_features",
+    "gme::compute_level_imbalance",
+    "gme::compute_pair_pressure_features",
+    "gme::compute_top_level_imbalance",
+    "gme::compute_weighted_depth_imbalance",
+    "gme::correlate_normals",
+    "gme::covariance_matrix",
+    "gme::ewma_covariance_matrix",
+    "gme::extract_pair_pnl",
+    "gme::extract_scenario_pnl",
+    "gme::generate_correlated_returns",
+    "gme::generate_standard_normals",
+    "gme::normalize_zscores",
+    "gme::pnl_to_loss",
+    "gme::portfolio_scenario_pnl",
+    "gme::reduce_covariance_sufficient_partials",
+    "gme::reduce_dot_partials",
+    "gme::reduce_histogram_partials",
+    "gme::reduce_matrix_column_partials",
+    "gme::reduce_minmax_partials",
+    "gme::reduce_moment_partials",
+    "gme::reduce_pnl_partials",
+    "gme::reduce_sum_partials",
+    "gme::reduce_threshold_tail_partials",
+    "gme::reduce_validation_counts",
+    "gme::simulate_portfolio_paths",
+    "gme::statarb_normalized_weights",
+    "gme::statarb_pair_monte_carlo",
+    "gme::statarb_pair_regression",
+    "gme::statarb_residual_series",
+    "gme::tail_moment_partials",
+    "gme::threshold_tail_partials",
+    "gme::validate_depth_snapshots",
+    "gme::volatility_factor_features",
+    "rolling_sma_ticks",
+    "true_range_ticks"
+  ],
+  "source_shaders": {
+    "covariance.metal": {
+      "sha256": "4dabac21c255933bdf8cc719547744e01e971e3d3bf1050cb4575c2feedf09c6",
+      "size_bytes": 24349
+    },
+    "imbalance.metal": {
+      "sha256": "a22b68955706c60e9e3e744f2a8cd0f37095826854e2811cd69549c5d1c3ec02",
+      "size_bytes": 31840
+    },
+    "indicators.metal": {
+      "sha256": "7cfafca26dcfbb46a056dfac686e14ab6bf805467653940ed4c7b3871ecfb555",
+      "size_bytes": 2254
+    },
+    "monte-carlo.metal": {
+      "sha256": "1ff17d1ca84624768d473290b0e3ecf9f43c7cfd80223ff3d8cb4511bec17ee9",
+      "size_bytes": 33193
+    },
+    "reductions.metal": {
+      "sha256": "aef56692f2ce862f03176795629e949d89cb1e16517dc402f41b42bd74d82285",
+      "size_bytes": 37728
+    }
+  },
+  "other_metallibs_present": [
+    "./build/cengine.metallib",
+    "./build-metal/cengine.metallib"
+  ]
+}

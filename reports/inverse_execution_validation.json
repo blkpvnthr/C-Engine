@@ -1,0 +1,43 @@
+{
+  "recorded_utc": "2026-11-22T22:04:40.647570+00:00",
+  "acceptance_test": "tests/test_universe_to_execution.py",
+  "inverse_categories": {
+    "inverse_etf": {
+      "symbol": "SH",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "INVERSE_ETF",
+      "signed_target_daily_leverage": -1.0,
+      "exposure_direction": "INVERSE",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:INVERSE_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "leveraged_inverse_etf": {
+      "symbol": "SQQQ",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "LEVERAGED_INVERSE_ETF",
+      "signed_target_daily_leverage": -3.0,
+      "exposure_direction": "INVERSE",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:LEVERAGED_INVERSE_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    },
+    "leveraged_inverse_sector_etf": {
+      "symbol": "SOXS",
+      "master_member": true,
+      "tradable": true,
+      "instrument_type": "LEVERAGED_INVERSE_ETF",
+      "signed_target_daily_leverage": -3.0,
+      "exposure_direction": "INVERSE",
+      "auto_execution_authorized": false,
+      "authorization_reason": "geared_or_inverse_not_authorized:LEVERAGED_INVERSE_ETF",
+      "traceable_path": "membership->metadata->authorization_gate->CandidateRouter->OrderManager->mock_venue->fill",
+      "status": "END_TO_END_VALIDATED (wired path, mock venue)"
+    }
+  },
+  "note": "Inverse ETFs reach execution via the ordinary LONG path when explicitly authorized; blocked by default; exits never gated; opposing exposure (e.g. TQQQ+SQQQ on NASDAQ100) is detectable for portfolio policy (\u00a724/\u00a739)."
+}

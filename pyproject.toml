@@ -15,6 +15,10 @@ dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6", "mypy>=1.11"]
 metal = ["pyobjc-framework-Metal>=10.3; platform_system == 'Darwin'"]
 research = ["cvxpy>=1.5", "scikit-learn>=1.5"]
 nosql = ["pymongo>=4.8"]
+# Market scanner (migrated market_scan/ package) runtime dependencies. Needed
+# only when the in-process IEX scanner actually connects; the scanner's core
+# ranking/discovery/publication logic imports without them.
+scan = ["alpaca-py>=0.33", "pandas>=2.0", "requests>=2.31", "lxml>=5.0"]
 
 [tool.scikit-build]
 cmake.version = ">=3.24"

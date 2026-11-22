@@ -1,0 +1,87 @@
+{
+  "device": "Apple M5 Max",
+  "pipeline_status": {
+    "rolling_sma_ticks": true,
+    "exponential_moving_average_ticks": true,
+    "average_price_oscillator_ticks": true,
+    "true_range_ticks": true,
+    "column_means": true,
+    "covariance_matrix": true,
+    "ewma_covariance_matrix": true,
+    "statarb_pair_regression": true,
+    "statarb_residual_series": true,
+    "volatility_factor_features": true,
+    "statarb_normalized_weights": true,
+    "generate_standard_normals": true,
+    "correlate_normals": true,
+    "generate_correlated_returns": true,
+    "portfolio_scenario_pnl": true,
+    "statarb_pair_monte_carlo": true,
+    "simulate_portfolio_paths": true,
+    "pnl_to_loss": true,
+    "extract_scenario_pnl": true,
+    "extract_pair_pnl": true,
+    "tail_moment_partials": true,
+    "threshold_tail_partials": true,
+    "apply_stress_shocks": true,
+    "validate_depth_snapshots": true,
+    "compute_level_imbalance": true,
+    "compute_imbalance_features": true,
+    "compute_top_level_imbalance": true,
+    "compute_weighted_depth_imbalance": true,
+    "compute_depth_shape": true,
+    "compute_pair_pressure_features": true,
+    "reduce_sum_partials": true,
+    "reduce_moment_partials": true,
+    "reduce_minmax_partials": true,
+    "reduce_dot_partials": true,
+    "reduce_covariance_sufficient_partials": true,
+    "reduce_matrix_column_partials": true,
+    "reduce_pnl_partials": true,
+    "reduce_threshold_tail_partials": true,
+    "reduce_validation_counts": true,
+    "reduce_histogram_partials": true,
+    "combine_sum_partials": true,
+    "combine_covariance_partials": true,
+    "combine_pnl_partials": true,
+    "combine_threshold_tail_partials": true,
+    "normalize_zscores": true
+  },
+  "exercised": {
+    "rolling_sma_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "exponential_moving_average_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "average_price_oscillator_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "true_range_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "covariance_matrix": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_diff=4.74e-11"
+    },
+    "column_means": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "executed as part of covariance_matrix pipeline"
+    },
+    "ewma_covariance_matrix": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_diff=8.89e-12"
+    }
+  }
+}

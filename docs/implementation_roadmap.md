@@ -1,0 +1,57 @@
+# C-Engine Implementation Roadmap
+
+Living status document. Distinguishes **done + verified** from **target**. Treat
+reported numbers as measurements recorded in `reports/`, not aspirations.
+
+Last updated: Milestone-1 documentation refresh (HEAD after `213a26d`).
+
+## Verified checkpoint (Apple M5 Max, Python 3.11.8)
+
+| Metric | Value | Evidence |
+| --- | --- | --- |
+| Regression tests | 353 passing | `pytest -q` |
+| Compiled kernels | 50 (45 baseline + 5 new) | `reports/metal_kernel_coverage.json` |
+| Host-callable / hardware-executed / CPU-parity | 12 / 12 / 12 | `reports/metal_hardware_validation.json`, `metal_cpu_parity.json` |
+| Operationally consumed | 5 | `reports/operational_consumer_coverage.json` |
+| Market-data feed | SIP (Algo Trader Plus), entitlement verified | `reports/alpaca_subscription_validation.json` |
+
+Operational GPU consumers: `technical_features`, `screen_market`,
+`compact_entry_candidates`, `rank_candidates`, `market_breadth`.
+
+## Phase status
+
+```mermaid
+flowchart LR
+    A[A - Native Metal runtime] --> B[B - GPU discovery pipeline]
+    B --> SIP[SIP migration]
+    SIP --> C[C - Full-market discovery]
+    C --> D[D - Portfolio integration]
+    D --> E[E - Remaining kernels]
+    E --> F[F - Certification]
+    classDef done stroke:#15803d,stroke-width:2px
+    class A,B,SIP done
+```
+
+- **Phase A — complete.** Native Obj-C++ Metal runtime, pipeline cache, BufferPool, registry, hardware parity.
+- **Phase B — complete (offline-verified).** `DiscoveryEngine` ingestion; `technical_features`, `screen_market`, `compact_entry_candidates`, `rank_candidates`, `market_breadth` hardware-executed, CPU-parity-validated, and consumed by the real scanner (`cengine/gpu_scanner_bridge.py` → `MarketScanner` → `UniversePublisher`). Market-wide ranking runs on the GPU with output identical to the prior Python ranker. **Real-time SIP session certification is pending** an eligible market session; `tools/phase_b_certify.py` has validated the pipeline on genuine SIP historical data (78,709 bars).
+- **SIP migration — complete.** Entitlement verified read-only (`tools/sip_verify.py`); feed-aware config; `CENGINE_ALPACA_FEED=sip`; IEX retained as compat profile; no silent downgrade.
+
+## Remaining work
+
+| Phase | Deliverable | Notes |
+| --- | --- | --- |
+| C | Adaptive four-tier subscription manager | Current cap is a flat 250 on SIP; per-channel capacity + promotion/demotion state machine is the target |
+| C | Master-universe membership acquisition | NASDAQ-listed ∪ S&P 500 ∪ DJIA ∪ configured; provenance, generations, dedup |
+| C | Full-market historical warm-up + SIP REST budgeting | Incremental, cached, coverage-classified |
+| C | Per-group market breadth | NASDAQ / S&P / DJIA / configured / combined (no double-count) |
+| D | Operational portfolio intelligence | Covariance/EWMA consumers, `RegimeMarkowitzAllocator`, sizing, confirmed-fill replacement |
+| E | Remaining ~38 kernels | Monte Carlo, reductions, L1 imbalance, statarb — legitimate consumers only; L2-depth kernels remain data-blocked |
+| F | Dashboard, benchmarks, replay/backtest/OOS, fault injection, readiness | — |
+
+## Invariants (never regress)
+
+- Mandatory protective exit at `unrealized_return < -0.005`, independent of GPU/discovery/optimizer.
+- Entry contract unchanged; GPU results advisory until native authorization.
+- Single OrderManager; single `UniversePublisher`; one shared SIP stock-data socket.
+- No invented prices/fills/account state; no silent SIP↔IEX mixing; no live orders in tests.
+- Registry honesty: `operationally_consumed` set only when a real live consumer dispatches the kernel.

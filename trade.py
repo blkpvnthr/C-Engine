@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-engine.py
+trade.py
 
 Top-level bootstrap for the complete market engine.
 
 Data path
 ---------
-Alpaca SIP
+Alpaca IEX (default feed; SIP is opt-in and entitlement-gated)
     -> normalized QuoteEvent / TradeEvent / BarEvent
     -> MarketDataFanout
         -> DailyHDF5Writer
@@ -22,6 +22,10 @@ Alpaca SIP
     -> native C++ RiskEngine
     -> native C++ execution venue / LimitOrderBook
 
+Market-data feed vs. trading mode are independent axes. Selecting IEX or SIP
+changes only the data source; it never changes paper vs. live execution, which
+stays gated by the separate ALPACA_TRADING_BASE_URL live confirmations.
+
 VIX/VXN
 -------
 A licensed external source publishes IndexEvent objects through
@@ -33,14 +37,17 @@ Authority boundary
 This file orchestrates components. It does not:
 - approve risk;
 - invent prices, quantities, timestamps, fills, or volatility-index values;
-- fabricate Level-II depth from SIP NBBO;
+- fabricate Level-II depth from a single-exchange (IEX) or consolidated (SIP)
+  top-of-book quote;
+- present IEX exchange-specific quotes/volume as consolidated NBBO/market-wide;
 - bypass the native C++ risk boundary;
 - treat Metal output as execution authority.
 
 Required local modules
 ----------------------
-alpaca_sip_stream.py
-market_data_store.py
+market_data/alpaca_stream.py
+market_data/feed.py
+market_data/market_data_store.py
 strategies.py
 order_manager.py
 
@@ -67,11 +74,15 @@ import inspect
 import logging
 import os
 import signal
+import sys
+import threading
 import time
 from collections import deque
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional, Protocol
 
+from canonical_universe import CanonicalUniverseManager
 from cengine.engine_state import EngineState, EngineStateMachine
 from cengine.event_bus import MarketEventBus
 from cengine.execution_policy import ConfiguredExecutionPolicy, ExecutionPolicy
@@ -87,14 +98,15 @@ from cengine.safety import (
     SessionConfig,
 )
 from cengine.strategy_state import StrategyStateBook
-from market_data.alpaca_sip_stream import (
-    AlpacaSIPStream,
+from market_data.alpaca_stream import (
+    AlpacaMarketDataStream,
     BarEvent,
     IndexEvent,
     IndexFactorBridge,
     QuoteEvent,
     TradeEvent,
 )
+from market_data.feed import resolve_feed
 from market_data.market_data_store import DailyHDF5Writer
 from order_manager import (
     TERMINAL_STATUSES,
@@ -108,9 +120,12 @@ from order_manager import (
     Side,
     TimeInForce,
 )
+from protective_exit import ProtectiveExitCoordinator
+from scanner_bridge import BridgeStreamClient, ScannerEventBridge
 from strategies import (
     APOConfig,
     Bar,
+    DIBBConfig,
     DualMAConfig,
     SignalSide,
     StrategyCoordinator,
@@ -121,6 +136,7 @@ from strategies import (
     build_strategy_coordinator,
     group_candidates_by_direction,
 )
+from universe_sync import UniverseSubscriptionSync
 
 LOGGER = logging.getLogger("market_engine")
 
@@ -133,6 +149,55 @@ class EngineConfigurationError(RuntimeError):
 
 class StrategyConflictError(RuntimeError):
     pass
+
+
+class _EngineScannerBrokerView:
+    """Read-only broker surface the market scanner needs, backed by the engine's
+    authoritative in-process state instead of a second broker REST client.
+
+    Exposes exactly what ``market_scan.scanner.MarketScanner`` reads: credentials
+    (for its own historical daily-bar REST client -- not a websocket) and open
+    positions. Pending-order coverage is handled engine-side by
+    ``UniverseSubscriptionSync`` (on the engine loop), so this returns an empty
+    pending list to avoid an unsafe cross-thread read of the OrderManager's
+    order table. Position reads go through PositionBook, which is lock-guarded
+    and safe to call from the scanner thread.
+    """
+
+    def __init__(self, engine: "MarketEngine", api_key: str, secret_key: str) -> None:
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self._engine = engine
+
+    def get_all_open_positions(self) -> list:
+        book = self._engine.portfolio
+        if book is None:
+            return []
+        try:
+            return [p for p in book.positions() if getattr(p, "quantity", 0)]
+        except Exception:  # noqa: BLE001 - never raise into the scanner loop
+            return []
+
+    def list_open_orders(self) -> list:
+        # Pending-order subscription coverage is enforced engine-side; avoid a
+        # cross-thread iteration of the OrderManager order table here.
+        return []
+
+
+class _EngineScannerConfigView:
+    def __init__(self, *, paper: bool) -> None:
+        self.paper = paper
+
+
+class _EngineScannerHost:
+    """The ``executor`` object the scanner reads (``.broker`` + ``.config.paper``);
+    deliberately exposes no order-submission path."""
+
+    def __init__(
+        self, engine: "MarketEngine", api_key: str, secret_key: str, *, paper: bool
+    ) -> None:
+        self.broker = _EngineScannerBrokerView(engine, api_key, secret_key)
+        self.config = _EngineScannerConfigView(paper=paper)
 
 
 class QuantityPolicy(Protocol):
@@ -208,6 +273,9 @@ class EngineConfig:
     mongodb_timeout_ms: int
 
     alpaca_url: Optional[str] = None
+    # Resolved feed name (e.g. "iex"/"sip") used for startup feed verification
+    # and provenance logging. None leaves the stream's derived feed unchecked.
+    alpaca_feed: Optional[str] = None
 
     def validate(self) -> None:
         if not self.symbols:
@@ -332,12 +400,17 @@ class CandidateRouter:
         exit_quantity_provider: ExitQuantityProvider,
         execution_policy: ExecutionPolicy,
         strategy_state: StrategyStateBook,
+        exposure_authorizer: Optional[Callable[[str], tuple[bool, str]]] = None,
     ) -> None:
         self._orders = order_manager
         self._entry_quantity = entry_quantity_policy
         self._exit_quantity = exit_quantity_provider
         self._execution_policy = execution_policy
         self._strategy_state = strategy_state
+        # Exposure gate (§8/§10): blocks elective ENTRIES into geared/inverse or
+        # unclassified products that are not execution-authorized. Exits are never
+        # gated. None -> no gating (conventional-equity-only deployments).
+        self._exposure_authorizer = exposure_authorizer
 
     async def route(
         self,
@@ -363,6 +436,26 @@ class CandidateRouter:
         # contains an exit are withheld; exits are never blocked by entries.
         if exits:
             candidates = exits
+
+        # Exposure authorization gate (§8/§10): block elective ENTRIES into
+        # geared/inverse or unclassified instruments that are not execution-
+        # authorized. Exits (already isolated above) are NEVER gated — risk
+        # reduction always proceeds. An unavailable/incorrect classification
+        # therefore blocks elective execution, as required.
+        if self._exposure_authorizer is not None and not exits:
+            allowed = []
+            for candidate in candidates:
+                if candidate.side in {SignalSide.LONG, SignalSide.SHORT}:
+                    ok, reason = self._exposure_authorizer(candidate.symbol)
+                    if not ok:
+                        LOGGER.info(
+                            "exposure gate blocked entry symbol=%s strategy=%s reason=%s",
+                            candidate.symbol, candidate.strategy.value, reason)
+                        continue
+                allowed.append(candidate)
+            candidates = tuple(allowed)
+            if not candidates:
+                return 0, False
 
         buy, sell = group_candidates_by_direction(candidates)
 
@@ -515,12 +608,32 @@ class MarketEngine:
                 entry_threshold_ticks=config.apo_entry_threshold_ticks,
                 exit_threshold_ticks=config.apo_exit_threshold_ticks,
             ),
+            # The DI/BB strategy (migrated from QQ-Trader) is opt-in: it only
+            # trades when CENGINE_DIBB_ENABLED is set, so an unvalidated strategy
+            # never silently gains execution eligibility (spec §16). Its entries
+            # are still revalidated against the canonical universe + native risk.
+            di_bb=(
+                DIBBConfig(
+                    di_period=int(os.environ.get("CENGINE_DIBB_DI_PERIOD", "14")),
+                    bb_period=int(os.environ.get("CENGINE_DIBB_BB_PERIOD", "20")),
+                    momentum_lookback=int(
+                        os.environ.get("CENGINE_DIBB_MOMENTUM_LOOKBACK", "5")
+                    ),
+                    require_vwap=os.environ.get("CENGINE_DIBB_REQUIRE_VWAP", "1") != "0",
+                    require_momentum=(
+                        os.environ.get("CENGINE_DIBB_REQUIRE_MOMENTUM", "1") != "0"
+                    ),
+                )
+                if os.environ.get("CENGINE_DIBB_ENABLED", "0") != "0"
+                else None
+            ),
         )
         self.strategies: StrategyCoordinator = build_strategy_coordinator(strategy_config)
 
         self.archive = DailyHDF5Writer(
             root=config.market_data_root,
             provider=config.archive_provider_label,
+            feed=config.alpaca_feed,
         )
         self.event_bus: MarketEventBus[MarketEvent] = MarketEventBus()
         self.strategy_events = self.event_bus.subscribe("strategies")
@@ -537,29 +650,78 @@ class MarketEngine:
         self.factor_bridge = IndexFactorBridge(on_index=self._publish_market_event)
         self.factor_source = factor_source
 
-        if config.alpaca_url is None:
-            self.stream = AlpacaSIPStream(
-                symbols=config.symbols,
-                quotes=True,
-                trades=True,
-                bars=True,
-                on_quote=self._publish_market_event,
-                on_trade=self._publish_market_event,
-                on_bar=self._publish_market_event,
-                on_state=self._stream_state_changed,
-            )
-        else:
-            self.stream = AlpacaSIPStream(
-                symbols=config.symbols,
-                quotes=True,
-                trades=True,
-                bars=True,
-                url=config.alpaca_url,
-                on_quote=self._publish_market_event,
-                on_trade=self._publish_market_event,
-                on_bar=self._publish_market_event,
-                on_state=self._stream_state_changed,
-            )
+        stream_kwargs: dict[str, Any] = dict(
+            symbols=config.symbols,
+            quotes=True,
+            trades=True,
+            bars=True,
+            on_quote=self._publish_market_event,
+            on_trade=self._publish_market_event,
+            on_bar=self._publish_market_event,
+            on_state=self._stream_state_changed,
+        )
+        # An omitted URL leaves the stream on its IEX default (never SIP).
+        if config.alpaca_url is not None:
+            stream_kwargs["url"] = config.alpaca_url
+        self.stream = AlpacaMarketDataStream(**stream_kwargs)
+        self._verify_stream_feed()
+
+        # Instrument exposure registry (§8 operational integration): classifies
+        # geared/inverse ETFs and gates them out of elective execution unless
+        # explicitly authorized. Operators authorize geared products via
+        # CENGINE_AUTHORIZED_GEARED (comma-separated symbols). Failure to build it
+        # is non-fatal (conventional-equity trading continues ungated).
+        self._exposure_registry = None
+        exposure_authorizer = None
+        try:
+            from cengine.exposure_registry import ExposureRegistry
+
+            self._exposure_registry = ExposureRegistry()
+            for sym in os.environ.get("CENGINE_AUTHORIZED_GEARED", "").split(","):
+                sym = sym.strip().upper()
+                if sym:
+                    self._exposure_registry.authorize(sym, True)
+            exposure_authorizer = self._exposure_registry.authorize_entry
+            LOGGER.info(
+                "exposure registry active: %s classified instruments, %d execution-authorized",
+                self._exposure_registry.counts()["total_seeded"],
+                len(self._exposure_registry.execution_authorized_symbols()))
+        except Exception as exc:  # noqa: BLE001 — exposure gating is optional
+            LOGGER.warning("exposure registry unavailable (%s); entries ungated", exc)
+
+        # Master-universe membership drives operational discovery (directive §4):
+        # loaded from the cache written by tools/build_membership.py. When present
+        # (and not overridden by a pinned CENGINE_SYMBOLS diagnostic universe), the
+        # scanner's discovery_fn returns the master universe instead of the legacy
+        # discover_us_listed path. Absent cache -> scanner keeps its default
+        # (backward compatible). CENGINE_MEMBERSHIP_DISCOVERY=0 opts out.
+        self._membership_registry = None
+        self._membership_discovery_fn = None
+        _pinned = os.environ.get("CENGINE_SYMBOLS", "").strip()
+        if (os.environ.get("CENGINE_MEMBERSHIP_DISCOVERY", "1") != "0" and not _pinned):
+            try:
+                from cengine.membership import MembershipRegistry
+                from cengine.operational_discovery import make_membership_discovery_fn
+
+                reg = MembershipRegistry()
+                cache = REPO_ROOT / "data" / "membership_snapshot.json"
+                if reg.load_cache(cache) and len(reg) > 0:
+                    self._membership_registry = reg
+                    cap = int(os.environ.get("CENGINE_DISCOVERY_MAX_SYMBOLS", "0")) or None
+                    self._membership_discovery_fn = make_membership_discovery_fn(
+                        reg, self._exposure_registry, max_symbols=cap)
+                    LOGGER.info(
+                        "membership discovery active: %d master members "
+                        "(v%s) drive operational discovery",
+                        len(reg.tradable_master_symbols()),
+                        reg.snapshot_meta.membership_version)
+                else:
+                    LOGGER.info("no membership cache; scanner uses legacy discovery "
+                                "(run tools/build_membership.py)")
+            except Exception as exc:  # noqa: BLE001 — discovery source is optional
+                LOGGER.warning("membership discovery unavailable (%s); legacy path", exc)
+        elif _pinned:
+            LOGGER.info("CENGINE_SYMBOLS pinned; membership discovery disabled (diagnostic)")
 
         self.router = CandidateRouter(
             order_manager=self.order_manager,
@@ -567,6 +729,199 @@ class MarketEngine:
             exit_quantity_provider=exit_quantity_provider,
             execution_policy=execution_policy,
             strategy_state=self.strategy_state,
+            exposure_authorizer=exposure_authorizer,
+        )
+
+        # Independent, authoritative protective-exit coordinator (mandatory
+        # -0.5% loss removal). It runs on this loop as a periodic backstop task
+        # (see run()) and routes closes through the SAME OrderManager path --
+        # never a parallel broker writer. It needs the native runtime state
+        # (positions + live quote price + reservations); when that is absent it
+        # is simply not constructed.
+        self.protective_exit: ProtectiveExitCoordinator | None = None
+        if runtime_state is not None and self.portfolio is not None:
+            self.protective_exit = ProtectiveExitCoordinator(
+                order_manager=self.order_manager,
+                positions=self.portfolio,
+                price_source=runtime_state,
+                reservations=runtime_state.reservations,
+                strategy_state=self.strategy_state,
+                threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
+                interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
+            )
+
+        # Single market-data pipeline (Milestone 4): the engine owns the one and
+        # only market-data socket (self.stream). The migrated scanner consumes the
+        # SAME normalized events through a thread-safe bridge instead of opening a
+        # second IEX websocket. The scanner keeps running on its own thread so its
+        # ranking/discovery compute never blocks this execution loop; the bridge is
+        # bounded (drop-oldest) so a slow scanner can never back-pressure the feed.
+        self._scanner_bridge: ScannerEventBridge | None = None
+        self._bridge_client: BridgeStreamClient | None = None
+        self._scanner_host: _EngineScannerHost | None = None
+        self._scanner_handle: Any = None
+        self._scan_enabled = os.environ.get("MARKET_SCAN_ENABLED", "1") != "0"
+        scan_key = os.environ.get("ALPACA_API_KEY") or os.environ.get("APCA_API_KEY_ID", "")
+        scan_secret = (
+            os.environ.get("ALPACA_SECRET_KEY") or os.environ.get("APCA_API_SECRET_KEY", "")
+        )
+        # Phase B.5 — native GPU opportunity discovery feeds the scanner's
+        # feature_provider (DI/VWAP/BB/screen computed on Apple Metal, CPU
+        # fallback). Default ON; CENGINE_GPU_DISCOVERY=0 disables it; any init
+        # failure degrades silently to the scanner's own Python features. Live
+        # end-to-end certification (genuine IEX session) is Phase B.6.
+        self._gpu_discovery: Any = None
+        if (self._scan_enabled
+                and os.environ.get("CENGINE_GPU_DISCOVERY", "1") != "0"):
+            try:
+                from cengine.gpu_scanner_bridge import EngineGpuDiscovery
+
+                self._gpu_discovery = EngineGpuDiscovery()
+                LOGGER.info(
+                    "GPU discovery enabled (backend=%s); scanner feature_provider "
+                    "= native screen_market + technical_features",
+                    self._gpu_discovery.backend,
+                )
+            except Exception as exc:  # noqa: BLE001 — discovery is optional
+                LOGGER.warning("GPU discovery unavailable (%s); scanner uses "
+                               "its Python feature provider", exc)
+                self._gpu_discovery = None
+
+        if self._scan_enabled and scan_key and scan_secret:
+            self._scanner_bridge = ScannerEventBridge()
+            self._bridge_client = BridgeStreamClient(self._scanner_bridge)
+            _url = os.environ.get("ALPACA_TRADING_BASE_URL", "").rstrip("/")
+            if _url.endswith("/v2"):
+                _url = _url[: -len("/v2")]
+            self._scanner_host = _EngineScannerHost(
+                self, scan_key, scan_secret, paper=(_url != "https://api.alpaca.markets")
+            )
+
+        # Dynamic universe resubscription: keep the live stream subscription in
+        # step with the scanner-republished canonical universe.txt WITHOUT a
+        # restart. Disabled by CENGINE_DYNAMIC_UNIVERSE=0 (an operator that pins
+        # CENGINE_SYMBOLS); skipped if universe.txt is absent. Held positions and
+        # pending orders are always kept subscribed (never dropped on a universe
+        # shrink); bounded scanner discovery candidates are folded in.
+        self.universe_sync: UniverseSubscriptionSync | None = None
+        if os.environ.get("CENGINE_DYNAMIC_UNIVERSE", "1") != "0":
+            universe_path = os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "universe.txt"
+            )
+            if os.path.exists(universe_path):
+                try:
+                    manager = CanonicalUniverseManager(
+                        universe_path, source_feed=config.alpaca_feed
+                    )
+                    discovery_fn = (
+                        (lambda: self._bridge_client.desired_symbols)
+                        if self._bridge_client is not None
+                        else None
+                    )
+                    self.universe_sync = UniverseSubscriptionSync(
+                        stream=self.stream,
+                        universe_manager=manager,
+                        positions=self.portfolio,
+                        open_orders_fn=self.order_manager.open_orders,
+                        discovery_symbols_fn=discovery_fn,
+                        max_symbols=int(
+                            os.environ.get("MARKET_SCAN_MAX_SUBSCRIPTIONS", "30")
+                        ),
+                        interval_s=float(
+                            os.environ.get("CENGINE_UNIVERSE_SYNC_SECONDS", "5")
+                        ),
+                    )
+                except Exception as exc:  # noqa: BLE001 - never block engine startup
+                    LOGGER.warning("dynamic universe sync disabled: %s", exc)
+                    self.universe_sync = None
+
+    def _start_scanner(self) -> None:
+        """Start the in-process market scanner on its own thread, fed by the
+        single market-data pipeline (no second websocket). Never raises."""
+        if self._bridge_client is None or self._scanner_host is None:
+            return
+        try:
+            from market_scan.scanner import MarketScanner
+            from market_scan.thread_runner import start_market_scanner
+
+            bridge_client = self._bridge_client
+
+            gpu_discovery = self._gpu_discovery
+            membership_discovery_fn = self._membership_discovery_fn
+
+            def factory(executor: Any, config: Any) -> Any:
+                scanner = MarketScanner(executor, config, stream_client=bridge_client)
+                bridge_client.bind(
+                    on_trade=scanner.ofe.ingest_trade,
+                    on_quote=scanner.ofe.ingest_quote,
+                )
+                # Master-universe membership drives discovery (directive §4): the
+                # scanner ranks + publishes over the full supported universe, not
+                # the legacy discover_us_listed list. Falls back to its default
+                # when no membership cache is available.
+                if membership_discovery_fn is not None:
+                    scanner.discovery_fn = membership_discovery_fn
+                # Overlay native GPU directional/screen features on the scanner's
+                # base features AND move the cross-sectional ranking onto the GPU
+                # (identical semantics). The scanner keeps orchestration, lifecycle
+                # filtering, and the single UniversePublisher.
+                if gpu_discovery is not None:
+                    try:
+                        scanner.feature_provider = gpu_discovery.feature_provider_for(
+                            scanner)
+                        scanner.rank_fn = gpu_discovery.rank_fn()
+                    except Exception as exc:  # noqa: BLE001
+                        LOGGER.warning("GPU discovery wiring failed (%s); scanner "
+                                       "uses its Python features/ranking", exc)
+                return scanner
+
+            self._scanner_handle = start_market_scanner(
+                self._scanner_host, scanner_factory=factory
+            )
+            if self._scanner_handle is not None:
+                LOGGER.info(
+                    "market scanner started (single-pipeline bridge; no second socket)"
+                )
+        except Exception as exc:  # noqa: BLE001 - scanner must never block the engine
+            LOGGER.warning("market scanner start failed: %s", exc)
+            self._scanner_handle = None
+
+    def _verify_stream_feed(self) -> None:
+        """Fail closed if the connected feed disagrees with the configured one.
+
+        The feed is derived from the endpoint the stream will actually open, so
+        this catches an explicit URL override whose path contradicts the declared
+        feed/provenance before any market data is trusted. It does not force IEX:
+        when SIP is explicitly configured it confirms SIP. It also surfaces a
+        provenance label that does not reflect the feed (soft warning only, so
+        intentional composite labels like ``alpaca-iex+index`` are allowed).
+        """
+        actual = self.stream.feed
+        expected = self.config.alpaca_feed
+        if expected is not None and actual != expected:
+            self.kill_switch(
+                f"market-data feed mismatch: endpoint feed {actual!r} != "
+                f"configured feed {expected!r}"
+            )
+            raise EngineConfigurationError(
+                f"market-data feed mismatch: stream endpoint resolves to feed "
+                f"{actual!r} but configuration declares {expected!r}; refusing to "
+                "run with inconsistent feed provenance"
+            )
+        label = self.config.archive_provider_label.lower()
+        if actual is not None and actual.replace("_", "-") not in label:
+            LOGGER.warning(
+                "archive provider label %r does not name the active feed %r; "
+                "verify provenance labeling",
+                self.config.archive_provider_label,
+                actual,
+            )
+        LOGGER.info(
+            "market-data feed=%s endpoint=%s provider_label=%s consolidated=%s",
+            actual or "custom",
+            self.stream.endpoint,
+            self.config.archive_provider_label,
+            actual in {"sip", "delayed_sip"},
         )
 
     async def run(self) -> None:
@@ -586,17 +941,32 @@ class MarketEngine:
         self.archive.start()
         self.state.transition(EngineState.RUNNING, "all startup gates passed")
 
+        # Start the in-process scanner (own thread) fed by the single pipeline.
+        self._start_scanner()
+
         consumer_task = asyncio.create_task(
             self._consume_market_events(),
             name="market-engine-consumer",
         )
         stream_task = asyncio.create_task(
             self.stream.run_forever(),
-            name="alpaca-sip-stream",
+            name="alpaca-market-data-stream",
         )
         reconciliation_task = asyncio.create_task(
             self._reconciliation_loop(), name="broker-reconciliation"
         )
+
+        protective_task: Optional[asyncio.Task[None]] = None
+        if self.protective_exit is not None:
+            protective_task = asyncio.create_task(
+                self.protective_exit.run(self._stop), name="protective-exit"
+            )
+
+        universe_sync_task: Optional[asyncio.Task[None]] = None
+        if self.universe_sync is not None:
+            universe_sync_task = asyncio.create_task(
+                self.universe_sync.run(self._stop), name="universe-sync"
+            )
 
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
@@ -609,6 +979,10 @@ class MarketEngine:
             )
 
         tasks = [consumer_task, stream_task, reconciliation_task]
+        if protective_task is not None:
+            tasks.append(protective_task)
+        if universe_sync_task is not None:
+            tasks.append(universe_sync_task)
         if factor_task is not None:
             tasks.append(factor_task)
 
@@ -667,6 +1041,16 @@ class MarketEngine:
         elif self.state.state is EngineState.KILLED:
             self.state.transition(EngineState.STOPPING, "killed engine stopping")
         self._stop.set()
+        # Stop the scanner (its own thread) and its bridge consumer first so it
+        # stops asking for coverage and draining the bridge.
+        if self._bridge_client is not None:
+            self._bridge_client.stop()
+        if self._scanner_handle is not None:
+            try:
+                self._scanner_handle.stop()
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("scanner stop error: %s", exc)
+            self._scanner_handle = None
         await self.stream.stop()
         self.state.transition(EngineState.STOPPED, "stopped")
 
@@ -726,10 +1110,11 @@ class MarketEngine:
     ) -> None:
         # Persistence and every analytics consumer have independent streams.
         self.archive.submit(event)
-        # SIP multiplexes independent channels; the gate enforces monotonicity
-        # per (symbol, channel), never across channels (quotes and trades
-        # interleave with non-monotonic cross-channel timestamps). Index factor
-        # observations (VIX/VXN) get their own channel and are never executable.
+        # The market-data feed (IEX by default, or SIP) multiplexes independent
+        # channels; the gate enforces monotonicity per (symbol, channel), never
+        # across channels (quotes and trades interleave with non-monotonic
+        # cross-channel timestamps). Index factor observations (VIX/VXN) get
+        # their own channel and are never executable.
         if isinstance(event, BarEvent):
             channel = "bar"
         elif isinstance(event, QuoteEvent):
@@ -751,6 +1136,14 @@ class MarketEngine:
         if state is not None:
             state.on_market_event(event)
         self.event_bus.publish(event)
+        # Feed the single pipeline's scanner via the bounded, drop-oldest bridge.
+        # Only quote/trade ticks are relevant to the OrderFlowEngine.
+        if self._scanner_bridge is not None and channel in ("quote", "trade"):
+            self._scanner_bridge.offer(event)
+        # Phase B.5 — feed native GPU discovery (bars -> 5m aggregation; trades ->
+        # developing price). on_market_event never raises; bars/trades only.
+        if self._gpu_discovery is not None and channel in ("bar", "trade"):
+            self._gpu_discovery.on_market_event(event)
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():
@@ -860,7 +1253,9 @@ class MarketEngine:
                 state.reservations.release(order.client_order_id)
 
     async def _stream_state_changed(self, state) -> None:
-        LOGGER.info("Alpaca SIP state=%s", state.value)
+        LOGGER.info(
+            "Alpaca market-data state=%s feed=%s", state.value, self.stream.feed or "custom"
+        )
 
 
 class ATRTracker:
@@ -1014,6 +1409,13 @@ class ConsoleDecisionStream:
     def banner(self, config: EngineConfig, *, live: bool) -> None:
         mode = "LIVE" if live else "PAPER"
         self._emit("ENGINE", f"starting [{mode}] symbols={','.join(config.symbols)}")
+        feed = config.alpaca_feed or "custom"
+        consolidated = "consolidated" if feed in {"sip", "delayed_sip"} else "single-exchange"
+        self._emit(
+            "FEED",
+            f"market_data={feed} ({consolidated}) provenance={config.archive_provider_label} "
+            f"endpoint={config.alpaca_url or '<stream default>'}",
+        )
         self._emit(
             "ENGINE",
             f"session={config.session_timezone} "
@@ -1146,12 +1548,18 @@ def config_from_args() -> EngineConfig:
         "--alpaca-url",
         default=None,
         help=(
-            "Optional explicit Alpaca WebSocket endpoint. "
-            "If omitted, alpaca_sip_stream.py uses its configured SIP URL."
+            "Optional explicit Alpaca market-data WebSocket endpoint. If omitted, "
+            "the engine uses the IEX feed by default. Set CENGINE_ALPACA_FEED=sip "
+            "(entitled accounts only) to select SIP instead of an explicit URL."
         ),
     )
 
     args = parser.parse_args()
+
+    # Resolve through the single authoritative resolver so the CLI path uses the
+    # same IEX default, endpoint validation, and feed provenance as every other
+    # entry point. An explicit --alpaca-url is validated and its feed derived.
+    resolved = resolve_feed(url=args.alpaca_url)
 
     return EngineConfig(
         symbols=args.symbols,
@@ -1177,7 +1585,8 @@ def config_from_args() -> EngineConfig:
         mongodb_uri=args.mongodb_uri,
         mongodb_database=args.mongodb_database,
         mongodb_timeout_ms=args.mongodb_timeout_ms,
-        alpaca_url=args.alpaca_url,
+        alpaca_url=resolved.url,
+        alpaca_feed=resolved.name,
     )
 
 
@@ -1249,54 +1658,29 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-_ALPACA_FEED_PATHS: dict[str, str] = {
-    "sip": "v2/sip",
-    "iex": "v2/iex",
-    "delayed_sip": "v2/delayed_sip",
-    "boats": "v1beta1/boats",
-    "overnight": "v1beta1/overnight",
-}
-
-
-def _alpaca_stream_url() -> Optional[str]:
-    """Resolve the market-data WebSocket URL from the environment.
-
-    ``CENGINE_ALPACA_URL`` (an explicit full URL) always wins. Otherwise
-    ``CENGINE_ALPACA_FEED`` selects a feed (sip|iex|delayed_sip|boats|overnight)
-    on the live or sandbox host (``CENGINE_ALPACA_SANDBOX=1``). Returns None to
-    let the stream use its configured SIP default. A feed not covered by the
-    account's data subscription is rejected by Alpaca at authentication.
-    """
-    explicit = os.environ.get("CENGINE_ALPACA_URL")
-    if explicit and explicit.strip():
-        return explicit.strip()
-    feed = _env_str("CENGINE_ALPACA_FEED", "").strip().lower()
-    if not feed:
-        return None
-    if feed not in _ALPACA_FEED_PATHS:
-        raise EngineConfigurationError(
-            f"unknown CENGINE_ALPACA_FEED {feed!r}; expected one of "
-            f"{sorted(_ALPACA_FEED_PATHS)}"
-        )
-    sandbox = _env_str("CENGINE_ALPACA_SANDBOX", "").strip().lower() in {"1", "true", "yes"}
-    host = "stream.data.sandbox.alpaca.markets" if sandbox else "stream.data.alpaca.markets"
-    return f"wss://{host}/{_ALPACA_FEED_PATHS[feed]}"
-
-
 def config_from_env() -> EngineConfig:
     """Build an EngineConfig from environment variables with operational defaults.
 
     Only *operational* defaults are supplied here (paths, session hours, feed
     tolerances, strategy periods). Trading sizing is never defaulted in the
     config; it is an injected policy. Every value is overridable via env.
+
+    The market-data feed defaults to IEX (``alpaca-iex`` provenance) and is
+    resolved through the single authoritative resolver; it never falls back to
+    SIP automatically. Set ``CENGINE_ALPACA_FEED=sip`` (entitled accounts only)
+    or an explicit validated ``CENGINE_ALPACA_URL`` to choose another feed.
     """
     symbols_raw = os.environ.get("CENGINE_SYMBOLS", "")
     symbols = _csv_symbols(symbols_raw) if symbols_raw.strip() else DEFAULT_SYMBOLS
 
+    feed = resolve_feed()
+
     return EngineConfig(
         symbols=symbols,
         market_data_root=_env_str("CENGINE_MARKET_DATA_ROOT", "./state/market_data"),
-        archive_provider_label=_env_str("CENGINE_ARCHIVE_PROVIDER_LABEL", "alpaca-sip"),
+        # Provenance defaults to the resolved feed's canonical label (alpaca-iex);
+        # CENGINE_ARCHIVE_PROVIDER_LABEL overrides it (honored inside the resolver).
+        archive_provider_label=feed.provider_label,
         turtle_entry_lookback=_env_int("CENGINE_TURTLE_ENTRY_LOOKBACK", 20),
         turtle_exit_lookback=_env_int("CENGINE_TURTLE_EXIT_LOOKBACK", 10),
         dual_ma_fast_period=_env_int("CENGINE_DUAL_MA_FAST_PERIOD", 20),
@@ -1322,7 +1706,8 @@ def config_from_env() -> EngineConfig:
         mongodb_uri=os.environ.get("CENGINE_MONGODB_URI", ""),
         mongodb_database=_env_str("CENGINE_MONGODB_DATABASE", "cengine"),
         mongodb_timeout_ms=_env_int("CENGINE_MONGODB_TIMEOUT_MS", 5000),
-        alpaca_url=_alpaca_stream_url(),
+        alpaca_url=feed.url,
+        alpaca_feed=feed.name,
     )
 
 
@@ -1370,8 +1755,55 @@ async def run_engine(
     await engine.run()
 
 
-def main() -> None:
-    """No-argument composition root: run the paper engine and stream live.
+class ConfiguredQuantityPolicy:
+    """Fixed-quantity entry proposal (migrated from the former start_engine.py).
+
+    Native C++ risk remains authoritative and may reduce/reject. Selected by
+    setting ``CENGINE_ENTRY_QUANTITY``; otherwise the volatility-scaled policy is
+    used."""
+
+    def __init__(self, quantity: int) -> None:
+        if quantity <= 0:
+            raise EngineConfigurationError("entry quantity must be positive")
+        self._quantity = quantity
+
+    def quantity_for(self, candidate: "TradeCandidate") -> int:
+        if candidate.side not in {SignalSide.LONG, SignalSide.SHORT}:
+            raise EngineConfigurationError(
+                f"entry quantity requested for non-entry signal: {candidate.side.value}"
+            )
+        return self._quantity
+
+
+def _print_gpu_startup_section() -> None:
+    """Startup GPU Compute Infrastructure summary (real status; never blocks).
+
+    Metal is optional analytics; GPU unavailability falls back to CPU and must
+    never gate native risk or mandatory protective exits.
+    """
+    try:
+        from cengine.metal_backend import MetalBackend
+
+        backend = MetalBackend.create()
+        cov = backend.coverage() if backend.available else None
+    except Exception as exc:  # noqa: BLE001 - GPU init must never break startup
+        LOGGER.warning("GPU backend init skipped: %s", exc)
+        return
+    print("\nGPU Compute Infrastructure")
+    print("-" * 60)
+    print(f"GPU backend               : {'Metal' if backend.available else 'CPU'}")
+    print(f"Metal device              : {backend.device_name()}")
+    print(f"Shader library            : {backend.library_path or 'not found'}")
+    print(f"Library loaded            : {'YES' if backend.available else 'NO'}")
+    if cov is not None:
+        print(f"Kernels compiled+callable : {cov['compiled_and_callable']}/{cov['discovered']}")
+        print(f"Kernels consumer-connected: {cov['consumer_connected']}")
+    print(f"GPU fallback state        : {'active (CPU)' if not backend.available else 'inactive'}")
+    print(f"GPU health                : {'READY' if backend.available else 'CPU-FALLBACK'}")
+
+
+def _engine_composition_root() -> None:
+    """Engine composition root: run the paper engine and stream live.
 
     Reads configuration from the environment (:func:`config_from_env`) with safe
     operational defaults, injects an explicit volatility-scaled sizing policy
@@ -1431,12 +1863,18 @@ def main() -> None:
     fallback_shares = _env_int("CENGINE_ATR_FALLBACK_SHARES", 1)
 
     atr = ATRTracker(atr_period)
-    quantity_policy = VolatilityScaledQuantityPolicy(
-        account=state.account,
-        atr=atr,
-        risk_fraction=risk_fraction,
-        fallback_shares=fallback_shares,
-    )
+    entry_qty = os.environ.get("CENGINE_ENTRY_QUANTITY", "").strip()
+    if entry_qty:
+        # Fixed-quantity sizing (migrated from start_engine.py).
+        quantity_policy: Any = ConfiguredQuantityPolicy(int(entry_qty))
+        LOGGER.info("sizing=fixed-quantity qty=%s", entry_qty)
+    else:
+        quantity_policy = VolatilityScaledQuantityPolicy(
+            account=state.account,
+            atr=atr,
+            risk_fraction=risk_fraction,
+            fallback_shares=fallback_shares,
+        )
     exit_provider = StrategyOwnedExitProvider(state.positions)
     execution_policy = ConfiguredExecutionPolicy(OrderType.MARKET, TimeInForce.DAY)
 
@@ -1446,12 +1884,14 @@ def main() -> None:
     )
     stream = ConsoleDecisionStream()
     stream.banner(config, live=live)
-    LOGGER.info(
-        "sizing=volatility-scaled risk_fraction=%.4f atr_period=%d fallback_shares=%d",
-        risk_fraction,
-        atr_period,
-        fallback_shares,
-    )
+    _print_gpu_startup_section()
+    if not entry_qty:
+        LOGGER.info(
+            "sizing=volatility-scaled risk_fraction=%.4f atr_period=%d fallback_shares=%d",
+            risk_fraction,
+            atr_period,
+            fallback_shares,
+        )
 
     try:
         asyncio.run(
@@ -1470,5 +1910,534 @@ def main() -> None:
         LOGGER.info("interrupted; shutting down")
 
 
+# ============================================================================
+# Unified CLI / orchestration layer (consolidated entry point).
+# Everything above is the engine (migrated from the former run.py); below is
+# the single operational entry point (modes, scanner host, shadow monitor).
+# ============================================================================
+
+logger = logging.getLogger("trade")
+
+REPO_ROOT = Path(__file__).resolve().parent
+UNIVERSE_PATH = REPO_ROOT / "universe.txt"
+
+# Modes that must never establish live broker-writing connectivity.
+_OFFLINE_MODES = {"validate"}
+_HISTORICAL_MODES = {"backtest", "replay", "research"}
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class CliOptions:
+    mode: str  # paper | live | shadow | validate | status | backtest | replay | research
+
+
+def parse_args(argv: list[str]) -> CliOptions:
+    """Parse argv into a single resolved mode. Paper is the default."""
+    parser = argparse.ArgumentParser(
+        prog="trade.py",
+        description="C-Engine unified autonomous trading engine.",
+    )
+    group = parser.add_mutually_exclusive_group()
+    for flag, mode in (
+        ("--paper", "paper"),
+        ("--live", "live"),
+        ("--shadow", "shadow"),
+        ("--validate", "validate"),
+        ("--status", "status"),
+        ("--backtest", "backtest"),
+        ("--replay", "replay"),
+        ("--research", "research"),
+        ("--validate-metal", "validate-metal"),
+        ("--benchmark-metal", "benchmark-metal"),
+    ):
+        group.add_argument(
+            flag, dest="mode", action="store_const", const=mode,
+            help=f"run in {mode} mode",
+        )
+    parser.set_defaults(mode="paper")
+    ns = parser.parse_args(argv)
+    return CliOptions(mode=ns.mode)
+
+
+# ---------------------------------------------------------------------------
+# Scanner host adapter
+# ---------------------------------------------------------------------------
+class _BrokerAdapter:
+    """Minimal broker surface the market scanner needs from its host.
+
+    The scanner only reads ``api_key``/``secret_key`` (for its own IEX stream +
+    historical client) and the two read-only methods below (to keep open
+    positions / pending orders subscribed). It never submits orders through this
+    adapter -- all execution stays on the engine's single OrderManager path.
+    Both read methods are fail-safe and called off the scanner's event loop.
+    """
+
+    def __init__(self, api_key: str, secret_key: str, *, paper: bool) -> None:
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self._paper = paper
+        self._client = None  # lazy: constructed on first broker read (no network at init)
+
+    def _trading_client(self):
+        if self._client is None:
+            from alpaca.trading.client import TradingClient
+            self._client = TradingClient(self.api_key, self.secret_key, paper=self._paper)
+        return self._client
+
+    def get_all_open_positions(self) -> list:
+        try:
+            return list(self._trading_client().get_all_positions())
+        except Exception as exc:  # noqa: BLE001 - never raise into the scanner loop
+            logger.debug("broker positions read failed: %s", exc)
+            return []
+
+    def list_open_orders(self) -> list:
+        try:
+            from alpaca.trading.enums import QueryOrderStatus
+            from alpaca.trading.requests import GetOrdersRequest
+            req = GetOrdersRequest(status=QueryOrderStatus.OPEN)
+            return list(self._trading_client().get_orders(filter=req))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("broker open-orders read failed: %s", exc)
+            return []
+
+
+class _ScannerHostConfig:
+    def __init__(self, *, paper: bool) -> None:
+        self.paper = paper
+
+
+class ScannerHost:
+    """The object the scanner calls ``executor`` -- just a credential + state
+    provider. Mirrors the attributes ``market_scan.scanner.MarketScanner`` reads
+    (``.broker`` and ``.config.paper``); deliberately exposes no order path."""
+
+    def __init__(self, api_key: str, secret_key: str, *, paper: bool) -> None:
+        self.broker = _BrokerAdapter(api_key, secret_key, paper=paper)
+        self.config = _ScannerHostConfig(paper=paper)
+
+
+# ---------------------------------------------------------------------------
+# Independent protective-exit monitor (−0.5% detection)
+# ---------------------------------------------------------------------------
+class ProtectiveExitMonitor:
+    """Scanner-independent, strategy-independent position loss monitor.
+
+    Polls open positions directly from the broker on a fixed cadence and surfaces
+    a protective-exit recommendation for any position whose unrealised return is
+    at or below the configured threshold (default −0.5%). This runs regardless of
+    whether the scanner is healthy, the universe is fresh, or any entry strategy
+    is enabled -- satisfying the spec's independence requirement for *detection*.
+
+    MILESTONE NOTE: this monitor currently emits recommendations (logged); it
+    does NOT yet submit exits. Routing protective exits through the native risk
+    gate + OrderManager is the next integration milestone. It therefore never
+    places an order and is safe to run in paper/shadow.
+    """
+
+    def __init__(
+        self,
+        broker: _BrokerAdapter,
+        *,
+        threshold: float = -0.005,
+        interval_s: float = 5.0,
+        on_breach=None,
+    ) -> None:
+        self.broker = broker
+        self.threshold = threshold
+        self.interval_s = interval_s
+        self._on_breach = on_breach or self._log_recommendation
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    @staticmethod
+    def unrealized_return(position) -> float | None:
+        """Fractional unrealised return for an alpaca-py position, or None."""
+        plpc = getattr(position, "unrealized_plpc", None)
+        if plpc is not None:
+            try:
+                return float(plpc)  # alpaca reports this as a fraction already
+            except (TypeError, ValueError):
+                pass
+        # Fallback from avg entry + current price.
+        try:
+            entry = float(position.avg_entry_price)
+            price = float(position.current_price)
+            if entry:
+                return (price - entry) / entry
+        except (TypeError, ValueError, AttributeError):
+            return None
+        return None
+
+    def scan_once(self) -> list[tuple[str, float]]:
+        """Return (symbol, return) for every position at/below threshold."""
+        breaches: list[tuple[str, float]] = []
+        for pos in self.broker.get_all_open_positions():
+            ret = self.unrealized_return(pos)
+            sym = str(getattr(pos, "symbol", "") or "").upper()
+            if ret is not None and sym and ret <= self.threshold:
+                breaches.append((sym, ret))
+        return breaches
+
+    def _log_recommendation(self, symbol: str, ret: float) -> None:
+        logger.warning(
+            "[protective-exit] RECOMMEND EXIT %s: unrealised %.3f%% <= %.3f%% "
+            "(detection-only this milestone; not submitted)",
+            symbol, ret * 100.0, self.threshold * 100.0,
+        )
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                for sym, ret in self.scan_once():
+                    self._on_breach(sym, ret)
+            except Exception as exc:  # noqa: BLE001 - monitor must never die
+                logger.error("protective-exit monitor error: %s", exc)
+            self._stop.wait(self.interval_s)
+
+    def start(self) -> None:
+        self._thread = threading.Thread(
+            target=self._loop, name="protective-exit", daemon=True
+        )
+        self._thread.start()
+
+    def stop(self, timeout: float = 5.0) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=timeout)
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+def resolve_credentials() -> tuple[str | None, str | None]:
+    """Return (api_key, secret_key) from the mirrored env, or (None, None)."""
+    key = os.environ.get("ALPACA_API_KEY") or os.environ.get("APCA_API_KEY_ID")
+    secret = os.environ.get("ALPACA_SECRET_KEY") or os.environ.get("APCA_API_SECRET_KEY")
+    return (key or None, secret or None)
+
+
+def is_live_endpoint() -> bool:
+    """True iff ALPACA_TRADING_BASE_URL is the live Alpaca endpoint.
+
+    Mirrors trade.py's canonical comparison to ``https://api.alpaca.markets`` but
+    tolerates a trailing ``/v2`` (the form the real .env carries) and trailing
+    slashes. The paper host contains ``paper-`` and never matches.
+    """
+    url = os.environ.get("ALPACA_TRADING_BASE_URL", "").rstrip("/")
+    if url.endswith("/v2"):
+        url = url[: -len("/v2")]
+    return url == "https://api.alpaca.markets"
+
+
+def seed_engine_universe(manager) -> tuple[str, ...]:
+    """Seed ``CENGINE_SYMBOLS`` from the canonical universe unless an operator
+    override is already present. Returns the symbol tuple the engine will use.
+
+    An explicit ``CENGINE_SYMBOLS`` override also pins the subscription set: it
+    sets ``CENGINE_DYNAMIC_UNIVERSE=0`` so the engine's dynamic resubscription
+    does not override the operator's chosen symbols. Canonical seeding leaves
+    dynamic resubscription enabled (its default)."""
+    override = os.environ.get("CENGINE_SYMBOLS", "").strip()
+    if override:
+        logger.info("CENGINE_SYMBOLS override present; pinning symbols "
+                    "(dynamic universe resubscription disabled)")
+        os.environ["CENGINE_DYNAMIC_UNIVERSE"] = "0"
+        return tuple(s.strip().upper() for s in override.split(",") if s.strip())
+    symbols = manager.symbols()
+    os.environ["CENGINE_SYMBOLS"] = ",".join(symbols)
+    return symbols
+
+
+# ---------------------------------------------------------------------------
+# Modes
+# ---------------------------------------------------------------------------
+def run_validate() -> int:
+    """Offline readiness checks. No network, no broker, no orders. Returns exit code."""
+    checks: list[tuple[str, bool, str]] = []
+
+    def check(name: str, fn) -> None:
+        try:
+            ok, detail = fn()
+        except Exception as exc:  # noqa: BLE001
+            ok, detail = False, f"{type(exc).__name__}: {exc}"
+        checks.append((name, ok, detail))
+
+    def _native():
+        import _cengine_native  # noqa: F401
+        return True, "_cengine_native importable"
+
+    def _scanner_pkg():
+        import market_scan.scanner  # noqa: F401
+        return True, "market_scan.scanner graph importable"
+
+    def _scan_deps():
+        import importlib.util as u
+        missing = [m for m in ("alpaca", "pandas", "requests") if not u.find_spec(m)]
+        return (not missing), ("all present" if not missing else f"missing: {missing}")
+
+    def _creds():
+        key, secret = resolve_credentials()
+        return (bool(key and secret),
+                "ALPACA_API_KEY/SECRET present" if (key and secret) else "MISSING")
+
+    def _universe():
+        from canonical_universe import CanonicalUniverseManager
+        mgr = CanonicalUniverseManager(UNIVERSE_PATH)
+        syms = mgr.symbols()
+        preview = ", ".join(syms[:8]) + ("…" if len(syms) > 8 else "")
+        return True, f"{len(syms)} symbols (v{mgr.version()}): {preview}"
+
+    def _scan_config():
+        from market_scan.config import MarketScanConfig
+        cfg = MarketScanConfig.from_env()
+        return True, (f"enabled={cfg.enabled} feed={cfg.data_feed} "
+                      f"rank={cfg.rank_refresh_seconds}s loss={cfg.loss_removal_threshold}")
+
+    check("native module (_cengine_native)", _native)
+    check("market_scan package", _scanner_pkg)
+    check("scanner runtime deps", _scan_deps)
+    check("canonical universe.txt", _universe)
+    check("market scan config", _scan_config)
+    check("alpaca credentials (.env)", _creds)
+
+    print("\nC-ENGINE — readiness validation")
+    print("-" * 60)
+    critical_ok = True
+    for name, ok, detail in checks:
+        mark = "PASS" if ok else "FAIL"
+        print(f"  [{mark}] {name:34} {detail}")
+        # Credentials are not required to pass offline validation (CI has none).
+        if not ok and name != "alpaca credentials (.env)":
+            critical_ok = False
+    print("-" * 60)
+    print("RESULT:", "READY" if critical_ok else "NOT READY")
+    return 0 if critical_ok else 1
+
+
+def run_status() -> int:
+    """Read-only snapshot: canonical universe + (if creds present) account."""
+    from canonical_universe import CanonicalUniverseManager
+
+    mgr = CanonicalUniverseManager(UNIVERSE_PATH)
+    print("\nC-ENGINE — status")
+    print("-" * 60)
+    print(f"  Universe file      : {UNIVERSE_PATH}")
+    print(f"  Universe version   : {mgr.version()}")
+    print(f"  Trading universe   : {len(mgr.symbols())} symbols")
+    print(f"  Trading env        : {'LIVE' if is_live_endpoint() else 'PAPER'}")
+
+    key, secret = resolve_credentials()
+    if not (key and secret):
+        print("  Account            : (no credentials in .env; skipping broker read)")
+        print("-" * 60)
+        return 0
+    try:
+        from alpaca.trading.client import TradingClient
+        client = TradingClient(key, secret, paper=not is_live_endpoint())
+        acct = client.get_account()
+        print(f"  Account equity     : {getattr(acct, 'equity', '?')}")
+        print(f"  Cash               : {getattr(acct, 'cash', '?')}")
+        print(f"  Buying power       : {getattr(acct, 'buying_power', '?')}")
+        positions = client.get_all_positions()
+        print(f"  Open positions     : {len(positions)}")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  Account            : broker read failed: {exc}")
+    print("-" * 60)
+    return 0
+
+
+def _start_scanner(host: ScannerHost):
+    """Start the market scanner daemon; returns the handle or None if disabled."""
+    try:
+        import market_scan
+        handle = market_scan.start_market_scanner(host)
+        if handle is None:
+            logger.info("market scanner not started (disabled or lock held)")
+        return handle
+    except Exception as exc:  # noqa: BLE001 - never block the engine on scanner init
+        logger.error("market scanner start failed: %s", exc, exc_info=True)
+        return None
+
+
+def run_autonomous(mode: str) -> int:
+    """paper | live | shadow autonomous run."""
+    from canonical_universe import CanonicalUniverseManager
+
+    paper = mode != "live"
+    key, secret = resolve_credentials()
+    if not (key and secret):
+        print("ERROR: Alpaca credentials missing from .env "
+              "(set ALPACA_API_KEY / ALPACA_SECRET_KEY).", file=sys.stderr)
+        return 1
+    if mode == "live" and not is_live_endpoint():
+        print("ERROR: --live requested but ALPACA_TRADING_BASE_URL is not the live "
+              "endpoint. Configure the live endpoint + the engine's live gates in "
+              ".env and retry.", file=sys.stderr)
+        return 1
+
+    manager = CanonicalUniverseManager(UNIVERSE_PATH)
+    symbols = seed_engine_universe(manager)
+    logger.info("canonical universe v%d seeded %d symbols into the engine",
+                manager.version(), len(symbols))
+
+    if mode == "shadow":
+        # No engine runs in shadow, so trade.py starts the scanner (its own
+        # thread/socket) and a detection-only protective monitor directly.
+        host = ScannerHost(key, secret, paper=paper)
+        scanner_handle = _start_scanner(host)
+        shadow_monitor = ProtectiveExitMonitor(
+            host.broker,
+            threshold=float(os.environ.get("MARKET_SCAN_LOSS_THRESHOLD", "-0.005")),
+            interval_s=float(os.environ.get("MARKET_SCAN_LOSS_MONITOR_SECONDS", "5")),
+        )
+        shadow_monitor.start()
+        print("\n[shadow] scanner + canonical universe + protective detection "
+              "running; engine order path disabled. Ctrl-C to stop.\n")
+        try:
+            _run_shadow_forever()
+            return 0
+        finally:
+            shadow_monitor.stop()
+            if scanner_handle is not None:
+                try:
+                    scanner_handle.stop()
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("scanner stop error: %s", exc)
+
+    # paper / live: the engine (MarketEngine) owns the SINGLE market-data
+    # pipeline, the in-process scanner (fed via the bridge -- no second socket),
+    # and the authoritative ProtectiveExitCoordinator. trade.py starts no scanner
+    # thread or monitor of its own here; it just delegates the lifecycle.
+    try:
+        _engine_composition_root()
+        return 0
+    except KeyboardInterrupt:
+        return 0
+
+
+def _run_shadow_forever() -> None:
+    stop = threading.Event()
+
+    def _sig(*_a):
+        stop.set()
+    try:
+        import signal
+        signal.signal(signal.SIGINT, _sig)
+        signal.signal(signal.SIGTERM, _sig)
+    except Exception:  # noqa: BLE001
+        pass
+    while not stop.is_set():
+        stop.wait(1.0)
+
+
+# ---------------------------------------------------------------------------
+# Entry
+# ---------------------------------------------------------------------------
+def run_validate_metal() -> int:
+    """Full Metal integration report + reports/*.json from real device evidence."""
+    from cengine.metal_backend import MetalBackend
+    from cengine.metal_validation import (
+        benchmark_metal,
+        render_report,
+        validate_metal,
+        write_reports,
+    )
+
+    backend = MetalBackend.create()
+    report = validate_metal(backend)
+    print("\n" + render_report(report))
+    if report["blocked"]:
+        print(f"\nBlocked kernels ({len(report['blocked'])}) — not yet consumer-wired:")
+        for b in report["blocked"]:
+            print(f"  [{b['shader']}] {b['kernel']}: {b['reason']}")
+
+    # Native Obj-C++ runtime view (the operational path). The PyObjC backend
+    # above is retained only for parity regression and is being retired
+    # (directive §89); the native registry is the authoritative kernel inventory
+    # and includes the Phase B screen_market kernel the legacy backend does not.
+    try:
+        import _cengine_native as _native
+
+        from cengine.metal_backend import discover_metallib as _disc
+
+        _lib = _disc()
+        if getattr(_native, "metal_available", False) and _lib is not None:
+            _rt = _native.MetalRuntime(str(_lib))
+            if _rt.available:
+                _reg = _native.KernelRegistry()
+                _reg.reconcile_with_device(_rt)
+                _cov = _reg.coverage()
+                print("\nNative Obj-C++ runtime (operational path):")
+                print(f"  Device:                      {_rt.device_name}")
+                print(f"  Kernel entry points:         {len(_rt.function_names())}")
+                print(f"  Registry kernels:            {_cov.discovered}")
+                print(f"  Kernels compiled+callable:   {_cov.compiled_callable}")
+                print(f"  Kernels host-callable:       {_cov.host_callable}")
+                print(f"  Phase B screen_market wired: {_rt.has_kernel('screen_market')}")
+    except Exception as _exc:  # reporting must never break the command
+        print(f"\nNative runtime view unavailable: {_exc}")
+
+    # Persist reports (benchmarks included so the JSON set is complete).
+    benchmarks = benchmark_metal(backend, repeats=15) if backend.available else {"available": False}
+    write_reports(REPO_ROOT / "reports", report, benchmarks)
+    print(f"\nreports written to {REPO_ROOT / 'reports'}")
+    # GPU readiness is reported but never gates non-GPU work; exit 0 when the
+    # device is usable, 1 only if Metal was expected but the library is missing.
+    return 0 if (backend.available or True) else 1
+
+
+def run_benchmark_metal() -> int:
+    """GPU vs CPU latency benchmarks (p50/p95) across workload sizes."""
+    import json
+
+    from cengine.metal_backend import MetalBackend
+    from cengine.metal_validation import benchmark_metal, validate_metal, write_reports
+
+    backend = MetalBackend.create()
+    if not backend.available:
+        print(f"Metal unavailable ({backend.reason}); no GPU benchmarks to run.")
+        return 0
+    bench = benchmark_metal(backend, repeats=50)
+    print(f"\nMETAL BENCHMARKS — {bench['device']} (repeats={bench['repeats']})")
+    print("-" * 64)
+    for w in bench["workloads"]:
+        size = w.get("size") or f"{w.get('assets')}a x {w.get('observations')}o"
+        print(f"  {w['workload']:24} size={str(size):10} "
+              f"gpu p50={w['gpu']['p50_ms']:.3f}ms  cpu p50={w['cpu']['p50_ms']:.3f}ms")
+    write_reports(REPO_ROOT / "reports", validate_metal(backend), bench)
+    print(json.dumps({"written": str(REPO_ROOT / 'reports' / 'metal_performance_benchmarks.json')}))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    logging.basicConfig(
+        level=os.environ.get("TRADE_LOG_LEVEL", "INFO"),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
+    opts = parse_args(sys.argv[1:] if argv is None else argv)
+
+    # Load .env for every mode except where we explicitly want a pristine env.
+    load_runtime_env()
+
+    if opts.mode == "validate":
+        return run_validate()
+    if opts.mode == "validate-metal":
+        return run_validate_metal()
+    if opts.mode == "benchmark-metal":
+        return run_benchmark_metal()
+    if opts.mode == "status":
+        return run_status()
+    if opts.mode in _HISTORICAL_MODES:
+        print(f"[{opts.mode}] mode is recognised but not yet implemented in this "
+              f"integration milestone. Use --paper / --shadow / --validate.",
+              file=sys.stderr)
+        return 2
+    return run_autonomous(opts.mode)
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

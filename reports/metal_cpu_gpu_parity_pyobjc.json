@@ -1,0 +1,40 @@
+{
+  "device": "Apple M5 Max",
+  "parity": {
+    "rolling_sma_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "exponential_moving_average_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "average_price_oscillator_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "true_range_ticks": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "exact integer parity"
+    },
+    "covariance_matrix": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_diff=4.74e-11"
+    },
+    "column_means": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "executed as part of covariance_matrix pipeline"
+    },
+    "ewma_covariance_matrix": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "max_abs_diff=8.89e-12"
+    }
+  }
+}

@@ -1,4 +1,13 @@
-"""Deterministic replay helpers for normalized event sequences."""
+"""Deterministic replay helpers for normalized event sequences.
+
+Feed provenance: replay operates on already-normalized events decoded from the
+daily HDF5 archive. Each daily file carries a single ``provider``/``feed`` label
+(written once, never overwritten), and
+:func:`market_data.market_data_store.assert_feed_consistency` must be used to
+refuse combining files from different feeds (e.g. live IEX bars with historical
+SIP bars) before feeding their events here. This keeps a replay session tied to
+one market view and prevents accidental mixing of incompatible datasets.
+"""
 
 from __future__ import annotations
 
