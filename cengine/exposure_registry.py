@@ -234,6 +234,22 @@ class ExposureRegistry:
         info.execution_authorized = bool(authorized)
         return True
 
+    def authorize_entry(self, symbol: str) -> tuple[bool, str]:
+        """Elective-entry authorization for an instrument (§8/§10). A symbol known
+        to the exposure registry is authorized only if execution_authorized is set
+        (leveraged/inverse default False -> blocked until explicitly authorized).
+        A symbol NOT in the registry is treated as a conventional equity and
+        authorized (the engine already trades those); comprehensive gating of
+        *unclassified ETFs* depends on dynamic ETF discovery (§6) and is noted as
+        a follow-up. Exits are never gated — risk reduction always proceeds."""
+        info = self.get(symbol)
+        if info is None:
+            return True, "not_in_exposure_registry_assumed_common_equity"
+        if info.execution_authorized:
+            return True, "execution_authorized"
+        kind = info.instrument_type.value
+        return False, f"geared_or_inverse_not_authorized:{kind}"
+
     def counts(self) -> dict:
         t = self._table.values()
         return {

@@ -400,12 +400,17 @@ class CandidateRouter:
         exit_quantity_provider: ExitQuantityProvider,
         execution_policy: ExecutionPolicy,
         strategy_state: StrategyStateBook,
+        exposure_authorizer: Optional[Callable[[str], tuple[bool, str]]] = None,
     ) -> None:
         self._orders = order_manager
         self._entry_quantity = entry_quantity_policy
         self._exit_quantity = exit_quantity_provider
         self._execution_policy = execution_policy
         self._strategy_state = strategy_state
+        # Exposure gate (§8/§10): blocks elective ENTRIES into geared/inverse or
+        # unclassified products that are not execution-authorized. Exits are never
+        # gated. None -> no gating (conventional-equity-only deployments).
+        self._exposure_authorizer = exposure_authorizer
 
     async def route(
         self,
@@ -431,6 +436,26 @@ class CandidateRouter:
         # contains an exit are withheld; exits are never blocked by entries.
         if exits:
             candidates = exits
+
+        # Exposure authorization gate (§8/§10): block elective ENTRIES into
+        # geared/inverse or unclassified instruments that are not execution-
+        # authorized. Exits (already isolated above) are NEVER gated — risk
+        # reduction always proceeds. An unavailable/incorrect classification
+        # therefore blocks elective execution, as required.
+        if self._exposure_authorizer is not None and not exits:
+            allowed = []
+            for candidate in candidates:
+                if candidate.side in {SignalSide.LONG, SignalSide.SHORT}:
+                    ok, reason = self._exposure_authorizer(candidate.symbol)
+                    if not ok:
+                        LOGGER.info(
+                            "exposure gate blocked entry symbol=%s strategy=%s reason=%s",
+                            candidate.symbol, candidate.strategy.value, reason)
+                        continue
+                allowed.append(candidate)
+            candidates = tuple(allowed)
+            if not candidates:
+                return 0, False
 
         buy, sell = group_candidates_by_direction(candidates)
 
@@ -641,12 +666,36 @@ class MarketEngine:
         self.stream = AlpacaMarketDataStream(**stream_kwargs)
         self._verify_stream_feed()
 
+        # Instrument exposure registry (§8 operational integration): classifies
+        # geared/inverse ETFs and gates them out of elective execution unless
+        # explicitly authorized. Operators authorize geared products via
+        # CENGINE_AUTHORIZED_GEARED (comma-separated symbols). Failure to build it
+        # is non-fatal (conventional-equity trading continues ungated).
+        self._exposure_registry = None
+        exposure_authorizer = None
+        try:
+            from cengine.exposure_registry import ExposureRegistry
+
+            self._exposure_registry = ExposureRegistry()
+            for sym in os.environ.get("CENGINE_AUTHORIZED_GEARED", "").split(","):
+                sym = sym.strip().upper()
+                if sym:
+                    self._exposure_registry.authorize(sym, True)
+            exposure_authorizer = self._exposure_registry.authorize_entry
+            LOGGER.info(
+                "exposure registry active: %s classified instruments, %d execution-authorized",
+                self._exposure_registry.counts()["total_seeded"],
+                len(self._exposure_registry.execution_authorized_symbols()))
+        except Exception as exc:  # noqa: BLE001 — exposure gating is optional
+            LOGGER.warning("exposure registry unavailable (%s); entries ungated", exc)
+
         self.router = CandidateRouter(
             order_manager=self.order_manager,
             entry_quantity_policy=quantity_policy,
             exit_quantity_provider=exit_quantity_provider,
             execution_policy=execution_policy,
             strategy_state=self.strategy_state,
+            exposure_authorizer=exposure_authorizer,
         )
 
         # Independent, authoritative protective-exit coordinator (mandatory
