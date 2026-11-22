@@ -34,6 +34,15 @@ namespace trading::metal::cpu_ref {
     const std::vector<float>& lows, const std::vector<float>& volumes,
     const std::vector<std::uint32_t>& counts, const TechWindowParams& params);
 
+// --- market breadth / candidate compaction (exact parity with -------------
+// metal/market_breadth.metal). `flags` is one ScreeningOutput.flags per symbol.
+[[nodiscard]] BreadthCounters market_breadth(const std::vector<std::uint32_t>& flags);
+// Returns the entry-qualified symbol indices (ascending). `total_qualified` is
+// set to the full count even if it exceeds `capacity` (overflow = count>capacity).
+[[nodiscard]] std::vector<std::uint32_t> compact_entry_candidates(
+    const std::vector<std::uint32_t>& flags, std::uint32_t capacity,
+    std::uint32_t& total_qualified);
+
 // Integer division truncating toward zero (matches Metal/C `long` /).
 [[nodiscard]] std::int64_t trunc_div(std::int64_t a, std::int64_t b) noexcept;
 

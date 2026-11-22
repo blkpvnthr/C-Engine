@@ -49,10 +49,12 @@ def test_runtime_initializes_on_device(runtime):
     assert runtime.reason == ""
     names = runtime.function_names()
     # 45 preserved baseline kernels + the Phase B kernels newly added by the
-    # native discovery layer: screen_market (B.1) + technical_features (B.3).
-    assert len(names) == 47, f"expected 47 entry points, got {len(names)}"
-    assert "screen_market" in names
-    assert "technical_features" in names
+    # native discovery layer: screen_market (B.1), technical_features (B.3),
+    # market_breadth + compact_entry_candidates (B.4).
+    assert len(names) == 49, f"expected 49 entry points, got {len(names)}"
+    for k in ("screen_market", "technical_features", "market_breadth",
+              "compact_entry_candidates"):
+        assert k in names
 
 
 def test_namespace_aware_resolution(runtime):
@@ -152,9 +154,9 @@ def test_kernel_registry_reconciles_against_device(runtime):
     reg.reconcile_with_device(runtime)
     cov = reg.coverage()
     # 45 baseline + Phase B screen_market + technical_features (directive §13/§80).
-    assert cov.discovered == 47
-    assert cov.compiled_callable == 47  # every kernel builds a pipeline on device
-    assert cov.host_callable == 9  # 7 baseline + screen_market + technical_features
+    assert cov.discovered == 49
+    assert cov.compiled_callable == 49  # every kernel builds a pipeline on device
+    assert cov.host_callable == 11  # 7 baseline + screen/tech/breadth/compaction
     # HONESTY GATE: a hardware-validated kernel is NOT operationally integrated.
     # Nothing is wired to a live consumer yet, so consumer_connected must be 0
     # even though several kernels name an intended consumer (directive §80/§86).
@@ -164,8 +166,8 @@ def test_kernel_registry_reconciles_against_device(runtime):
     import json
 
     doc = json.loads(reg.to_json())
-    assert doc["discovered"] == 47
-    assert len(doc["kernels"]) == 47
+    assert doc["discovered"] == 49
+    assert len(doc["kernels"]) == 49
     assert doc["consumer_connected"] == 0
 
 
@@ -353,3 +355,49 @@ def test_technical_features_valid_mask_respects_bar_depth(runtime):
 def test_technical_features_rejects_bad_dims(runtime):
     with pytest.raises(native.MetalError):
         runtime.technical_features([], [], [], [], [], 0, 0)
+
+
+# ------------------------------------------- Phase B.4 breadth + compaction kernels
+def _flag_sample():
+    EQ = native.SCREEN_ENTRY_QUALIFIED
+    TX = native.SCREEN_TECHNICAL_EXIT
+    BULL = native.SCREEN_BULLISH_DIRECTION
+    BEAR = native.SCREEN_BEARISH_DIRECTION
+    AV = native.SCREEN_ABOVE_VWAP
+    BV = native.SCREEN_BELOW_VWAP
+    PM = native.SCREEN_POSITIVE_MOMENTUM
+    NM = native.SCREEN_NEGATIVE_MOMENTUM
+    DI = native.SCREEN_DATA_INVALID
+    return [EQ | BULL | AV | PM, TX | BEAR | BV | NM, BULL | AV, DI,
+            EQ | BULL | AV | PM, DI, TX | BEAR | BV | NM, BULL | AV | PM]
+
+
+def test_market_breadth_gpu_cpu_parity(runtime):
+    flags = _flag_sample()
+    g = runtime.market_breadth(flags)
+    c = native.market_breadth_cpu(flags)
+    for a in ("total", "valid", "entry_qualified", "technical_exit", "bullish",
+              "bearish", "positive_momentum", "negative_momentum", "above_vwap",
+              "below_vwap", "data_invalid"):
+        assert getattr(g, a) == getattr(c, a), a
+    assert g.total == len(flags)
+    assert g.valid + g.data_invalid == g.total
+    assert g.entry_qualified == 2 and g.technical_exit == 2 and g.data_invalid == 2
+
+
+def test_compact_entry_candidates_parity_and_overflow(runtime):
+    flags = _flag_sample()
+    ids, total = runtime.compact_entry_candidates(flags, 10)
+    cids, ctotal = native.compact_entry_candidates_cpu(flags, 10)
+    assert ids == cids == [0, 4]     # sorted indices of ENTRY_QUALIFIED
+    assert total == ctotal == 2
+    # Overflow: capacity 1 keeps only 1 id but reports the true total (=2).
+    ov_ids, ov_total = runtime.compact_entry_candidates(flags, 1)
+    assert len(ov_ids) == 1 and ov_total == 2  # total > capacity signals overflow
+
+
+def test_breadth_rejects_empty(runtime):
+    with pytest.raises(native.MetalError):
+        runtime.market_breadth([])
+    with pytest.raises(native.MetalError):
+        runtime.compact_entry_candidates([], 10)

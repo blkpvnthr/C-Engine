@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T20:44:46.488767+00:00",
+  "recorded_utc": "2026-11-22T20:50:18.892270+00:00",
   "operationally_consumed_count": 2,
   "note": "HONEST STATUS: 9 kernels are host-callable, hardware-executed and CPU-parity-validated. 2 (screen_market, technical_features) are now operationally consumed via the scanner feature_provider (cengine.gpu_scanner_bridge -> MarketScanner.rank -> UniversePublisher), wired into trade.py's zero-arg path and verified through the REAL scanner offline; live IEX-session end-to-end certification is Phase B.6. `intended_consumer` names the planned consumer; `operationally_consumed` records real wiring (\u00a780/\u00a786). The other 7 remain host-wired, pending Phase D/E.",
   "kernels": {
@@ -42,6 +42,20 @@
       "host_interface": "MetalRuntime.technical_features",
       "intended_consumer": "opportunity_discovery,scanner,strategies",
       "operationally_consumed": true,
+      "mode": "operational",
+      "blocker": ""
+    },
+    "market_breadth": {
+      "host_interface": "MetalRuntime.market_breadth",
+      "intended_consumer": "market_breadth,regime,dashboard",
+      "operationally_consumed": false,
+      "mode": "operational",
+      "blocker": ""
+    },
+    "compact_entry_candidates": {
+      "host_interface": "MetalRuntime.compact_entry_candidates",
+      "intended_consumer": "opportunity_discovery",
+      "operationally_consumed": false,
       "mode": "operational",
       "blocker": ""
     },

@@ -362,4 +362,39 @@ std::vector<TechFeatures> technical_features(
     return out;
 }
 
+BreadthCounters market_breadth(const std::vector<std::uint32_t>& flags) {
+    BreadthCounters c;
+    for (std::uint32_t f : flags) {
+        ++c.total;
+        if (f & kDataInvalid) {
+            ++c.data_invalid;
+        } else {
+            ++c.valid;
+        }
+        if (f & kEntryQualified) ++c.entry_qualified;
+        if (f & kTechnicalExit) ++c.technical_exit;
+        if (f & kBullishDirection) ++c.bullish;
+        if (f & kBearishDirection) ++c.bearish;
+        if (f & kPositiveMomentum) ++c.positive_momentum;
+        if (f & kNegativeMomentum) ++c.negative_momentum;
+        if (f & kAboveVwap) ++c.above_vwap;
+        if (f & kBelowVwap) ++c.below_vwap;
+    }
+    return c;
+}
+
+std::vector<std::uint32_t> compact_entry_candidates(
+    const std::vector<std::uint32_t>& flags, std::uint32_t capacity,
+    std::uint32_t& total_qualified) {
+    std::vector<std::uint32_t> ids;
+    total_qualified = 0;
+    for (std::uint32_t i = 0; i < flags.size(); ++i) {
+        if (flags[i] & kEntryQualified) {
+            ++total_qualified;
+            if (ids.size() < capacity) ids.push_back(i);
+        }
+    }
+    return ids;
+}
+
 }  // namespace trading::metal::cpu_ref

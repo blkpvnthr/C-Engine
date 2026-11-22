@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T20:44:46.488767+00:00",
+  "recorded_utc": "2026-11-22T20:50:18.892270+00:00",
   "device": "Apple M5 Max",
   "parity": {
     "rolling_sma_ticks": {
@@ -55,6 +55,18 @@
       "parity_ok": true,
       "detail": "3 symbols; identical validity masks; max_abs_error=3.052e-05 (tol 1e-2)",
       "max_abs_error": 3.0517578125e-05
+    },
+    "market_breadth": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "7 symbols; exact atomic-counter parity",
+      "max_abs_error": 0.0
+    },
+    "compact_entry_candidates": {
+      "executed": true,
+      "parity_ok": true,
+      "detail": "2 qualified; id-set + overflow parity",
+      "max_abs_error": 0.0
     }
   }
 }

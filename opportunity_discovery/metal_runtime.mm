@@ -14,9 +14,11 @@
 #import <Foundation/Foundation.h>
 #import <Metal/Metal.h>
 
+#include <algorithm>
 #include <cstring>
 #include <mutex>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "opportunity_discovery/metal_runtime.hpp"
@@ -469,6 +471,60 @@ std::vector<TechFeatures> MetalRuntime::technical_features(
     pool.release(nb); pool.release(pb); pool.release(ob);
     if (!ok) throw MetalError("technical_features dispatch failed");
     return out;
+}
+
+BreadthCounters MetalRuntime::market_breadth(
+    const std::vector<std::uint32_t>& flags) {
+    if (!available()) throw MetalError("Metal runtime unavailable");
+    if (flags.empty()) throw MetalError("flags cannot be empty");
+    const std::size_t n = flags.size();
+    auto& pool = *impl_->pool;
+    GpuBuffer fb = pool.upload_bytes(flags.data(), n * sizeof(std::uint32_t));
+    GpuBuffer ob = pool.acquire(sizeof(BreadthCounters), true);
+    GpuBuffer cb = pool.upload_u32(static_cast<std::uint32_t>(n));
+    const bool ok = dispatch("market_breadth", {fb, ob, cb}, n);
+    BreadthCounters out{};
+    if (ok && ob.contents) std::memcpy(&out, ob.contents, sizeof(BreadthCounters));
+    pool.release(fb);
+    pool.release(ob);
+    pool.release(cb);
+    if (!ok) throw MetalError("market_breadth dispatch failed");
+    return out;
+}
+
+std::pair<std::vector<std::uint32_t>, std::uint32_t>
+MetalRuntime::compact_entry_candidates(const std::vector<std::uint32_t>& flags,
+                                       std::uint32_t capacity) {
+    if (!available()) throw MetalError("Metal runtime unavailable");
+    if (flags.empty()) throw MetalError("flags cannot be empty");
+    if (capacity == 0) throw MetalError("capacity must be positive");
+    const std::size_t n = flags.size();
+    auto& pool = *impl_->pool;
+    GpuBuffer fb = pool.upload_bytes(flags.data(), n * sizeof(std::uint32_t));
+    GpuBuffer ids = pool.acquire(capacity * sizeof(std::uint32_t), true);
+    GpuBuffer counter = pool.upload_u32(0);
+    GpuBuffer cnt = pool.upload_u32(static_cast<std::uint32_t>(n));
+    GpuBuffer cap = pool.upload_u32(capacity);
+    const bool ok =
+        dispatch("compact_entry_candidates", {fb, ids, counter, cnt, cap}, n);
+    std::uint32_t total = 0;
+    std::vector<std::uint32_t> out;
+    if (ok && counter.contents) {
+        std::memcpy(&total, counter.contents, sizeof(std::uint32_t));
+        const std::uint32_t take = total < capacity ? total : capacity;
+        out.resize(take);
+        if (take > 0 && ids.contents) {
+            std::memcpy(out.data(), ids.contents, take * sizeof(std::uint32_t));
+        }
+        std::sort(out.begin(), out.end());  // deterministic order for the host
+    }
+    pool.release(fb);
+    pool.release(ids);
+    pool.release(counter);
+    pool.release(cnt);
+    pool.release(cap);
+    if (!ok) throw MetalError("compact_entry_candidates dispatch failed");
+    return {out, total};
 }
 
 RuntimeTelemetry MetalRuntime::telemetry() const {

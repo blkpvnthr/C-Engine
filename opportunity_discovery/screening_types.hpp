@@ -182,6 +182,30 @@ struct TechFeatures {
     std::uint32_t valid{0};
 };
 
+// ---------------------------------------------------------------------------
+// Market breadth + candidate compaction contract (Phase B.4).
+//
+// metal/market_breadth.metal reduces an array of per-symbol screen flags (the
+// ScreeningOutput.flags bitmasks) into breadth counters via atomics (one thread
+// per symbol), and compacts the entry-qualified symbol indices. The CPU oracle
+// cpu_ref::market_breadth / cpu_ref::compact_entry_candidates mirror both. Counts
+// are order-independent so GPU and CPU agree exactly; compaction order is
+// non-deterministic on GPU, so parity compares the id SET (and the count).
+// ---------------------------------------------------------------------------
+struct BreadthCounters {
+    std::uint32_t total{0};
+    std::uint32_t valid{0};              // not DATA_INVALID
+    std::uint32_t entry_qualified{0};
+    std::uint32_t technical_exit{0};
+    std::uint32_t bullish{0};
+    std::uint32_t bearish{0};
+    std::uint32_t positive_momentum{0};
+    std::uint32_t negative_momentum{0};
+    std::uint32_t above_vwap{0};
+    std::uint32_t below_vwap{0};
+    std::uint32_t data_invalid{0};
+};
+
 struct RuntimeTelemetry {
     std::uint64_t dispatches_submitted{0};
     std::uint64_t dispatches_completed{0};

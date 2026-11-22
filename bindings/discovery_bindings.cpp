@@ -139,6 +139,29 @@ void register_discovery(py::module_& m) {
         .def_readonly("vwap", &TechFeatures::vwap)
         .def_readonly("valid", &TechFeatures::valid);
 
+    // --- market breadth / compaction (Phase B.4) ---------------------------
+    py::class_<BreadthCounters>(m, "BreadthCounters")
+        .def_readonly("total", &BreadthCounters::total)
+        .def_readonly("valid", &BreadthCounters::valid)
+        .def_readonly("entry_qualified", &BreadthCounters::entry_qualified)
+        .def_readonly("technical_exit", &BreadthCounters::technical_exit)
+        .def_readonly("bullish", &BreadthCounters::bullish)
+        .def_readonly("bearish", &BreadthCounters::bearish)
+        .def_readonly("positive_momentum", &BreadthCounters::positive_momentum)
+        .def_readonly("negative_momentum", &BreadthCounters::negative_momentum)
+        .def_readonly("above_vwap", &BreadthCounters::above_vwap)
+        .def_readonly("below_vwap", &BreadthCounters::below_vwap)
+        .def_readonly("data_invalid", &BreadthCounters::data_invalid);
+
+    m.def("market_breadth_cpu", &cpu_ref::market_breadth, py::arg("flags"));
+    m.def("compact_entry_candidates_cpu",
+          [](const std::vector<std::uint32_t>& flags, std::uint32_t capacity) {
+              std::uint32_t total = 0;
+              auto ids = cpu_ref::compact_entry_candidates(flags, capacity, total);
+              return std::make_pair(ids, total);
+          },
+          py::arg("flags"), py::arg("capacity"));
+
     // CPU oracle / fallback for the technical-feature pipeline.
     m.def("technical_features_cpu",
           [](const std::vector<float>& closes, const std::vector<float>& highs,
@@ -195,7 +218,12 @@ void register_discovery(py::module_& m) {
              py::arg("closes"), py::arg("highs"), py::arg("lows"),
              py::arg("volumes"), py::arg("counts"), py::arg("symbol_count"),
              py::arg("max_window"), py::arg("dmi_period") = 14,
-             py::arg("sma_period") = 20, py::call_guard<py::gil_scoped_release>());
+             py::arg("sma_period") = 20, py::call_guard<py::gil_scoped_release>())
+        .def("market_breadth", &MetalRuntime::market_breadth, py::arg("flags"),
+             py::call_guard<py::gil_scoped_release>())
+        .def("compact_entry_candidates", &MetalRuntime::compact_entry_candidates,
+             py::arg("flags"), py::arg("capacity"),
+             py::call_guard<py::gil_scoped_release>());
 
     py::class_<KernelInfo>(m, "KernelInfo")
         .def_readonly("shader_file", &KernelInfo::shader_file)

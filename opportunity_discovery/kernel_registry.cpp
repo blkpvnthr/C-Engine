@@ -100,6 +100,17 @@ KernelRegistry::KernelRegistry() {
                           "params[TechWindowParams@5] out[TechFeatures@6]",
                           "opportunity_discovery,scanner,strategies", "bars_5m"));
 
+    // --- market_breadth.metal (2) : Phase B.4 reductions over screen flags -----
+    kernels_.push_back(op("market_breadth.metal", "market_breadth",
+                          "MetalRuntime.market_breadth",
+                          "flags[u32@0] counters[BreadthCounters@1] count[u32@2]",
+                          "market_breadth,regime,dashboard", "screen_flags"));
+    kernels_.push_back(op("market_breadth.metal", "compact_entry_candidates",
+                          "MetalRuntime.compact_entry_candidates",
+                          "flags[u32@0] out_ids[u32@1] counter[atomic_u32@2] "
+                          "count[u32@3] capacity[u32@4]",
+                          "opportunity_discovery", "screen_flags"));
+
     // --- covariance.metal (7) : 3 wired, 4 research/blocked -------------------
     kernels_.push_back(op("covariance.metal", "column_means",
                           "MetalRuntime.column_means",

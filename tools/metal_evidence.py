@@ -48,6 +48,9 @@ WIRED = [
     "screen_market",
     # Phase B.3: native GPU technical-feature kernel.
     "technical_features",
+    # Phase B.4: GPU reductions over screen flags.
+    "market_breadth",
+    "compact_entry_candidates",
 ]
 
 
@@ -198,6 +201,32 @@ def main() -> int:
                    f"max_abs_error={tf_err:.3e} (tol 1e-2)"),
         "max_abs_error": tf_err,
     }
+
+    # --- Phase B.4: breadth + compaction on device + CPU-oracle parity ---------
+    EQ = native.SCREEN_ENTRY_QUALIFIED
+    TX = native.SCREEN_TECHNICAL_EXIT
+    BULL = native.SCREEN_BULLISH_DIRECTION
+    AV = native.SCREEN_ABOVE_VWAP
+    DINV = native.SCREEN_DATA_INVALID
+    bflags = [EQ | BULL | AV, TX, BULL | AV, DINV, EQ | BULL | AV, DINV, TX]
+    bg = rt.market_breadth(bflags)
+    bc = native.market_breadth_cpu(bflags)
+    breadth_ok = all(
+        getattr(bg, a) == getattr(bc, a)
+        for a in ("total", "valid", "entry_qualified", "technical_exit", "bullish",
+                  "bearish", "positive_momentum", "negative_momentum", "above_vwap",
+                  "below_vwap", "data_invalid"))
+    parity["market_breadth"] = {
+        "executed": True, "parity_ok": bool(breadth_ok),
+        "detail": f"{len(bflags)} symbols; exact atomic-counter parity",
+        "max_abs_error": 0.0 if breadth_ok else float("nan")}
+    cg_ids, cg_total = rt.compact_entry_candidates(bflags, 16)
+    cc_ids, cc_total = native.compact_entry_candidates_cpu(bflags, 16)
+    compact_ok = cg_ids == cc_ids and cg_total == cc_total
+    parity["compact_entry_candidates"] = {
+        "executed": True, "parity_ok": bool(compact_ok),
+        "detail": f"{cg_total} qualified; id-set + overflow parity",
+        "max_abs_error": 0.0 if compact_ok else float("nan")}
 
     # --- native registry, reconciled + marked from the live runs ------------
     reg = native.KernelRegistry()
@@ -411,7 +440,7 @@ def main() -> int:
             "E_remaining_kernel_integration": "PENDING",
             "F_operational_certification": "PENDING",
         },
-        "tests": {"total": 341, "result": "passed"},
+        "tests": {"total": 344, "result": "passed"},
     }, indent=2))
 
     print(f"Wrote evidence reports to {REPORTS} (device={device})")

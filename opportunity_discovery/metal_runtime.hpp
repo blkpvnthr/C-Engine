@@ -27,6 +27,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "opportunity_discovery/metal_buffers.hpp"
@@ -123,6 +124,17 @@ public:
         const std::vector<std::uint32_t>& counts, std::uint32_t symbol_count,
         std::uint32_t max_window, std::uint32_t dmi_period = 14,
         std::uint32_t sma_period = 20);
+
+    // Market breadth reduction over per-symbol screen flags (one GPU thread per
+    // symbol, atomic counters). Matches cpu_ref::market_breadth exactly.
+    [[nodiscard]] BreadthCounters market_breadth(
+        const std::vector<std::uint32_t>& flags);
+
+    // GPU compaction of ENTRY_QUALIFIED symbol indices. Returns {sorted ids (up
+    // to `capacity`), total_qualified}. Overflow = total_qualified > capacity.
+    [[nodiscard]] std::pair<std::vector<std::uint32_t>, std::uint32_t>
+    compact_entry_candidates(const std::vector<std::uint32_t>& flags,
+                             std::uint32_t capacity);
 
     // --- introspection / telemetry -----------------------------------------
     [[nodiscard]] RuntimeTelemetry telemetry() const;

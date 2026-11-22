@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T20:44:46.488767+00:00",
+  "recorded_utc": "2026-11-22T20:50:18.892270+00:00",
   "phases": {
     "A_native_metal_runtime": "COMPLETE",
     "B_operational_gpu_screening": "IN_PROGRESS \u2014 B.1 screen_market, B.2 DiscoveryEngine ingestion, B.3 technical_features kernel, B.5 scanner integration (GpuDiscoveryProvider + EngineGpuDiscovery wired into trade.py's zero-arg path; screen_market + technical_features operationally consumed via the real scanner, offline-verified) DONE. B.4 standalone GPU compaction/ranking kernels and B.6 live-IEX-session certification remain",
@@ -9,7 +9,7 @@
     "F_operational_certification": "PENDING"
   },
   "tests": {
-    "total": 341,
+    "total": 344,
     "result": "passed"
   }
 }
