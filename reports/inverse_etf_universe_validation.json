@@ -1,0 +1,168 @@
+{
+  "recorded_utc": "2026-11-22T21:53:01.256873+00:00",
+  "inverse_etfs": {
+    "DOG": {
+      "benchmark": "Dow Jones Industrial Average",
+      "group": "DJIA",
+      "target_daily_leverage": -1.0,
+      "type": "INVERSE_ETF",
+      "tradable": true
+    },
+    "DRIP": {
+      "benchmark": "S&P Oil & Gas E&P",
+      "group": "OIL_GAS",
+      "target_daily_leverage": -2.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "DXD": {
+      "benchmark": "Dow Jones Industrial Average",
+      "group": "DJIA",
+      "target_daily_leverage": -2.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "ERY": {
+      "benchmark": "Energy Select Sector",
+      "group": "ENERGY",
+      "target_daily_leverage": -2.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "FAZ": {
+      "benchmark": "Russell 1000 Financials",
+      "group": "FINANCIALS",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "LABD": {
+      "benchmark": "S&P Biotechnology",
+      "group": "BIOTECH",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "PSQ": {
+      "benchmark": "Nasdaq-100",
+      "group": "NASDAQ100",
+      "target_daily_leverage": -1.0,
+      "type": "INVERSE_ETF",
+      "tradable": true
+    },
+    "QID": {
+      "benchmark": "Nasdaq-100",
+      "group": "NASDAQ100",
+      "target_daily_leverage": -2.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "RWM": {
+      "benchmark": "Russell 2000",
+      "group": "RUSSELL2000",
+      "target_daily_leverage": -1.0,
+      "type": "INVERSE_ETF",
+      "tradable": true
+    },
+    "SDOW": {
+      "benchmark": "Dow Jones Industrial Average",
+      "group": "DJIA",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "SDS": {
+      "benchmark": "S&P 500",
+      "group": "SP500",
+      "target_daily_leverage": -2.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "SH": {
+      "benchmark": "S&P 500",
+      "group": "SP500",
+      "target_daily_leverage": -1.0,
+      "type": "INVERSE_ETF",
+      "tradable": true
+    },
+    "SOXS": {
+      "benchmark": "ICE Semiconductor",
+      "group": "SEMICONDUCTORS",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "SPXS": {
+      "benchmark": "S&P 500",
+      "group": "SP500",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "SPXU": {
+      "benchmark": "S&P 500",
+      "group": "SP500",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "SQQQ": {
+      "benchmark": "Nasdaq-100",
+      "group": "NASDAQ100",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "TECS": {
+      "benchmark": "Technology Select Sector",
+      "group": "TECHNOLOGY",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "TWM": {
+      "benchmark": "Russell 2000",
+      "group": "RUSSELL2000",
+      "target_daily_leverage": -2.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    },
+    "TZA": {
+      "benchmark": "Russell 2000",
+      "group": "RUSSELL2000",
+      "target_daily_leverage": -3.0,
+      "type": "LEVERAGED_INVERSE_ETF",
+      "tradable": true
+    }
+  },
+  "leveraged_etfs": {
+    "DRIP": -2.0,
+    "DXD": -2.0,
+    "ERX": 2.0,
+    "ERY": -2.0,
+    "FAS": 3.0,
+    "FAZ": -3.0,
+    "LABD": -3.0,
+    "LABU": 3.0,
+    "QID": -2.0,
+    "QLD": 2.0,
+    "SDOW": -3.0,
+    "SDS": -2.0,
+    "SOXL": 3.0,
+    "SOXS": -3.0,
+    "SPXL": 3.0,
+    "SPXS": -3.0,
+    "SPXU": -3.0,
+    "SQQQ": -3.0,
+    "SSO": 2.0,
+    "TECL": 3.0,
+    "TECS": -3.0,
+    "TNA": 3.0,
+    "TQQQ": 3.0,
+    "TWM": -2.0,
+    "TZA": -3.0,
+    "UDOW": 3.0,
+    "UPRO": 3.0
+  },
+  "note": "Inverse products are a NEGATIVE-exposure long-position class; purchasing one requires a valid instrument-level opportunity, not merely a bearish underlying (\u00a725)."
+}
