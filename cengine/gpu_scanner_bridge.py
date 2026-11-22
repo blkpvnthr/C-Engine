@@ -103,6 +103,25 @@ class EngineGpuDiscovery:
             self._universe |= new
             self.provider.set_universe(sorted(self._universe))
 
+    def register_universe(self, symbols) -> int:
+        """Bulk-register the full master universe into the native DiscoveryEngine
+        up front (directive item 3), so symbol ids / bar-ring generations exist
+        for every tradable member before the first market event or warm-up batch.
+
+        Unlike the lazy :meth:`ensure_symbols` path (which only registers symbols
+        that actually stream or get scanned), this guarantees the GPU breadth /
+        compaction / screen kernels see the WHOLE market, not just the subset that
+        happened to tick. Returns the number of symbols newly registered. The
+        discovery universe still only grows (never shrinks mid-session)."""
+        before = len(self._universe)
+        self.ensure_symbols(
+            str(s).upper().strip() for s in symbols if str(s).strip())
+        return len(self._universe) - before
+
+    @property
+    def universe_size(self) -> int:
+        return len(self._universe)
+
     def on_market_event(self, event: Any) -> None:
         """Dispatch a normalized BarEvent / TradeEvent (others ignored). Never
         raises — market ingestion must not be perturbed by discovery."""

@@ -1,0 +1,44 @@
+{
+  "recorded_utc": "2026-11-22T22:41:32.483177+00:00",
+  "acceptance_item": "4 - automatic historical acquisition and warm-up (+ \u00a77 native feed)",
+  "component": "cengine/historical_warmup.py: HistoricalWarmup + make_sip_fetch_fn + prioritize",
+  "priority_order": [
+    "positions",
+    "pending",
+    "references",
+    "actionable",
+    "preliminary",
+    "remaining"
+  ],
+  "status_states": [
+    "not_requested",
+    "downloading",
+    "warmed",
+    "incomplete",
+    "failed"
+  ],
+  "ingestion": "batched SIP bars -> ticks -> GpuDiscoveryProvider.ingest_bars -> native DiscoveryEngine buffers (5m+1m)",
+  "engine_wiring": "trade.py MarketEngine: one-shot DETACHED startup task (_run_historical_warmup via asyncio.to_thread), prioritized, capped by CENGINE_WARMUP_MAX_SYMBOLS (default 500), off the hot path, cancelled on teardown; CENGINE_HISTORICAL_WARMUP=0 disables.",
+  "offline_verification": "tests/test_historical_warmup.py (5): priority+dedup, ingest+status (warmed/incomplete/failed) reaching native buffers, per-batch error (429) handling, large-set batching, fail-safe on fetcher exception.",
+  "failure_handling": "acquisition failure / rate-limit / missing history -> symbols marked FAILED/INCOMPLETE; never fabricates bars; never blocks protection (runs in worker thread, detached).",
+  "status": "END_TO_END_VALIDATED with real SIP data (small set); full master-universe coverage session/rate-limit dependent.",
+  "pending": "Full real-session master-universe warm-up coverage is session/rate-limit-dependent.",
+  "real_sip_warmup_run": {
+    "recorded_utc": "2026-11-22T22:43:26.821316+00:00",
+    "creds_source": ".env only (shell vars unset) \u2014 confirms zero-arg startup authenticates",
+    "symbols": [
+      "AAPL",
+      "SPY",
+      "SQQQ"
+    ],
+    "warmed": 3,
+    "incomplete": 0,
+    "failed": 0,
+    "bars_ingested": {
+      "5m": 8636,
+      "1m": 11234
+    },
+    "note": "Genuine SIP historical bars ingested into native DiscoveryEngine buffers (AAPL filled the full 256-bar window). End-to-end warm-up verified with real data."
+  },
+  "env_fix": "Fixed a .env key-name typo: `aALPACA_API_KEY` -> `ALPACA_API_KEY` (stray leading 'a'). The codebase reads ALPACA_API_KEY, so the mistyped line was dead; earlier runs authenticated only via a shell-exported var. A fresh `python3 trade.py` relying on .env now authenticates correctly. .env is gitignored; the secret value was never read or modified, only the key name."
+}

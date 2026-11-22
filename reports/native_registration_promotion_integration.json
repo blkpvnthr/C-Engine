@@ -1,0 +1,87 @@
+{
+  "recorded_utc": "2026-11-22T23:00:59.163264+00:00",
+  "acceptance_items": [
+    "3 - full-scale native symbol registration of the master universe",
+    "6 - live trade/quote promotion lifecycle driven by observed flow"
+  ],
+  "item_3": {
+    "wiring": {
+      "bridge": "cengine/gpu_scanner_bridge.py: EngineGpuDiscovery.register_universe(symbols) bulk-registers the whole master universe into the native DiscoveryEngine up front (grows-only, normalizes+dedups, idempotent); universe_size property exposes the count.",
+      "engine": "trade.py MarketEngine.__init__: after warm-up setup, on GPU discovery + loaded membership (CENGINE_NATIVE_REGISTER_FULL!=0), registers tradable_master_symbols()[:CENGINE_NATIVE_MAX_SYMBOLS] so GPU breadth/compaction/screen kernels see the WHOLE market from the first tick, not just the subset that happened to stream/scan."
+    },
+    "measured_full_scale_run": {
+      "authoritative_runtime_registration": 5615,
+      "equals_tradable_master_symbols": true,
+      "engine_universe_size_after": 5615,
+      "backend": "metal",
+      "cap_CENGINE_NATIVE_MAX_SYMBOLS": 20000,
+      "note": "Real in-process registration of tradable_master_symbols() from the live snapshot. Not fabricated.",
+      "synthetic_throughput_microbenchmark": {
+        "symbols": 5601,
+        "register_seconds": 0.005,
+        "note": "SEPARATE synthetic timing run with placeholder SYMxxxxx ids; measures id-allocation throughput only, NOT the real universe. Do not read as coverage."
+      }
+    },
+    "config": {
+      "CENGINE_NATIVE_REGISTER_FULL": "1 (default on; 0 disables)",
+      "CENGINE_NATIVE_MAX_SYMBOLS": "20000 (default cap; effectively full master)"
+    },
+    "offline_verification": "tests/test_gpu_scanner_bridge.py: test_register_universe_full_scale_up_front (500 members, ids resolve, grows-only, idempotent, lazy latecomer still extends), test_register_universe_normalizes_and_skips_blanks.",
+    "membership_reconciliation": {
+      "snapshot_version": 1,
+      "snapshot_effective_utc": "2026-11-22T22:14:57.857226+00:00",
+      "snapshot_source": {
+        "universe": "alpaca_assets",
+        "sp500": "not_configured",
+        "djia": "not_configured",
+        "configured": "universe.txt"
+      },
+      "degraded": false,
+      "counts": {
+        "alpaca_supported": 14426,
+        "tradable": 13509,
+        "fractionable": 7921,
+        "nasdaq_member": 5600,
+        "sp500_member": 0,
+        "djia_member": 0,
+        "configured_member": 57,
+        "master_universe": 5651,
+        "master_tradable": 5615
+      },
+      "filtering_rules": {
+        "master_universe (5651)": "dedup union of nasdaq_member(5600) + sp500_member(0) + djia_member(0) + configured_member(57 from universe.txt), all restricted to alpaca_supported.",
+        "master_tradable (5615)": "master_universe intersect Alpaca tradable=True; 36 master members (5651-5615) are currently non-tradable and excluded from registration.",
+        "native_registered (5615)": "register_universe(tradable_master_symbols()[:CENGINE_NATIVE_MAX_SYMBOLS=20000]) -> all 5615 (cap not binding)."
+      }
+    }
+  },
+  "item_6": {
+    "wiring": {
+      "tap": "trade.py _publish_market_event: every observed bar/trade/quote tick feeds AdaptiveSubscriptionController.on_observation(Channel, symbol, time.monotonic()); unknown/unsubscribed symbols are a cheap no-op in the manager.",
+      "promotion": "A requested (symbol, channel) advances WARMING_UP -> FRESH ONLY on real data arrival for that channel (per-channel, independent).",
+      "demotion": "_run_adaptive_subscriptions calls controller.mark_stale(now) each tick: a FRESH channel silent past manager.stale_after_s (20s) demotes to STALE. Symmetric lifecycle: flow promotes, silence demotes."
+    },
+    "offline_verification": "tests/test_adaptive_subscription_live.py: test_observation_promotes_warming_to_fresh (per-channel FRESH only on that channel's tick), test_observation_of_unsubscribed_symbol_is_ignored, test_stale_demotes_fresh_after_window (stale bars demote, still-ticking trades stay fresh)."
+  },
+  "test_suite": "431 passed (was 426; +5: 2 item-3 bridge, 3 item-6 lifecycle).",
+  "status": "OPERATIONALLY_WIRED (offline-verified; item-3 full-scale registration measured in-process).",
+  "pending": "Real-time SIP session certification (live provider acks + live observation freshness end-to-end) remains session-gated \u2014 market-hours live run. No live orders during validation.",
+  "invariants_preserved": [
+    "one SIP socket / one scanner / one UniversePublisher / one OrderManager",
+    "GPU discovery never authorizes orders (advisory only)",
+    "-0.5% protection independence untouched",
+    "discovery universe grows-only (never shrinks mid-session)"
+  ],
+  "correction_note": "Prior revision recorded 'registered: 5601' from a synthetic throughput microbenchmark and mislabeled it as the tradable-master size. The AUTHORITATIVE runtime registration is 5615 = tradable_master_symbols() from membership snapshot v1 (effective 2026-11-22T22:14:57Z). Corrected below.",
+  "coverage_funnel_distinct_stages": {
+    "note": "These stages are STRICTLY DISTINCT; registration count MUST NOT be read as operational coverage.",
+    "registered": "5615 (tradable master; native symbol ids/generations allocated up front)",
+    "historically_warmed": "<= CENGINE_WARMUP_MAX_SYMBOLS (default 500), prioritized: positions -> pending -> references -> actionable -> preliminary -> remaining; one-shot threaded at startup.",
+    "subscribed": "per-channel caps bars<=4096, trades<=1000, quotes<=250 on the ONE SIP socket; tiered.",
+    "observed": "subset of subscribed that actually ticks (drives WARMING_UP->FRESH per channel).",
+    "feature_valid": "subset with enough bar history for Wilder DMI/ADX/VWAP/BB (screen tech_valid flags).",
+    "screened": "subset flagged SCREEN_ENTRY_QUALIFIED by the mandatory entry contract.",
+    "ranked": "screened candidates scored by GPU rank_candidates (CPU-parity).",
+    "actionable_published": "canonical universe.txt currently 31 symbols (v1) \u2014 the published actionable set, NOT the master universe."
+  }
+}

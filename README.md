@@ -17,7 +17,106 @@ The architecture uses Apple Metal as the primary broad-market numerical compute 
 
 In progress / not yet certified: the adaptive four-tier subscription manager is built and tested but is **not yet the live SIP-socket owner** (per-tick evaluation is still bounded by the scanner's subscription window); automatic master-universe historical warm-up scheduling; operational portfolio-optimizer consumers; the remaining Metal kernels; the regime engine and five-family strategy consolidation; the unified dashboard; and out-of-sample/**real-time SIP session** certification. Nodes marked *(target)* below are not certified production capabilities.
 
-## Architecture
+## System Architecture
+
+This is the primary, high-level view of C-Engine: market data flows from Alpaca Algo Trader Plus through native compute infrastructure into GPU analytics, trading intelligence, and a risk-and-execution path whose confirmed fills feed authoritative state back to the market layer. The more detailed component diagrams in the sections below remain the authoritative reference for each subsystem.
+
+```mermaid
+flowchart TD
+    A[Alpaca Algo Trader Plus]
+
+    subgraph Acquisition[Market Data Acquisition]
+        B[SIP WebSocket]
+        C[SIP Historical REST]
+        D[Broad-Market Bar Streaming]
+        E[Trades and Quotes]
+        F[Historical Warm-up and Recovery]
+    end
+
+    A --> B
+    A --> C
+    B --> D
+    B --> E
+    C --> F
+
+    subgraph Native[Native Compute Infrastructure]
+        G[Native C++ Market State]
+        H[Objective-C++ Metal Runtime]
+        I[Apple Metal GPU]
+        G --> H
+        H --> I
+    end
+
+    D --> G
+    E --> G
+    F --> G
+
+    subgraph Analytics[GPU Numerical Analytics]
+        J[Technical Indicators]
+        K[Market-wide Screening]
+        L[Compaction and Ranking]
+        M[Market Breadth]
+        N[Portfolio Analytics]
+    end
+
+    I --> J
+    I --> K
+    I --> L
+    I --> M
+    I --> N
+
+    subgraph Intelligence[Trading Intelligence]
+        O[Opportunity Discovery]
+        P[Operational Scanner]
+        Q[Strategy Intelligence]
+        R[Portfolio Optimizer]
+        O --> P
+        P --> Q
+        Q --> R
+    end
+
+    J --> O
+    K --> O
+    L --> O
+    M --> Q
+    N --> R
+
+    subgraph Execution[Risk and Execution]
+        S[Native RiskEngine]
+        T[Independent Protective Exits]
+        U[OrderManager]
+        V[Alpaca Execution]
+        S --> U
+        T --> S
+        U --> V
+    end
+
+    R --> S
+    G --> T
+    V -->|Execution reports and fills| G
+```
+
+*High-level overview only — illustrating a component here is not a claim that it is production-certified. See the per-subsystem diagrams and the [implementation roadmap](#implementation-roadmap-and-validation) for the verified status of each stage.*
+
+### Layer responsibilities
+
+- **Python** — data acquisition (SIP WebSocket / historical REST), orchestration (`trade.py` supervisor), the operational scanner, strategy/portfolio glue, and research. Python never performs execution-critical risk arithmetic; it marshals events into native state and reads decisions back.
+- **C++** — authoritative, execution-critical state and decisions: the native market state / `DiscoveryEngine` (1m/5m bar ring buffers, symbol id/generation, dirty tracking), the `RiskEngine`, the internal order book, and final order authorization. This layer owns correctness; GPU recommendations never bypass it.
+- **Objective-C++** — the Metal runtime that manages GPU resources (device, command queues, persistent pipeline cache, `BufferPool`) and bridges C++ state to the GPU without GC pauses.
+- **Apple Metal (GPU)** — broad-market numerical analytics only: technical indicators (`technical_features`), market-wide screening (`screen_market`), compaction and ranking (`compact_entry_candidates`, `rank_candidates`), and market breadth (`market_breadth`). Every GPU kernel has a CPU oracle and is advisory — it shapes discovery/ranking and never authorizes an order.
+
+### Operational vs. target components
+
+- **Operational (on the live discovery path, hardware-executed and CPU-parity-validated):** market-data acquisition (SIP WebSocket, historical REST, trades/quotes, broad-market bar streaming, warm-up/recovery), Native C++ Market State, Objective-C++ Metal Runtime, Apple Metal GPU, Technical Indicators, Market-wide Screening, Compaction and Ranking, Market Breadth, Opportunity Discovery, the Operational Scanner, the Native RiskEngine, the Independent Protective Exits, the single OrderManager, and Alpaca execution with fill reconciliation. Note: **real-time SIP session certification is still pending** an eligible market session — the full-market streaming path is verified on historical replay, not yet live-certified.
+- **Target (built or planned, not yet certified):** Portfolio Analytics and the Portfolio Optimizer (operational consumers pending), and the parts of Strategy Intelligence beyond the current four legacy strategies — the regime engine and the five-family strategy consolidation. These are shown for architectural completeness and are not production capabilities.
+
+### Independent protective exit path
+
+The protective exit path (`G → T → S → U → V`) is **deliberately separate** from elective opportunity discovery, strategy evaluation, and portfolio optimization. Protective exits are driven directly by authoritative native market state (`G`) into the Independent Protective Exits (`T`) and the `RiskEngine` (`S`) — they do **not** depend on GPU availability, scanner rankings, GPU analytics, or the portfolio optimizer. The strict **−0.5% protective exit invariant** is preserved: a position breaching −0.5% is exited through this independent path regardless of the state of any elective discovery, intelligence, or optimization component.
+
+## Runtime data-flow overview
+
+This complementary view centers on the `trade.py` supervisor and the runtime event flow; see [System Architecture](#system-architecture) above for the primary layered view.
 
 ```mermaid
 flowchart TD

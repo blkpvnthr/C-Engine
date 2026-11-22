@@ -835,6 +835,169 @@ class MarketEngine:
                     LOGGER.warning("dynamic universe sync disabled: %s", exc)
                     self.universe_sync = None
 
+        # Adaptive four-tier subscription controller (directive item 2): makes the
+        # AdaptiveSubscriptionManager the authoritative owner of THIS single SIP
+        # socket, driving per-channel (bars/trades/quotes) subscriptions over the
+        # master universe. Active only on SIP with a loaded membership registry and
+        # CENGINE_ADAPTIVE_SUBSCRIPTIONS!=0; when active it REPLACES the flat
+        # UniverseSubscriptionSync (one authoritative owner). Fail-safe.
+        self._adaptive_controller = None
+        self._canonical_for_adaptive = None
+        self._obs_channel: dict[str, Any] = {}
+        feed = str(getattr(config, "alpaca_feed", "") or "").lower()
+        if (self._membership_registry is not None and feed in ("sip", "delayed_sip")
+                and os.environ.get("CENGINE_ADAPTIVE_SUBSCRIPTIONS", "1") != "0"):
+            try:
+                from cengine.adaptive_subscription_controller import (
+                    AdaptiveSubscriptionController,
+                )
+                from market_scan.adaptive_subscriptions import Channel, ChannelCaps
+
+                # Hot-path map: normalized market-event channel -> manager Channel,
+                # used to feed live observations into the promotion lifecycle (item 6).
+                self._obs_channel = {"bar": Channel.BARS, "trade": Channel.TRADES,
+                                     "quote": Channel.QUOTES}
+                caps = ChannelCaps(
+                    bars=int(os.environ.get("CENGINE_TIER1_MAX_BARS", "4096")),
+                    trades=int(os.environ.get("CENGINE_TIER2_MAX_TRADES", "1000")),
+                    quotes=int(os.environ.get("CENGINE_TIER3_MAX_QUOTES", "250")))
+                self._adaptive_controller = AdaptiveSubscriptionController(
+                    self.stream, caps=caps)
+                up = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "universe.txt")
+                if os.path.exists(up):
+                    self._canonical_for_adaptive = CanonicalUniverseManager(
+                        up, source_feed=config.alpaca_feed)
+                # One authoritative owner: the flat sync yields to the controller.
+                if self.universe_sync is not None:
+                    LOGGER.info("adaptive subscriptions active; disabling legacy "
+                                "flat UniverseSubscriptionSync")
+                    self.universe_sync = None
+                LOGGER.info("adaptive subscription controller active (SIP): "
+                            "bars<=%d trades<=%d quotes<=%d over %d master members",
+                            caps.bars, caps.trades, caps.quotes,
+                            len(self._membership_registry.tradable_master_symbols()))
+            except Exception as exc:  # noqa: BLE001 - never block startup
+                LOGGER.warning("adaptive subscription controller disabled: %s", exc)
+                self._adaptive_controller = None
+
+        # Automatic SIP historical warm-up (directive item 4): feeds the native
+        # DiscoveryEngine buffers with prioritized history so GPU features have
+        # adequate depth. One-shot at startup, in a worker thread (never blocks the
+        # loop or protection). Active on SIP + GPU discovery + membership;
+        # CENGINE_HISTORICAL_WARMUP=0 disables.
+        self._historical_warmup = None
+        if (self._gpu_discovery is not None and self._membership_registry is not None
+                and feed in ("sip", "delayed_sip")
+                and os.environ.get("CENGINE_HISTORICAL_WARMUP", "1") != "0"):
+            try:
+                from cengine.historical_warmup import HistoricalWarmup, make_sip_fetch_fn
+
+                _k = (os.environ.get("ALPACA_API_KEY")
+                      or os.environ.get("APCA_API_KEY_ID", ""))
+                _s = (os.environ.get("ALPACA_SECRET_KEY")
+                      or os.environ.get("APCA_API_SECRET_KEY", ""))
+                if _k and _s:
+                    self._historical_warmup = HistoricalWarmup(
+                        self._gpu_discovery.provider, make_sip_fetch_fn(_k, _s),
+                        batch_size=int(os.environ.get("CENGINE_WARMUP_BATCH", "100")))
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("historical warm-up unavailable: %s", exc)
+                self._historical_warmup = None
+
+        # Full-scale native symbol registration (directive item 3): register the
+        # ENTIRE tradable master universe into the native DiscoveryEngine up front
+        # so GPU breadth / compaction / screen kernels operate over the whole
+        # market from the first tick — not just the subset that happened to stream
+        # or get scanned. One-shot, synchronous, cheap (id/generation allocation);
+        # bounded by CENGINE_NATIVE_MAX_SYMBOLS; CENGINE_NATIVE_REGISTER_FULL=0
+        # disables. Fail-safe: a registration error never blocks startup.
+        self._native_registered = 0
+        if (self._gpu_discovery is not None and self._membership_registry is not None
+                and os.environ.get("CENGINE_NATIVE_REGISTER_FULL", "1") != "0"):
+            try:
+                cap = int(os.environ.get("CENGINE_NATIVE_MAX_SYMBOLS", "20000"))
+                master = self._membership_registry.tradable_master_symbols()[:cap]
+                self._native_registered = self._gpu_discovery.register_universe(master)
+                LOGGER.info("native registration: %d master members registered "
+                            "(engine universe=%d, cap=%d)",
+                            self._native_registered,
+                            self._gpu_discovery.universe_size, cap)
+            except Exception as exc:  # noqa: BLE001 — never block startup
+                LOGGER.warning("native full-scale registration skipped: %s", exc)
+
+    async def _run_historical_warmup(self) -> None:
+        """One-shot prioritized warm-up in a worker thread (off the hot path)."""
+        import datetime as _dt
+
+        from cengine.historical_warmup import prioritize
+
+        try:
+            inp = self._adaptive_tier_inputs()
+            cap = int(os.environ.get("CENGINE_WARMUP_MAX_SYMBOLS", "500"))
+            master = inp["tier1_bars"][:cap]
+            order = prioritize(positions=inp["protected"], actionable=inp["tier2_trades"],
+                               remaining=master)
+            today = _dt.date.today()
+            start_5m = (today - _dt.timedelta(days=20)).isoformat()
+            start_1m = (today - _dt.timedelta(days=4)).isoformat()
+            cov = await asyncio.to_thread(
+                self._historical_warmup.warm, order,
+                start_5m=start_5m, start_1m=start_1m)
+            LOGGER.info("historical warm-up: %d requested, %d warmed, %d incomplete, "
+                        "%d failed, bars=%s", cov["requested"], cov["warmed"],
+                        cov["incomplete"], cov["failed"], cov["bars_ingested"])
+        except Exception as exc:  # noqa: BLE001 - warm-up must never crash the engine
+            LOGGER.warning("historical warm-up failed: %s", exc)
+
+    def _adaptive_tier_inputs(self) -> dict:
+        """Compute current tier memberships for the adaptive controller."""
+        positions = list(getattr(self.portfolio, "symbols", lambda: [])() or []) \
+            if self.portfolio is not None else []
+        try:
+            pending = list(self.order_manager.open_orders() or [])
+        except Exception:  # noqa: BLE001
+            pending = []
+        refs = ["SPY", "QQQ", "DIA", "IWM"]
+        canonical = []
+        if self._canonical_for_adaptive is not None:
+            try:
+                self._canonical_for_adaptive.refresh_from_file()
+                canonical = list(self._canonical_for_adaptive.symbols())
+            except Exception:  # noqa: BLE001
+                canonical = []
+        tier1 = (self._membership_registry.tradable_master_symbols()
+                 if self._membership_registry is not None else [])
+        protected = sorted(set(positions) | set(pending) | set(refs))
+        # Published canonical candidates are the actionable set -> trades + quotes.
+        actionable = sorted(set(canonical) | set(positions) | set(pending))
+        return {"tier1_bars": tier1, "tier2_trades": actionable,
+                "tier3_quotes": actionable, "protected": protected, "references": refs}
+
+    async def _run_adaptive_subscriptions(self, stop: "asyncio.Event") -> None:
+        import time as _time
+        interval = float(os.environ.get("CENGINE_ADAPTIVE_SUBSCRIPTION_SECONDS", "5"))
+        while not stop.is_set():
+            try:
+                now = _time.monotonic()
+                inp = self._adaptive_tier_inputs()
+                out = await self._adaptive_controller.apply(now=now, **inp)
+                if out.get("degraded"):
+                    LOGGER.warning("adaptive subscriptions degraded: protected "
+                                   "demand exceeds a channel cap")
+                # Demote subscriptions whose channel has stopped ticking (item 6):
+                # the promotion lifecycle is symmetric — live flow promotes to
+                # FRESH, silence past the stale window demotes to STALE.
+                staled = self._adaptive_controller.mark_stale(now)
+                if staled:
+                    LOGGER.debug("adaptive subscriptions: %d went stale", staled)
+            except Exception as exc:  # noqa: BLE001 - never kill the loop
+                LOGGER.warning("adaptive subscription tick failed: %s", exc)
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass
+
     def _start_scanner(self) -> None:
         """Start the in-process market scanner on its own thread, fed by the
         single market-data pipeline (no second websocket). Never raises."""
@@ -968,6 +1131,22 @@ class MarketEngine:
                 self.universe_sync.run(self._stop), name="universe-sync"
             )
 
+        adaptive_sub_task: Optional[asyncio.Task[None]] = None
+        if self._adaptive_controller is not None:
+            adaptive_sub_task = asyncio.create_task(
+                self._run_adaptive_subscriptions(self._stop),
+                name="adaptive-subscriptions",
+            )
+
+        # One-shot warm-up runs DETACHED (not in the FIRST_COMPLETED wait set, so
+        # its completion never triggers engine shutdown). Stored on self to avoid
+        # GC; cancelled during teardown.
+        self._warmup_task: Optional[asyncio.Task[None]] = None
+        if self._historical_warmup is not None:
+            self._warmup_task = asyncio.create_task(
+                self._run_historical_warmup(), name="historical-warmup"
+            )
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -983,6 +1162,8 @@ class MarketEngine:
             tasks.append(protective_task)
         if universe_sync_task is not None:
             tasks.append(universe_sync_task)
+        if adaptive_sub_task is not None:
+            tasks.append(adaptive_sub_task)
         if factor_task is not None:
             tasks.append(factor_task)
 
@@ -1023,9 +1204,15 @@ class MarketEngine:
                 if not task.done():
                     task.cancel()
 
+            # Cancel the detached one-shot warm-up task if still running.
+            warmup = getattr(self, "_warmup_task", None)
+            if warmup is not None and not warmup.done():
+                warmup.cancel()
+
             await asyncio.gather(
                 *tasks,
                 stop_task,
+                *( [warmup] if warmup is not None else [] ),
                 return_exceptions=True,
             )
 
@@ -1144,6 +1331,18 @@ class MarketEngine:
         # developing price). on_market_event never raises; bars/trades only.
         if self._gpu_discovery is not None and channel in ("bar", "trade"):
             self._gpu_discovery.on_market_event(event)
+        # Live trade/quote promotion lifecycle (directive item 6): feed every
+        # observed tick into the adaptive manager so a requested (symbol, channel)
+        # advances WARMING_UP -> FRESH on real data arrival. Unknown (unsubscribed)
+        # symbols are ignored cheaply by the manager; a periodic mark_stale in the
+        # adaptive loop demotes FRESH -> STALE when a channel stops ticking. This
+        # closes the loop: subscription promotion is now driven by observed flow,
+        # not just by the membership/canonical tier inputs.
+        if self._adaptive_controller is not None:
+            obs = self._obs_channel.get(channel)
+            if obs is not None:
+                self._adaptive_controller.on_observation(
+                    obs, event.symbol, time.monotonic())
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():

@@ -209,6 +209,34 @@ def test_engine_gpu_discovery_tap_and_provider(tmp_path):
     assert "WIN" in (tmp_path / "universe.txt").read_text()
 
 
+def test_register_universe_full_scale_up_front():
+    """Directive item 3: the whole master universe is registered into the native
+    DiscoveryEngine up front, so GPU kernels see every member before any tick —
+    not just the subset that streamed. Registration grows-only and is idempotent."""
+    egd = EngineGpuDiscovery(bar_capacity=64, window=32)
+    assert egd.universe_size == 0
+    master = [f"SYM{i:04d}" for i in range(500)]
+    n = egd.register_universe(master)
+    assert n == 500 and egd.universe_size == 500
+    # every registered symbol has a real native symbol id (full-scale registration)
+    assert egd.provider.engine.symbol_id("SYM0000") is not None
+    assert egd.provider.engine.symbol_id("SYM0499") is not None
+    # idempotent + grows-only: re-registering the same set adds nothing...
+    assert egd.register_universe(master) == 0 and egd.universe_size == 500
+    # ...and a lazily-streamed new symbol still extends the universe, never shrinks.
+    egd.ensure_symbols(["LATECOMER"])
+    assert egd.universe_size == 501
+    assert egd.provider.engine.symbol_id("SYM0000") is not None  # not dropped
+
+
+def test_register_universe_normalizes_and_skips_blanks():
+    egd = EngineGpuDiscovery(bar_capacity=32, window=16)
+    n = egd.register_universe([" aapl ", "MSFT", "", "   ", "aapl"])
+    assert n == 2 and egd.universe_size == 2  # upper+strip+dedup, blanks dropped
+    assert egd.provider.engine.symbol_id("AAPL") is not None
+    assert egd.provider.engine.symbol_id("MSFT") is not None
+
+
 def test_market_breadth_operationally_consumed(tmp_path):
     """The engine glue computes + stores market breadth each rank tick (the
     operational consumer of the market_breadth kernel), not just a standalone test."""
