@@ -4,6 +4,7 @@
 // ============================================================================
 #include "opportunity_discovery/cpu_reference.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -228,6 +229,135 @@ std::vector<ScreeningOutput> screen_market(
                 : std::nanf("");
 
         out[i] = r;
+    }
+    return out;
+}
+
+std::vector<TechFeatures> technical_features(
+    const std::vector<float>& closes, const std::vector<float>& highs,
+    const std::vector<float>& lows, const std::vector<float>& volumes,
+    const std::vector<std::uint32_t>& counts, const TechWindowParams& params) {
+    const std::uint32_t S = params.symbol_count;
+    const std::uint32_t W = params.max_window;
+    const std::uint32_t p = params.dmi_period == 0 ? 14u : params.dmi_period;
+    const std::uint32_t sp = params.sma_period == 0 ? 20u : params.sma_period;
+    std::vector<TechFeatures> out(S);
+
+    for (std::uint32_t s = 0; s < S; ++s) {
+        TechFeatures f;
+        const std::size_t base = static_cast<std::size_t>(s) * W;
+        std::uint32_t n = s < counts.size() ? counts[s] : 0;
+        if (n > W) n = W;
+
+        if (n >= 1) {
+            f.last_close = closes[base + n - 1];
+            f.valid |= kTechClose;
+        }
+        if (n >= 2) {
+            f.prev_close = closes[base + n - 2];
+            f.valid |= kTechPrevClose;
+        }
+
+        // SMA / Bollinger over the last `sp` closes (population stddev).
+        if (n >= sp) {
+            float sum = 0.0f;
+            for (std::uint32_t i = n - sp; i < n; ++i) sum += closes[base + i];
+            const float sma = sum / static_cast<float>(sp);
+            float var = 0.0f;
+            for (std::uint32_t i = n - sp; i < n; ++i) {
+                const float d = closes[base + i] - sma;
+                var += d * d;
+            }
+            const float sd = std::sqrt(var / static_cast<float>(sp));
+            f.sma = sma;
+            f.bb_middle = sma;
+            f.bb_upper = sma + 2.0f * sd;
+            f.bb_lower = sma - 2.0f * sd;
+            f.valid |= kTechSma | kTechBb;
+        }
+
+        // Session VWAP over the window (typical price * volume).
+        float vsum = 0.0f;
+        float pvsum = 0.0f;
+        for (std::uint32_t i = 0; i < n; ++i) {
+            const float tp =
+                (highs[base + i] + lows[base + i] + closes[base + i]) / 3.0f;
+            vsum += volumes[base + i];
+            pvsum += tp * volumes[base + i];
+        }
+        if (vsum > 0.0f) {
+            f.vwap = pvsum / vsum;
+            f.valid |= kTechVwap;
+        }
+
+        // Wilder DMI / ATR / ADX (sum-form smoothing, matches the kernel).
+        if (n >= p + 1) {
+            const float fp = static_cast<float>(p);
+            float s_tr = 0.0f;
+            float s_dmp = 0.0f;
+            float s_dmm = 0.0f;
+            auto step = [&](std::uint32_t i, float& tr, float& dmp, float& dmm) {
+                const float up = highs[base + i] - highs[base + i - 1];
+                const float dn = lows[base + i - 1] - lows[base + i];
+                dmp = (up > dn && up > 0.0f) ? up : 0.0f;
+                dmm = (dn > up && dn > 0.0f) ? dn : 0.0f;
+                const float hl = highs[base + i] - lows[base + i];
+                const float hc = std::fabs(highs[base + i] - closes[base + i - 1]);
+                const float lc = std::fabs(lows[base + i] - closes[base + i - 1]);
+                tr = std::max(hl, std::max(hc, lc));
+            };
+            for (std::uint32_t i = 1; i <= p; ++i) {
+                float tr, dmp, dmm;
+                step(i, tr, dmp, dmm);
+                s_tr += tr;
+                s_dmp += dmp;
+                s_dmm += dmm;
+            }
+            float di_p = s_tr > 0.0f ? 100.0f * s_dmp / s_tr : 0.0f;
+            float di_m = s_tr > 0.0f ? 100.0f * s_dmm / s_tr : 0.0f;
+            float dx = (di_p + di_m) > 0.0f
+                           ? 100.0f * std::fabs(di_p - di_m) / (di_p + di_m)
+                           : 0.0f;
+            float dx_sum = dx;
+            std::uint32_t dx_count = 1;
+            bool adx_started = false;
+            float adx = 0.0f;
+            if (p == 1) {
+                adx = dx;
+                adx_started = true;
+            }
+            for (std::uint32_t i = p + 1; i < n; ++i) {
+                float tr, dmp, dmm;
+                step(i, tr, dmp, dmm);
+                s_tr = s_tr - s_tr / fp + tr;
+                s_dmp = s_dmp - s_dmp / fp + dmp;
+                s_dmm = s_dmm - s_dmm / fp + dmm;
+                di_p = s_tr > 0.0f ? 100.0f * s_dmp / s_tr : 0.0f;
+                di_m = s_tr > 0.0f ? 100.0f * s_dmm / s_tr : 0.0f;
+                dx = (di_p + di_m) > 0.0f
+                         ? 100.0f * std::fabs(di_p - di_m) / (di_p + di_m)
+                         : 0.0f;
+                if (!adx_started) {
+                    dx_sum += dx;
+                    ++dx_count;
+                    if (dx_count == p) {
+                        adx = dx_sum / fp;
+                        adx_started = true;
+                    }
+                } else {
+                    adx = (adx * (fp - 1.0f) + dx) / fp;
+                }
+            }
+            f.di_plus = di_p;
+            f.di_minus = di_m;
+            f.atr = s_tr / fp;
+            f.valid |= kTechDmi;
+            if (adx_started) {
+                f.adx = adx;
+                f.valid |= kTechAdx;
+            }
+        }
+        out[s] = f;
     }
     return out;
 }

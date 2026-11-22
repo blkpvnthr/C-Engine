@@ -433,6 +433,44 @@ std::vector<ScreeningOutput> MetalRuntime::screen(
     return out;
 }
 
+std::vector<TechFeatures> MetalRuntime::technical_features(
+    const std::vector<float>& closes, const std::vector<float>& highs,
+    const std::vector<float>& lows, const std::vector<float>& volumes,
+    const std::vector<std::uint32_t>& counts, std::uint32_t symbol_count,
+    std::uint32_t max_window, std::uint32_t dmi_period,
+    std::uint32_t sma_period) {
+    if (!available()) throw MetalError("Metal runtime unavailable");
+    if (symbol_count == 0 || max_window == 0)
+        throw MetalError("symbol_count and max_window must be positive");
+    const std::size_t cells = static_cast<std::size_t>(symbol_count) * max_window;
+    if (closes.size() < cells || highs.size() < cells || lows.size() < cells ||
+        volumes.size() < cells)
+        throw MetalError("bar arrays smaller than symbol_count*max_window");
+    if (counts.size() < symbol_count)
+        throw MetalError("counts smaller than symbol_count");
+
+    auto& pool = *impl_->pool;
+    GpuBuffer cb = pool.upload_f32(closes.data(), cells);
+    GpuBuffer hb = pool.upload_f32(highs.data(), cells);
+    GpuBuffer lb = pool.upload_f32(lows.data(), cells);
+    GpuBuffer vb = pool.upload_f32(volumes.data(), cells);
+    GpuBuffer nb = pool.upload_bytes(counts.data(), symbol_count * sizeof(std::uint32_t));
+    TechWindowParams params{symbol_count, max_window, dmi_period, sma_period};
+    GpuBuffer pb = pool.upload_bytes(&params, sizeof(params));
+    GpuBuffer ob = pool.acquire(symbol_count * sizeof(TechFeatures), true);
+
+    const bool ok =
+        dispatch("technical_features", {cb, hb, lb, vb, nb, pb, ob}, symbol_count);
+    std::vector<TechFeatures> out(symbol_count);
+    if (ok && ob.contents) {
+        std::memcpy(out.data(), ob.contents, symbol_count * sizeof(TechFeatures));
+    }
+    pool.release(cb); pool.release(hb); pool.release(lb); pool.release(vb);
+    pool.release(nb); pool.release(pb); pool.release(ob);
+    if (!ok) throw MetalError("technical_features dispatch failed");
+    return out;
+}
+
 RuntimeTelemetry MetalRuntime::telemetry() const {
     std::lock_guard<std::mutex> lk(impl_->mtx);
     return impl_->tele;

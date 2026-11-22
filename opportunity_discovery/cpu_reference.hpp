@@ -24,6 +24,16 @@ namespace trading::metal::cpu_ref {
 [[nodiscard]] std::vector<ScreeningOutput> screen_market(
     const std::vector<ScreeningInput>& inputs);
 
+// --- technical features (exact float32 parity with ------------------------
+// metal/technical_indicators.metal's technical_features). Computes Wilder DMI
+// (DI+/DI-/ADX), SMA20, Bollinger bands, ATR and session VWAP per symbol from a
+// row-major (symbol_count * max_window) bar window. Oracle + CPU fallback for
+// the Phase B.3 feature pipeline (directive §27).
+[[nodiscard]] std::vector<TechFeatures> technical_features(
+    const std::vector<float>& closes, const std::vector<float>& highs,
+    const std::vector<float>& lows, const std::vector<float>& volumes,
+    const std::vector<std::uint32_t>& counts, const TechWindowParams& params);
+
 // Integer division truncating toward zero (matches Metal/C `long` /).
 [[nodiscard]] std::int64_t trunc_div(std::int64_t a, std::int64_t b) noexcept;
 

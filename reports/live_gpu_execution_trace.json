@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-22T20:22:26.258452+00:00",
+  "recorded_utc": "2026-11-22T20:29:23.415404+00:00",
   "device": "Apple M5 Max",
   "metallib": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
   "kernel": "screen_market",
@@ -7,7 +7,7 @@
   "note": "End-to-end native dispatch of the Phase B opportunity-screening kernel on real Apple hardware: ScreeningInput -> GPU screen_market -> ScreeningOutput, validated bit-for-bit vs the CPU oracle cpu_ref::screen_market. Evaluates the mandatory shared entry contract (spec \u00a728) on device; by itself it does NOT authorize orders. Operational ingest->scanner->universe wiring is the remainder of Phase B.",
   "symbols_screened": 4,
   "cpu_parity_ok": true,
-  "dispatches_completed": 11,
+  "dispatches_completed": 12,
   "dispatch_failures": 0,
   "outputs": [
     {

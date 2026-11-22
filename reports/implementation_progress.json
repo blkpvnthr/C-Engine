@@ -1,15 +1,15 @@
 {
-  "recorded_utc": "2026-11-22T20:22:26.258452+00:00",
+  "recorded_utc": "2026-11-22T20:29:23.415404+00:00",
   "phases": {
     "A_native_metal_runtime": "COMPLETE",
-    "B_operational_gpu_screening": "IN_PROGRESS \u2014 B.1 screen_market kernel (hardware-executed, CPU-parity) + B.2 native DiscoveryEngine market ingestion (symbol id/generation registry, L1 via OrderBookRegistry, bar ring buffers, dirty tracking) DONE. B.3 native feature kernels, B.4 compaction/ranking, B.5 scanner wiring, B.6 live verification remain",
+    "B_operational_gpu_screening": "IN_PROGRESS \u2014 B.1 screen_market + B.2 DiscoveryEngine ingestion + B.3 native technical_features kernel (DMI/ADX/SMA/BB/ATR/VWAP, hardware-executed, CPU-parity) DONE. B.4 compaction/ranking, B.5 scanner wiring (DiscoveryEngine->features->screen->scanner), B.6 live verification remain",
     "C_full_market_scaling": "PENDING",
     "D_portfolio_integration": "PENDING",
     "E_remaining_kernel_integration": "PENDING",
     "F_operational_certification": "PENDING"
   },
   "tests": {
-    "total": 326,
+    "total": 330,
     "result": "passed"
   }
 }

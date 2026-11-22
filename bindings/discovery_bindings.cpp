@@ -116,6 +116,44 @@ void register_discovery(py::module_& m) {
     // compare this against MetalRuntime.screen on real hardware.
     m.def("screen_market_cpu", &cpu_ref::screen_market, py::arg("inputs"));
 
+    // --- technical features (Phase B.3) ------------------------------------
+    m.attr("TECH_CLOSE") = static_cast<std::uint32_t>(kTechClose);
+    m.attr("TECH_PREV_CLOSE") = static_cast<std::uint32_t>(kTechPrevClose);
+    m.attr("TECH_SMA") = static_cast<std::uint32_t>(kTechSma);
+    m.attr("TECH_BB") = static_cast<std::uint32_t>(kTechBb);
+    m.attr("TECH_DMI") = static_cast<std::uint32_t>(kTechDmi);
+    m.attr("TECH_ADX") = static_cast<std::uint32_t>(kTechAdx);
+    m.attr("TECH_VWAP") = static_cast<std::uint32_t>(kTechVwap);
+
+    py::class_<TechFeatures>(m, "TechFeatures")
+        .def_readonly("last_close", &TechFeatures::last_close)
+        .def_readonly("prev_close", &TechFeatures::prev_close)
+        .def_readonly("sma", &TechFeatures::sma)
+        .def_readonly("bb_middle", &TechFeatures::bb_middle)
+        .def_readonly("bb_upper", &TechFeatures::bb_upper)
+        .def_readonly("bb_lower", &TechFeatures::bb_lower)
+        .def_readonly("di_plus", &TechFeatures::di_plus)
+        .def_readonly("di_minus", &TechFeatures::di_minus)
+        .def_readonly("adx", &TechFeatures::adx)
+        .def_readonly("atr", &TechFeatures::atr)
+        .def_readonly("vwap", &TechFeatures::vwap)
+        .def_readonly("valid", &TechFeatures::valid);
+
+    // CPU oracle / fallback for the technical-feature pipeline.
+    m.def("technical_features_cpu",
+          [](const std::vector<float>& closes, const std::vector<float>& highs,
+             const std::vector<float>& lows, const std::vector<float>& volumes,
+             const std::vector<std::uint32_t>& counts, std::uint32_t symbol_count,
+             std::uint32_t max_window, std::uint32_t dmi_period,
+             std::uint32_t sma_period) {
+              TechWindowParams p{symbol_count, max_window, dmi_period, sma_period};
+              return cpu_ref::technical_features(closes, highs, lows, volumes,
+                                                 counts, p);
+          },
+          py::arg("closes"), py::arg("highs"), py::arg("lows"), py::arg("volumes"),
+          py::arg("counts"), py::arg("symbol_count"), py::arg("max_window"),
+          py::arg("dmi_period") = 14, py::arg("sma_period") = 20);
+
     py::class_<MetalRuntime>(m, "MetalRuntime")
         .def(py::init([](const std::string& metallib_path) {
                  return MetalRuntime::create(metallib_path);
@@ -152,7 +190,12 @@ void register_discovery(py::module_& m) {
              py::arg("lambda_"), py::arg("minimum_variance") = 0.0f,
              py::call_guard<py::gil_scoped_release>())
         .def("screen", &MetalRuntime::screen, py::arg("inputs"),
-             py::call_guard<py::gil_scoped_release>());
+             py::call_guard<py::gil_scoped_release>())
+        .def("technical_features", &MetalRuntime::technical_features,
+             py::arg("closes"), py::arg("highs"), py::arg("lows"),
+             py::arg("volumes"), py::arg("counts"), py::arg("symbol_count"),
+             py::arg("max_window"), py::arg("dmi_period") = 14,
+             py::arg("sma_period") = 20, py::call_guard<py::gil_scoped_release>());
 
     py::class_<KernelInfo>(m, "KernelInfo")
         .def_readonly("shader_file", &KernelInfo::shader_file)

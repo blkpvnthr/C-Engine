@@ -134,6 +134,54 @@ struct ScreeningOutput {
     float vwap_distance_pct{0.0f};
 };
 
+// ---------------------------------------------------------------------------
+// Technical-feature contract (Phase B.3).
+//
+// metal/technical_indicators.metal computes, for a batch of symbols (one GPU
+// thread per symbol) over each symbol's rolling 5-minute bar window, the
+// directional/technical features that feed ScreeningInput: Wilder DMI (DI+/DI-/
+// ADX, period 14), SMA20, the 20-period Bollinger middle/upper/lower band,
+// session VWAP, ATR, and the last/previous completed closes. The CPU oracle
+// cpu_ref::technical_features mirrors it in float32 in the SAME order so GPU and
+// CPU agree within a justified tolerance (directive §27/§124). SMA20 and the
+// Bollinger middle are the same measurement and are reported once (§29).
+//
+// Input layout: closes/highs/lows/volumes are symbol_count*max_window row-major
+// float32 (row = symbol, bars oldest->newest in [0, count)); counts[symbol] is
+// the number of valid bars in that row.
+// ---------------------------------------------------------------------------
+struct TechWindowParams {
+    std::uint32_t symbol_count{0};
+    std::uint32_t max_window{0};   // row stride (bar slots per symbol)
+    std::uint32_t dmi_period{14};  // Wilder DMI/ADX/ATR period
+    std::uint32_t sma_period{20};  // SMA / Bollinger period
+};
+
+enum TechValid : std::uint32_t {
+    kTechClose = 1u << 0,      // >=1 bar
+    kTechPrevClose = 1u << 1,  // >=2 bars
+    kTechSma = 1u << 2,        // >=sma_period bars
+    kTechBb = 1u << 3,         // >=sma_period bars
+    kTechDmi = 1u << 4,        // >=dmi_period+1 bars (DI+/DI-)
+    kTechAdx = 1u << 5,        // >=2*dmi_period+1 bars
+    kTechVwap = 1u << 6,       // cumulative volume > 0
+};
+
+struct TechFeatures {
+    float last_close{0.0f};
+    float prev_close{0.0f};
+    float sma{0.0f};
+    float bb_middle{0.0f};
+    float bb_upper{0.0f};
+    float bb_lower{0.0f};
+    float di_plus{0.0f};
+    float di_minus{0.0f};
+    float adx{0.0f};
+    float atr{0.0f};
+    float vwap{0.0f};
+    std::uint32_t valid{0};
+};
+
 struct RuntimeTelemetry {
     std::uint64_t dispatches_submitted{0};
     std::uint64_t dispatches_completed{0};

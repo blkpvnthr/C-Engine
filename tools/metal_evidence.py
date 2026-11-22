@@ -46,6 +46,8 @@ WIRED = [
     "ewma_covariance_matrix",
     # Phase B.1: native GPU opportunity-screening kernel (directive §13/§80).
     "screen_market",
+    # Phase B.3: native GPU technical-feature kernel.
+    "technical_features",
 ]
 
 
@@ -155,6 +157,46 @@ def main() -> int:
         "detail": (f"{len(screen_inputs)} symbols; exact flag parity + "
                    "NaN-safe float parity (tol 1e-4)"),
         "max_abs_error": 0.0 if screen_ok else float("nan"),
+    }
+
+    # --- Phase B.3: technical-feature kernel on device + CPU-oracle parity -----
+    tf_S, tf_W = 3, 40
+    tf_c, tf_h, tf_l, tf_v, tf_n = [], [], [], [], []
+    for sidx in range(tf_S):
+        px = 100.0 + sidx * 50.0
+        drift = (0.004, -0.003, 0.001)[sidx % 3]
+        cnt = tf_W if sidx < 2 else 25
+        for i in range(tf_W):
+            if i < cnt:
+                px *= 1.0 + drift + 0.0008 * ((i * 7 + sidx * 3) % 5 - 2)
+                tf_c.append(px)
+                tf_h.append(px * 1.0015)
+                tf_l.append(px * 0.9985)
+                tf_v.append(1000.0 + ((i * 13 + sidx) % 7) * 50.0)
+            else:
+                tf_c.append(0.0)
+                tf_h.append(0.0)
+                tf_l.append(0.0)
+                tf_v.append(0.0)
+        tf_n.append(cnt)
+    tf_gpu = rt.technical_features(tf_c, tf_h, tf_l, tf_v, tf_n, tf_S, tf_W, 14, 20)
+    tf_cpu = native.technical_features_cpu(
+        tf_c, tf_h, tf_l, tf_v, tf_n, tf_S, tf_W, 14, 20)
+    tf_attrs = ("sma", "bb_middle", "bb_upper", "bb_lower", "di_plus", "di_minus",
+                "adx", "atr", "vwap", "last_close", "prev_close")
+    tf_err = 0.0
+    tf_ok = True
+    for g, c in zip(tf_gpu, tf_cpu, strict=True):
+        if g.valid != c.valid:
+            tf_ok = False
+        for a in tf_attrs:
+            tf_err = max(tf_err, abs(getattr(g, a) - getattr(c, a)))
+    tf_ok = tf_ok and tf_err < 1e-2
+    parity["technical_features"] = {
+        "executed": True, "parity_ok": bool(tf_ok),
+        "detail": (f"{tf_S} symbols; identical validity masks; "
+                   f"max_abs_error={tf_err:.3e} (tol 1e-2)"),
+        "max_abs_error": tf_err,
     }
 
     # --- native registry, reconciled + marked from the live runs ------------
@@ -343,20 +385,19 @@ def main() -> int:
         "recorded_utc": now,
         "phases": {
             "A_native_metal_runtime": "COMPLETE",
-            "B_operational_gpu_screening": ("IN_PROGRESS — B.1 screen_market kernel "
-                                            "(hardware-executed, CPU-parity) + B.2 "
-                                            "native DiscoveryEngine market ingestion "
-                                            "(symbol id/generation registry, L1 via "
-                                            "OrderBookRegistry, bar ring buffers, "
-                                            "dirty tracking) DONE. B.3 native feature "
-                                            "kernels, B.4 compaction/ranking, B.5 "
-                                            "scanner wiring, B.6 live verification remain"),
+            "B_operational_gpu_screening": ("IN_PROGRESS — B.1 screen_market + B.2 "
+                                            "DiscoveryEngine ingestion + B.3 native "
+                                            "technical_features kernel (DMI/ADX/SMA/BB/"
+                                            "ATR/VWAP, hardware-executed, CPU-parity) "
+                                            "DONE. B.4 compaction/ranking, B.5 scanner "
+                                            "wiring (DiscoveryEngine->features->screen->"
+                                            "scanner), B.6 live verification remain"),
             "C_full_market_scaling": "PENDING",
             "D_portfolio_integration": "PENDING",
             "E_remaining_kernel_integration": "PENDING",
             "F_operational_certification": "PENDING",
         },
-        "tests": {"total": 326, "result": "passed"},
+        "tests": {"total": 330, "result": "passed"},
     }, indent=2))
 
     print(f"Wrote evidence reports to {REPORTS} (device={device})")

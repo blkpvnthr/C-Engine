@@ -48,10 +48,11 @@ def test_runtime_initializes_on_device(runtime):
     assert runtime.device_name  # non-empty device name
     assert runtime.reason == ""
     names = runtime.function_names()
-    # 45 preserved baseline kernels + the Phase B screen_market kernel newly
-    # added by the native discovery layer (directive §13/§80).
-    assert len(names) == 46, f"expected 46 entry points, got {len(names)}"
+    # 45 preserved baseline kernels + the Phase B kernels newly added by the
+    # native discovery layer: screen_market (B.1) + technical_features (B.3).
+    assert len(names) == 47, f"expected 47 entry points, got {len(names)}"
     assert "screen_market" in names
+    assert "technical_features" in names
 
 
 def test_namespace_aware_resolution(runtime):
@@ -150,10 +151,10 @@ def test_kernel_registry_reconciles_against_device(runtime):
     reg = native.KernelRegistry()
     reg.reconcile_with_device(runtime)
     cov = reg.coverage()
-    # 45 baseline kernels + the Phase B screen_market kernel (directive §13/§80).
-    assert cov.discovered == 46
-    assert cov.compiled_callable == 46  # every kernel builds a pipeline on device
-    assert cov.host_callable == 8  # 7 baseline wired kernels + screen_market
+    # 45 baseline + Phase B screen_market + technical_features (directive §13/§80).
+    assert cov.discovered == 47
+    assert cov.compiled_callable == 47  # every kernel builds a pipeline on device
+    assert cov.host_callable == 9  # 7 baseline + screen_market + technical_features
     # HONESTY GATE: a hardware-validated kernel is NOT operationally integrated.
     # Nothing is wired to a live consumer yet, so consumer_connected must be 0
     # even though several kernels name an intended consumer (directive §80/§86).
@@ -163,8 +164,8 @@ def test_kernel_registry_reconciles_against_device(runtime):
     import json
 
     doc = json.loads(reg.to_json())
-    assert doc["discovered"] == 46
-    assert len(doc["kernels"]) == 46
+    assert doc["discovered"] == 47
+    assert len(doc["kernels"]) == 47
     assert doc["consumer_connected"] == 0
 
 
@@ -283,3 +284,72 @@ def test_screen_market_entry_and_exit_semantics(runtime):
 def test_screen_market_rejects_empty(runtime):
     with pytest.raises(native.MetalError):
         runtime.screen([])
+
+
+# ------------------------------------------- Phase B.3 technical feature kernel
+def _bar_windows(num_symbols=3, window=40):
+    """Deterministic trending/declining/partial bar windows (row-major)."""
+    closes, highs, lows, vols, counts = [], [], [], [], []
+    for s in range(num_symbols):
+        price = 100.0 + s * 50.0
+        drift = (0.004, -0.003, 0.001)[s % 3]
+        n = window if s < 2 else 25  # third symbol is partial (no ADX yet)
+        # tiny deterministic wiggle keyed by (s, i), no RNG
+        for i in range(window):
+            if i < n:
+                price *= 1.0 + drift + 0.0008 * ((i * 7 + s * 3) % 5 - 2)
+                closes.append(price)
+                highs.append(price * 1.0015)
+                lows.append(price * 0.9985)
+                vols.append(1000.0 + ((i * 13 + s) % 7) * 50.0)
+            else:
+                closes.append(0.0)
+                highs.append(0.0)
+                lows.append(0.0)
+                vols.append(0.0)
+        counts.append(n)
+    return closes, highs, lows, vols, counts, num_symbols, window
+
+
+def test_technical_features_gpu_cpu_parity(runtime):
+    c, h, lo, v, cnt, S, W = _bar_windows()
+    gpu = runtime.technical_features(c, h, lo, v, cnt, S, W, 14, 20)
+    cpu = native.technical_features_cpu(c, h, lo, v, cnt, S, W, 14, 20)
+    assert len(gpu) == len(cpu) == S
+    attrs = ("last_close", "prev_close", "sma", "bb_middle", "bb_upper",
+             "bb_lower", "di_plus", "di_minus", "adx", "atr", "vwap")
+    for g, cc in zip(gpu, cpu, strict=True):
+        assert g.valid == cc.valid  # identical validity masks
+        for a in attrs:
+            # derived multi-step float32: justified tolerance (directive §124)
+            assert abs(getattr(g, a) - getattr(cc, a)) < 1e-2
+
+
+def test_technical_features_directional_semantics(runtime):
+    c, h, lo, v, cnt, S, W = _bar_windows()
+    out = runtime.technical_features(c, h, lo, v, cnt, S, W, 14, 20)
+    # sym0 uptrend -> DI+ dominant; sym1 downtrend -> DI- dominant.
+    assert out[0].di_plus > out[0].di_minus
+    assert out[1].di_minus > out[1].di_plus
+    # Bollinger middle equals SMA (same measurement, reported once; §29).
+    for f in out:
+        if f.valid & native.TECH_SMA:
+            assert abs(f.bb_middle - f.sma) < 1e-4
+            assert f.bb_upper >= f.bb_middle >= f.bb_lower
+
+
+def test_technical_features_valid_mask_respects_bar_depth(runtime):
+    # 10 bars: enough for DI (>=15? no) — choose depths that toggle each bit.
+    c, h, lo, v, cnt, S, W = _bar_windows(num_symbols=3, window=40)
+    out = runtime.technical_features(c, h, lo, v, cnt, S, W, 14, 20)
+    # Symbol 2 has only 25 bars: DI valid (>=15) but ADX not (needs >=29).
+    assert out[2].valid & native.TECH_DMI
+    assert not (out[2].valid & native.TECH_ADX)
+    # Symbols 0/1 have 40 bars: ADX valid.
+    assert out[0].valid & native.TECH_ADX
+    assert out[1].valid & native.TECH_ADX
+
+
+def test_technical_features_rejects_bad_dims(runtime):
+    with pytest.raises(native.MetalError):
+        runtime.technical_features([], [], [], [], [], 0, 0)

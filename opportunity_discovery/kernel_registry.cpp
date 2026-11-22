@@ -93,6 +93,13 @@ KernelRegistry::KernelRegistry() {
                           "inputs[ScreeningInput@0] outputs[ScreeningOutput@1] count[u32@2]",
                           "opportunity_discovery,scanner,strategies", "l1_quote"));
 
+    // --- technical_indicators.metal (1) : Phase B.3 feature kernel -------------
+    kernels_.push_back(op("technical_indicators.metal", "technical_features",
+                          "MetalRuntime.technical_features",
+                          "closes/highs/lows/volumes[f32@0-3] counts[u32@4] "
+                          "params[TechWindowParams@5] out[TechFeatures@6]",
+                          "opportunity_discovery,scanner,strategies", "bars_5m"));
+
     // --- covariance.metal (7) : 3 wired, 4 research/blocked -------------------
     kernels_.push_back(op("covariance.metal", "column_means",
                           "MetalRuntime.column_means",

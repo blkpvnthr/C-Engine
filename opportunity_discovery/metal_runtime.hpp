@@ -113,6 +113,17 @@ public:
     [[nodiscard]] std::vector<ScreeningOutput> screen(
         const std::vector<ScreeningInput>& inputs);
 
+    // Batch technical-feature computation (one GPU thread per symbol) over
+    // row-major (symbol_count * max_window) bar windows. Dispatches
+    // technical_features on device; returns one TechFeatures per symbol,
+    // matching cpu_ref::technical_features within tolerance (directive §27).
+    [[nodiscard]] std::vector<TechFeatures> technical_features(
+        const std::vector<float>& closes, const std::vector<float>& highs,
+        const std::vector<float>& lows, const std::vector<float>& volumes,
+        const std::vector<std::uint32_t>& counts, std::uint32_t symbol_count,
+        std::uint32_t max_window, std::uint32_t dmi_period = 14,
+        std::uint32_t sma_period = 20);
+
     // --- introspection / telemetry -----------------------------------------
     [[nodiscard]] RuntimeTelemetry telemetry() const;
     [[nodiscard]] std::size_t cached_pipeline_count() const;
