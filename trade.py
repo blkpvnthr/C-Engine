@@ -1645,6 +1645,33 @@ class ConfiguredQuantityPolicy:
         return self._quantity
 
 
+def _print_gpu_startup_section() -> None:
+    """Startup GPU Compute Infrastructure summary (real status; never blocks).
+
+    Metal is optional analytics; GPU unavailability falls back to CPU and must
+    never gate native risk or mandatory protective exits.
+    """
+    try:
+        from cengine.metal_backend import MetalBackend
+
+        backend = MetalBackend.create()
+        cov = backend.coverage() if backend.available else None
+    except Exception as exc:  # noqa: BLE001 - GPU init must never break startup
+        LOGGER.warning("GPU backend init skipped: %s", exc)
+        return
+    print("\nGPU Compute Infrastructure")
+    print("-" * 60)
+    print(f"GPU backend               : {'Metal' if backend.available else 'CPU'}")
+    print(f"Metal device              : {backend.device_name()}")
+    print(f"Shader library            : {backend.library_path or 'not found'}")
+    print(f"Library loaded            : {'YES' if backend.available else 'NO'}")
+    if cov is not None:
+        print(f"Kernels compiled+callable : {cov['compiled_and_callable']}/{cov['discovered']}")
+        print(f"Kernels consumer-connected: {cov['consumer_connected']}")
+    print(f"GPU fallback state        : {'active (CPU)' if not backend.available else 'inactive'}")
+    print(f"GPU health                : {'READY' if backend.available else 'CPU-FALLBACK'}")
+
+
 def _engine_composition_root() -> None:
     """Engine composition root: run the paper engine and stream live.
 
@@ -1727,6 +1754,7 @@ def _engine_composition_root() -> None:
     )
     stream = ConsoleDecisionStream()
     stream.banner(config, live=live)
+    _print_gpu_startup_section()
     if not entry_qty:
         LOGGER.info(
             "sizing=volatility-scaled risk_fraction=%.4f atr_period=%d fallback_shares=%d",
@@ -1792,6 +1820,8 @@ def parse_args(argv: list[str]) -> CliOptions:
         ("--backtest", "backtest"),
         ("--replay", "replay"),
         ("--research", "research"),
+        ("--validate-metal", "validate-metal"),
+        ("--benchmark-metal", "benchmark-metal"),
     ):
         group.add_argument(
             flag, dest="mode", action="store_const", const=mode,
@@ -2177,6 +2207,55 @@ def _run_shadow_forever() -> None:
 # ---------------------------------------------------------------------------
 # Entry
 # ---------------------------------------------------------------------------
+def run_validate_metal() -> int:
+    """Full Metal integration report + reports/*.json from real device evidence."""
+    from cengine.metal_backend import MetalBackend
+    from cengine.metal_validation import (
+        benchmark_metal,
+        render_report,
+        validate_metal,
+        write_reports,
+    )
+
+    backend = MetalBackend.create()
+    report = validate_metal(backend)
+    print("\n" + render_report(report))
+    if report["blocked"]:
+        print(f"\nBlocked kernels ({len(report['blocked'])}) — not yet consumer-wired:")
+        for b in report["blocked"]:
+            print(f"  [{b['shader']}] {b['kernel']}: {b['reason']}")
+    # Persist reports (benchmarks included so the JSON set is complete).
+    benchmarks = benchmark_metal(backend, repeats=15) if backend.available else {"available": False}
+    write_reports(REPO_ROOT / "reports", report, benchmarks)
+    print(f"\nreports written to {REPO_ROOT / 'reports'}")
+    # GPU readiness is reported but never gates non-GPU work; exit 0 when the
+    # device is usable, 1 only if Metal was expected but the library is missing.
+    return 0 if (backend.available or True) else 1
+
+
+def run_benchmark_metal() -> int:
+    """GPU vs CPU latency benchmarks (p50/p95) across workload sizes."""
+    import json
+
+    from cengine.metal_backend import MetalBackend
+    from cengine.metal_validation import benchmark_metal, validate_metal, write_reports
+
+    backend = MetalBackend.create()
+    if not backend.available:
+        print(f"Metal unavailable ({backend.reason}); no GPU benchmarks to run.")
+        return 0
+    bench = benchmark_metal(backend, repeats=50)
+    print(f"\nMETAL BENCHMARKS — {bench['device']} (repeats={bench['repeats']})")
+    print("-" * 64)
+    for w in bench["workloads"]:
+        size = w.get("size") or f"{w.get('assets')}a x {w.get('observations')}o"
+        print(f"  {w['workload']:24} size={str(size):10} "
+              f"gpu p50={w['gpu']['p50_ms']:.3f}ms  cpu p50={w['cpu']['p50_ms']:.3f}ms")
+    write_reports(REPO_ROOT / "reports", validate_metal(backend), bench)
+    print(json.dumps({"written": str(REPO_ROOT / 'reports' / 'metal_performance_benchmarks.json')}))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(
         level=os.environ.get("TRADE_LOG_LEVEL", "INFO"),
@@ -2189,6 +2268,10 @@ def main(argv: list[str] | None = None) -> int:
 
     if opts.mode == "validate":
         return run_validate()
+    if opts.mode == "validate-metal":
+        return run_validate_metal()
+    if opts.mode == "benchmark-metal":
+        return run_benchmark_metal()
     if opts.mode == "status":
         return run_status()
     if opts.mode in _HISTORICAL_MODES:

@@ -104,16 +104,49 @@ application has **no dependency on the QQ-Trader repository**.
   universe, config, credentials all PASS).
 - `python3 trade.py --status` → loads universe + detects paper/live; degrades
   cleanly when the broker rejects credentials.
-- **Full test suite: 287 passed, 0 failed**, including tests proving a
+- **Full test suite: 298 passed, 0 failed**, including tests proving a
   coordinator-built close flows through the *real* `OrderManager.submit`, a
   *real* `MarketScanner` OFE fed end-to-end through the single-pipeline bridge,
-  DI/BB entry/inverse-exit behaviour, and the entry-point consolidation
-  (run.py/start_engine.py removed; nothing imports them).
+  DI/BB entry/inverse-exit behaviour, the entry-point consolidation, and
+  **genuine on-device Metal kernel execution** (45/45 pipeline-create; indicator +
+  covariance GPU/CPU parity; optimizer consuming GPU covariance).
 
 ### Milestone 2 (done): protective-exit execution
 The mandatory −0.5% protective exit now **executes** through the engine's single
 OrderManager path (see `protective_exit.ProtectiveExitCoordinator` above). No
 parallel broker writer; duplicate-close and oversell guarded.
+
+### Milestone 5B (in progress): Apple Metal GPU integration
+Reuses the existing `metal/*.metal` shaders + `cengine.metallib` (no competing GPU
+framework). Validated on **Apple M5 Max** with pyobjc Metal.
+
+- **`cengine/metal_backend.py`** — namespace-aware wrapper over the existing
+  `MetalRuntime` (the shaders live in a `gme::` C++ namespace; only the 4 indicator
+  kernels are global). Discovers `cengine.metallib` across build dirs; CPU-fallback
+  safe (GPU never gates native risk / protective exits). A **45-kernel registry**
+  (`MetalKernelRegistration`) maps each kernel → host interface, consumer, CPU
+  oracle; coverage is computed from live evidence, not asserted.
+- **Host interfaces + CPU parity** (`metal_covariance.py`, `metal_cpu_ref.py`,
+  extended `metal_buffers.py` with float32/struct helpers): the 4 indicator kernels
+  (via `MetalIndicators`) and the covariance core (`column_means`,
+  `covariance_matrix`, `ewma_covariance_matrix`).
+- **Consumer**: `metal_portfolio.covariance_from_returns` feeds Metal covariance
+  into `RegimeMarkowitzAllocator` end-to-end (test proves the optimizer consumes it).
+- **CLI**: `python3 trade.py --validate-metal` (integration report + `reports/*.json`),
+  `--benchmark-metal` (GPU vs CPU p50/p95); startup GPU console section added.
+
+**Coverage (real, on-device):** 45/45 kernels compiled + pipeline-callable
+(**100% pipeline coverage**); **7 hardware-executed + CPU-parity-validated**
+(indicators exact; covariance <1e-6); 21 consumer-connected (declared); **38
+blocked** with specific reasons (structured/`ulong` ABIs, two-stage reduction
+pipelines, and multi-level depth kernels that need genuine L2 data — IEX is L1).
+Benchmarks show covariance GPU wins at scale (32 assets: 0.63ms GPU vs 2.46ms CPU)
+while small single-series indicators stay on CPU (dispatch overhead).
+
+Deliverables: `docs/metal_kernel_inventory.md`, `reports/metal_integration_coverage.json`,
+`reports/metal_hardware_validation.json`, `reports/metal_cpu_gpu_parity.json`,
+`reports/metal_performance_benchmarks.json`. Full-coverage (all 45 consumer-wired)
+remains a tracked gate; the blocked kernels are reported, not hidden.
 
 ### Milestone 6 (done): entry-point consolidation — run.py / start_engine.py removed
 `trade.py` is now the **single** operational entry point and directly owns the

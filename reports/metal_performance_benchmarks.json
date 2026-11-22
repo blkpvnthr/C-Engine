@@ -1,0 +1,107 @@
+{
+  "device": "Apple M5 Max",
+  "available": true,
+  "repeats": 15,
+  "workloads": [
+    {
+      "workload": "rolling_sma_ticks",
+      "size": 16,
+      "gpu": {
+        "p50_ms": 0.6166,
+        "p95_ms": 0.6491
+      },
+      "cpu": {
+        "p50_ms": 0.0003,
+        "p95_ms": 0.0009
+      }
+    },
+    {
+      "workload": "rolling_sma_ticks",
+      "size": 64,
+      "gpu": {
+        "p50_ms": 0.6079,
+        "p95_ms": 0.6898
+      },
+      "cpu": {
+        "p50_ms": 0.0077,
+        "p95_ms": 0.008
+      }
+    },
+    {
+      "workload": "rolling_sma_ticks",
+      "size": 256,
+      "gpu": {
+        "p50_ms": 0.2445,
+        "p95_ms": 0.5352
+      },
+      "cpu": {
+        "p50_ms": 0.0394,
+        "p95_ms": 0.0439
+      }
+    },
+    {
+      "workload": "rolling_sma_ticks",
+      "size": 1024,
+      "gpu": {
+        "p50_ms": 0.2158,
+        "p95_ms": 0.3122
+      },
+      "cpu": {
+        "p50_ms": 0.1704,
+        "p95_ms": 0.1887
+      }
+    },
+    {
+      "workload": "covariance_matrix",
+      "assets": 4,
+      "observations": 64,
+      "gpu": {
+        "p50_ms": 0.4036,
+        "p95_ms": 0.4947
+      },
+      "cpu": {
+        "p50_ms": 0.0357,
+        "p95_ms": 0.0365
+      }
+    },
+    {
+      "workload": "covariance_matrix",
+      "assets": 8,
+      "observations": 64,
+      "gpu": {
+        "p50_ms": 0.3945,
+        "p95_ms": 0.493
+      },
+      "cpu": {
+        "p50_ms": 0.1292,
+        "p95_ms": 0.1305
+      }
+    },
+    {
+      "workload": "covariance_matrix",
+      "assets": 16,
+      "observations": 64,
+      "gpu": {
+        "p50_ms": 0.4164,
+        "p95_ms": 0.5097
+      },
+      "cpu": {
+        "p50_ms": 0.491,
+        "p95_ms": 0.4974
+      }
+    },
+    {
+      "workload": "covariance_matrix",
+      "assets": 32,
+      "observations": 64,
+      "gpu": {
+        "p50_ms": 0.5025,
+        "p95_ms": 0.5424
+      },
+      "cpu": {
+        "p50_ms": 1.9278,
+        "p95_ms": 1.9964
+      }
+    }
+  ]
+}
