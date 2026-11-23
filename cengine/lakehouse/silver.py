@@ -91,6 +91,25 @@ _TRANSFORMS = {
         "last_fill_quantity": "$.last_fill_quantity",
         "last_fill_price_ticks": "$.last_fill_price_ticks",
         "average_fill_price_ticks": "$.average_fill_price_ticks"}),
+    # adaptive learning evidence (Milestone 6, §32)
+    "predictions": ("learning_events", ["prediction"], {
+        "symbol_id": "symbol_id", "task": "$.task", "prediction": "$.prediction",
+        "prediction_uncertainty": "$.prediction_uncertainty",
+        "applicability": "$.applicability", "data_quality": "$.data_quality",
+        "model_id": "$.model_id", "model_version": "$.model_version",
+        "model_maturity": "$.model_maturity", "device": "$.device",
+        "abstention_reason": "$.abstention_reason"}),
+    "shadow_recommendations": ("learning_events", ["shadow_recommendation"], {
+        "symbol_id": "symbol_id", "model_id": "$.model_id",
+        "model_version": "$.model_version", "champion_score": "$.champion_score",
+        "challenger_score": "$.challenger_score", "selected": "$.selected",
+        "rank_basis": "$.rank_basis"}),
+    "model_lifecycle": ("model_events", ["training_result", "model_promotion",
+                                         "model_rollback", "drift_detection"], {
+        "event_type": "event_type", "model_id": "$.model_id",
+        "model_version": "$.model_version", "to_maturity": "$.to_maturity",
+        "from_maturity": "$.from_maturity", "approved": "$.approved",
+        "to_reference": "$.to_reference", "reason": "$.reason"}),
 }
 
 

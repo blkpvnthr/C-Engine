@@ -51,6 +51,12 @@ _VIEWS = {
     "execution_policy_performance": ("gold", "execution_policy_performance"),
     "portfolio_performance": ("gold", "portfolio_performance"),
     "data_quality_results": ("gold", "data_quality_results"),
+    # adaptive learning platform (Milestone 6)
+    "learning_events": ("bronze", "learning_events"),
+    "model_events": ("bronze", "model_events"),
+    "predictions": ("silver", "predictions"),
+    "shadow_recommendations": ("silver", "shadow_recommendations"),
+    "model_lifecycle": ("silver", "model_lifecycle"),
 }
 
 
