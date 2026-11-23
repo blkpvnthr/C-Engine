@@ -1,0 +1,15 @@
+{
+  "report": "model_governance",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "M5 records model metadata ONLY. It does NOT train, validate, or promote any model \u2014 that is M6.",
+  "reproducible_dataset_version": "1e19570a6b48ee4b5389470c",
+  "registered_record": {
+    "model_id": "m5-demo",
+    "promotion_status": "NONE",
+    "approval_status": "UNAPPROVED",
+    "training_dataset_version": "1e19570a6b48ee4b5389470c"
+  },
+  "verdict": "Governance metadata captured; promotion=NONE, approval=UNAPPROVED."
+}

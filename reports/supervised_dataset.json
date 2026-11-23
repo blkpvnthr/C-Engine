@@ -1,0 +1,11 @@
+{
+  "report": "supervised_dataset",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Strategy recommendations LEFT JOIN realized outcomes. Labels are NEVER fabricated; recommendations without a realized outcome are explicitly censored; rejected opportunities keep NULL labels.",
+  "label_distribution": {
+    "realized": 1
+  },
+  "verdict": "Supervised dataset built with honest, censored labeling."
+}

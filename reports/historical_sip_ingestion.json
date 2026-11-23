@@ -1,0 +1,34 @@
+{
+  "report": "historical_sip_ingestion",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "GENUINE bounded ingestion from the Alpaca SIP data API (feed=sip, REST, reusing the engine's credentials). No new websocket; no silent SIP->IEX fallback.",
+  "data_source": "Alpaca SIP /v2/stocks/bars",
+  "feed": "sip",
+  "universe": [
+    "AAPL",
+    "MSFT",
+    "SPY",
+    "NVDA",
+    "AMD"
+  ],
+  "timeframe": "5Min",
+  "lookback_start": "2026-11-10",
+  "bars_written_run1": 8684,
+  "symbols_ingested": 5,
+  "distinct_symbols_on_disk": 5,
+  "total_bars_on_disk": 8684,
+  "parquet_parts": 11,
+  "point_in_time_violations": 0,
+  "price_scale": 10000,
+  "close_price_range_usd": [
+    125.81,
+    762.64
+  ],
+  "resumability": {
+    "run2_bars_written": 0,
+    "run2_skipped_resumed": 8684
+  },
+  "verdict": "Bounded, resumable, point-in-time-clean SIP ingestion verified against the live data API."
+}

@@ -1,0 +1,26 @@
+{
+  "report": "lakehouse_architecture",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Entirely local Parquet+PyArrow+DuckDB lakehouse. No cloud, no MongoDB/Supabase. Analytical only; the authoritative financial journal (cengine/journal.py) stays separate; capture never blocks the order path or the mandatory -0.5% protective exit.",
+  "layers": {
+    "bronze": "immutable raw source + engine/execution events",
+    "silver": "validated, typed, deduplicated, versioned datasets",
+    "gold": "point-in-time features, position outcomes, supervised + offline-RL datasets"
+  },
+  "stack": {
+    "parquet_compression": "zstd",
+    "engine": "duckdb",
+    "price_scale": 10000
+  },
+  "schema_versions": {
+    "lakehouse": "lakehouse-1.0.0",
+    "envelope": "event-envelope-1.0.0",
+    "gold": "gold-1.0.0",
+    "quality": "data-quality-1.0.0",
+    "feature_store": "feature-store-1.0.0",
+    "governance": "model-governance-1.0.0"
+  },
+  "verdict": "Three-layer local lakehouse operational."
+}

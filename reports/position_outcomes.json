@@ -1,0 +1,19 @@
+{
+  "report": "position_outcomes",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "FIFO lot attribution from silver fills; realized return only for closed positions; open quantity never labeled closed.",
+  "outcomes": [
+    {
+      "position_id": "pos-AAPL-1",
+      "entry_price_ticks": 1000000,
+      "exit_price_ticks": 1010000,
+      "gross_return": 0.01,
+      "net_return": 0.01,
+      "lot_attribution": "FIFO",
+      "status": "reconstructed_from_fills"
+    }
+  ],
+  "verdict": "Position lifecycles reconstructed with deterministic FIFO attribution."
+}
