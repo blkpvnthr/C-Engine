@@ -1,0 +1,31 @@
+{
+  "report": "performance_attribution",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "version": "performance-attribution-1.0.0",
+  "generated_ns": 1795412174610137000,
+  "diagnostics": [
+    {
+      "diagnostic_id": "diag-insufficient-fec87e8ca25a270d",
+      "detected_ns": 1795412174610137000,
+      "component": "trading_outcomes",
+      "period": "all",
+      "evidence_refs": [],
+      "sample_size": 0,
+      "est_economic_impact": null,
+      "uncertainty": null,
+      "severity": "info",
+      "suspected_cause": "no_genuine_closed_position_outcomes_yet",
+      "alternatives": [],
+      "recommended_experiment_family": "data_collection",
+      "required_eligibility": "genuine_execution_outcomes",
+      "priority": 0.0,
+      "status": "insufficient_data",
+      "causal_note": "attribution requires genuine closed-position outcomes; none/too few exist (no live trading session has run). Not a weakness in the engine \u2014 a data-coverage gap."
+    }
+  ],
+  "dimensions_analyzed": [],
+  "data_available": false,
+  "causal_note": "descriptive attribution; each finding recommends a controlled experiment \u2014 no causation is asserted"
+}

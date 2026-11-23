@@ -1,0 +1,83 @@
+{
+  "report": "data_sufficiency",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "version": "data-sufficiency-controller-1.0.0",
+  "generated_ns": 1795412170999295000,
+  "eligibility": {
+    "forward_return_prediction": "validation_eligible",
+    "strategy_net_return": "insufficient_data",
+    "probability_positive_return": "insufficient_data",
+    "regime_transition": "insufficient_data",
+    "execution_quality": "insufficient_data",
+    "policy_bandit": "insufficient_data",
+    "offline_rl_execution": "insufficient_data"
+  },
+  "experiment_eligible_tasks": [
+    "forward_return_prediction"
+  ],
+  "collection_tasks": [
+    {
+      "task_id": "collect-f9a4e9e821a1693b",
+      "learning_task": "strategy_net_return",
+      "missing_evidence": "insufficient eligible observations: dataset_not_materialized",
+      "recoverable_historically": false,
+      "priority": 1.0,
+      "estimated_economic_importance": 1.0,
+      "suggested_source": "live_or_mock_execution_outcomes",
+      "status": "open"
+    },
+    {
+      "task_id": "collect-3eb4755d795ef312",
+      "learning_task": "policy_bandit",
+      "missing_evidence": "insufficient eligible observations: dataset_not_materialized",
+      "recoverable_historically": false,
+      "priority": 0.9,
+      "estimated_economic_importance": 0.9,
+      "suggested_source": "logged_policy_actions_with_rewards",
+      "status": "open"
+    },
+    {
+      "task_id": "collect-3e768c87807eff3b",
+      "learning_task": "offline_rl_execution",
+      "missing_evidence": "insufficient eligible observations: dataset_not_materialized",
+      "recoverable_historically": false,
+      "priority": 0.9,
+      "estimated_economic_importance": 0.9,
+      "suggested_source": "logged_sequential_transitions",
+      "status": "open"
+    },
+    {
+      "task_id": "collect-89ff5080dcf9350d",
+      "learning_task": "probability_positive_return",
+      "missing_evidence": "insufficient eligible observations: dataset_not_materialized",
+      "recoverable_historically": false,
+      "priority": 0.8,
+      "estimated_economic_importance": 0.8,
+      "suggested_source": "live_or_mock_execution_outcomes",
+      "status": "open"
+    },
+    {
+      "task_id": "collect-ead52615d095d4e9",
+      "learning_task": "execution_quality",
+      "missing_evidence": "insufficient eligible observations: dataset_not_materialized",
+      "recoverable_historically": false,
+      "priority": 0.7,
+      "estimated_economic_importance": 0.7,
+      "suggested_source": "genuine_order_fill_events",
+      "status": "open"
+    },
+    {
+      "task_id": "collect-2b1c4b14a3938d56",
+      "learning_task": "regime_transition",
+      "missing_evidence": "insufficient eligible observations: dataset_not_materialized",
+      "recoverable_historically": true,
+      "priority": 0.6,
+      "estimated_economic_importance": 0.5,
+      "suggested_source": "historical_sip_bars",
+      "status": "open"
+    }
+  ],
+  "policy": "no fabricated observations; deficiencies become collection tasks"
+}

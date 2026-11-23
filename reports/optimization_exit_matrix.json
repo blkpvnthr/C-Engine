@@ -1,0 +1,58 @@
+{
+  "report": "optimization_exit_matrix",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "scope_honesty": "historical-replay simulation on genuine 1m (NOT actual trading); conservative fills; toy entry rule so all nets negative -> RELATIVE exit evidence only, no profitability claim.",
+  "evaluation_A_isolation_per_symbol": {
+    "AAPL": {
+      "n_entries": 3000,
+      "best_policy": "EXIT-04",
+      "best_score": -3.691,
+      "baseline_EXIT00_score": -4.443,
+      "research_only": 5
+    },
+    "SPY": {
+      "n_entries": 3000,
+      "best_policy": "EXIT-15",
+      "best_score": -3.623,
+      "baseline_EXIT00_score": -4.19,
+      "research_only": 5
+    },
+    "QQQ": {
+      "n_entries": 3000,
+      "best_policy": "EXIT-15",
+      "best_score": -3.54,
+      "baseline_EXIT00_score": -4.108,
+      "research_only": 5
+    },
+    "MSFT": {
+      "n_entries": 3000,
+      "best_policy": "EXIT-04",
+      "best_score": -3.881,
+      "baseline_EXIT00_score": -4.669,
+      "research_only": 5
+    },
+    "NVDA": {
+      "n_entries": 3000,
+      "best_policy": "EXIT-15",
+      "best_score": -3.644,
+      "baseline_EXIT00_score": -4.136,
+      "research_only": 5
+    }
+  },
+  "evaluation_B_risk_normalized_AAPL": {
+    "EXIT-00": -4.443,
+    "EXIT-01": -2.993,
+    "EXIT-02": -2.222,
+    "EXIT-03": -1.643,
+    "EXIT-04": -1.235,
+    "EXIT-05": -4.475,
+    "EXIT-06": -4.397,
+    "EXIT-07": -2.864,
+    "EXIT-12": -1.656,
+    "EXIT-14": -3.019,
+    "EXIT-15": -1.25
+  },
+  "finding": "wider stops generally out-score the -0.5% baseline in exit-isolation; risk-normalized comparison holds capital-at-risk constant"
+}

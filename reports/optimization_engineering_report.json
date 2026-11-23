@@ -1,0 +1,76 @@
+{
+  "report": "optimization_engineering_report",
+  "milestone": "M6B \u2014 Autonomous Performance-Driven ML/RL Optimization",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "environment": {
+    "python": "3.11.8",
+    "platform": "macOS-27.0-arm64-arm-64bit"
+  },
+  "data": {
+    "genuine_1m_bars": "~6.76M across 5 symbols (2020-2026)",
+    "timeframes": [
+      "1Min canonical",
+      "5Min derived/stored"
+    ],
+    "symbols": [
+      "AAPL",
+      "SPY",
+      "QQQ",
+      "MSFT",
+      "NVDA"
+    ]
+  },
+  "components_new": [
+    "attribution",
+    "data_sufficiency",
+    "hypotheses",
+    "search",
+    "experiments",
+    "memory",
+    "economic",
+    "controller (MetaOptimizer)",
+    "exits(adaptive/state_machine/counterfactual/experiment_matrix/runner)",
+    "validation(OOS/purged-walk-forward)",
+    "supervised_runner",
+    "orchestration",
+    "config",
+    "cli",
+    "native emergency candidate"
+  ],
+  "reused_from_m5_m6": [
+    "lakehouse",
+    "feature store",
+    "MLX models",
+    "registry",
+    "evaluation metrics",
+    "drift monitoring",
+    "replay concept"
+  ],
+  "research_conclusions": {
+    "1_identify_weaknesses": "yes (attribution; honest INSUFFICIENT_DATA without outcomes)",
+    "2_determine_what_to_tune": "yes (diagnostics -> hypotheses -> search spaces)",
+    "3_generate_and_run_experiments": "yes (bounded, deduped, memory-informed, OOS)",
+    "4_tune_models_features_hparams_rewards": "yes (supervised + exit + reward spaces)",
+    "5_learn_from_prior_experiments": "yes (persistent optimization memory + TPE)",
+    "6_measurable_economic_improvement": "NOT demonstrated \u2014 candidates did not beat the incumbent OOS; no economic edge claimed",
+    "7_beat_baselines": "no (forward-return edge marginal; exit candidates not reliably better OOS under risk gates)",
+    "8_relaxing_minus_0.5pct_improves": "INCONCLUSIVE \u2014 wider stops out-score in isolation but did not beat incumbent OOS under risk-normalized gates in these runs",
+    "9_adaptive_reduces_premature_liquidation": "counterfactual shows -0.5% exits recover frequently (premature); adaptive candidate addresses it but is unproven OOS",
+    "10_adaptive_increases_drawdown_tail": "wider stops raise per-trade downside; gated by max-drawdown + risk-normalized sizing (not yet certified)",
+    "11_best_under_equal_risk": "inconclusive on these runs; requires M7 certification",
+    "12_blocked_by_insufficient_data": "strategy/execution/bandit/RL outcome tasks remain INSUFFICIENT_DATA (no genuine execution lifecycles)",
+    "13_gpu_helps": "MLX GPU training integrated; small MLPs are CPU-comparable (honest)",
+    "14_runs_repeatedly_unattended": "yes (autonomous cycle + memory + recovery)",
+    "15_m7_certification_candidates": "none promoted; all candidates shadow-eligible only"
+  },
+  "invariants": {
+    "production_exit_preserved": true,
+    "native_authority_intact": true,
+    "no_live_activation": true,
+    "no_risk_expansion": true,
+    "no_fabricated_evidence": true,
+    "sql_injection_guarded": true
+  },
+  "verdict": "engineering COMPLETE; economic improvement NOT demonstrated; incumbent retained; Milestone 7 owns certification + controlled live deployment"
+}

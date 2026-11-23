@@ -9,6 +9,7 @@ baseline comparison on identical decisions. Pure numpy/scipy (CPU). Every output
 """
 
 from cengine.learning.evaluation.economic import (
+    DATA_LABEL_HISTORICAL_REPLAY,
     DATA_LABEL_REAL,
     DATA_LABEL_SYNTHETIC,
     ECONOMIC_METRICS_VERSION,
@@ -43,6 +44,7 @@ from cengine.learning.evaluation.ope import (
 )
 
 __all__ = [
+    "DATA_LABEL_HISTORICAL_REPLAY",
     "DATA_LABEL_REAL",
     "DATA_LABEL_SYNTHETIC",
     "ECONOMIC_METRICS_VERSION",

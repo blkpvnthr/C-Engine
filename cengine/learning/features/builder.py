@@ -58,7 +58,7 @@ WITH base AS (
            CAST(volume AS DOUBLE) AS volume,
            CAST(vwap_ticks AS DOUBLE) AS vwap
     FROM read_parquet('{glob}', union_by_name=true)
-    WHERE bar_close_ticks > 0
+    WHERE bar_close_ticks > 0 AND timeframe = '{timeframe}'
 ),
 r AS (
     SELECT *,
@@ -114,17 +114,21 @@ ORDER BY ts, symbol_id
 
 
 def build_bar_features(config: Optional[LakehouseConfig] = None, *,
-                       horizon_bars: int = 3) -> Optional[BarFeatureMatrix]:
+                       horizon_bars: int = 3,
+                       timeframe: str = "5Min") -> Optional[BarFeatureMatrix]:
     """Build the look-ahead-free bar feature/label matrix from bronze market_bars.
 
-    Returns None when no market_bars exist. horizon_bars is the forward-return horizon
-    (default 3 five-minute bars = 15 minutes).
+    Returns None when no market_bars exist. ``timeframe`` selects a SINGLE bar resolution
+    (default '5Min') — mixing resolutions would corrupt the rolling windows. horizon_bars is
+    the forward-return horizon in bars of that timeframe.
     """
     config = config or LakehouseConfig.from_env()
     glob = _glob(config, "bronze", "market_bars")
     if glob is None:
         return None
-    sql = _FEATURE_SQL.format(glob=glob, horizon=int(horizon_bars))
+    if timeframe not in ("1Min", "5Min", "15Min", "30Min", "1Hour", "1Day"):
+        raise ValueError(f"unsupported timeframe {timeframe!r}")
+    sql = _FEATURE_SQL.format(glob=glob, horizon=int(horizon_bars), timeframe=timeframe)
     con = duckdb.connect()
     try:
         tbl = con.sql(sql).to_arrow_table()
