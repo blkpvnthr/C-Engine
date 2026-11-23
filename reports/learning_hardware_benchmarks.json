@@ -1,0 +1,174 @@
+{
+  "report": "learning_hardware_benchmarks",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "actual synchronized GPU/CPU bench",
+  "version": "gpu-benchmarks-1.0.0",
+  "hardware": {
+    "device": "Apple M5 Max",
+    "gpu": "applegpu_g17s",
+    "unified_memory_gib": 48.0,
+    "mlx_metal_available": true,
+    "precisions": [
+      "float32",
+      "float16",
+      "bfloat16"
+    ]
+  },
+  "training_throughput": {
+    "workload": "mlp_training",
+    "n": 50000,
+    "n_features": 13,
+    "epochs": 3,
+    "batch_size": 2048,
+    "gpu_seconds": 0.0324,
+    "cpu_seconds": 0.0386,
+    "gpu_examples_per_s": 4632233.0,
+    "cpu_examples_per_s": 3886841.1,
+    "gpu_speedup_x": 1.19,
+    "gpu_peak_mem_gib": 0.0189,
+    "note": "warm-up/compile excluded; mx.eval() forces completion before timing stops"
+  },
+  "inference_latency": {
+    "workload": "mlp_inference",
+    "n_features": 13,
+    "batch_sizes": [
+      1,
+      8,
+      16,
+      32,
+      64,
+      128,
+      256,
+      512,
+      1024,
+      2048,
+      4096
+    ],
+    "by_batch": [
+      {
+        "batch": 1,
+        "gpu_p50_ms": 0.2021,
+        "gpu_p95_ms": 0.856,
+        "gpu_p99_ms": 0.9146,
+        "cpu_p50_ms": 0.0335,
+        "gpu_throughput_rows_s": 4949.0,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 8,
+        "gpu_p50_ms": 0.2494,
+        "gpu_p95_ms": 0.2824,
+        "gpu_p99_ms": 0.3284,
+        "cpu_p50_ms": 0.0281,
+        "gpu_throughput_rows_s": 32072.2,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 16,
+        "gpu_p50_ms": 0.2241,
+        "gpu_p95_ms": 0.278,
+        "gpu_p99_ms": 0.3254,
+        "cpu_p50_ms": 0.0265,
+        "gpu_throughput_rows_s": 71402.1,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 32,
+        "gpu_p50_ms": 0.1685,
+        "gpu_p95_ms": 0.2528,
+        "gpu_p99_ms": 0.2596,
+        "cpu_p50_ms": 0.0291,
+        "gpu_throughput_rows_s": 189887.3,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 64,
+        "gpu_p50_ms": 0.1678,
+        "gpu_p95_ms": 0.2757,
+        "gpu_p99_ms": 0.3154,
+        "cpu_p50_ms": 0.0276,
+        "gpu_throughput_rows_s": 381330.4,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 128,
+        "gpu_p50_ms": 0.1683,
+        "gpu_p95_ms": 0.215,
+        "gpu_p99_ms": 0.2508,
+        "cpu_p50_ms": 0.033,
+        "gpu_throughput_rows_s": 760680.0,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 256,
+        "gpu_p50_ms": 0.1615,
+        "gpu_p95_ms": 0.2034,
+        "gpu_p99_ms": 0.2082,
+        "cpu_p50_ms": 0.0402,
+        "gpu_throughput_rows_s": 1585139.2,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 512,
+        "gpu_p50_ms": 0.1645,
+        "gpu_p95_ms": 0.2021,
+        "gpu_p99_ms": 0.2049,
+        "cpu_p50_ms": 0.0509,
+        "gpu_throughput_rows_s": 3113256.8,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 1024,
+        "gpu_p50_ms": 0.1724,
+        "gpu_p95_ms": 0.233,
+        "gpu_p99_ms": 0.2753,
+        "cpu_p50_ms": 0.0786,
+        "gpu_throughput_rows_s": 5939830.5,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 2048,
+        "gpu_p50_ms": 0.1584,
+        "gpu_p95_ms": 0.2019,
+        "gpu_p99_ms": 0.2484,
+        "cpu_p50_ms": 0.13,
+        "gpu_throughput_rows_s": 12927907.1,
+        "faster_device": "cpu"
+      },
+      {
+        "batch": 4096,
+        "gpu_p50_ms": 0.1577,
+        "gpu_p95_ms": 0.2128,
+        "gpu_p99_ms": 0.2603,
+        "cpu_p50_ms": 0.2374,
+        "gpu_throughput_rows_s": 25978884.3,
+        "faster_device": "gpu"
+      }
+    ],
+    "crossover_note": "GPU wins at large batches; CPU wins at tiny batches (sync-dominated) \u2014 reported honestly, not hidden"
+  },
+  "memory": {
+    "workload": "unified_memory",
+    "sizes": [
+      1024,
+      4096,
+      16384
+    ],
+    "by_size": [
+      {
+        "rows": 1024,
+        "peak_mem_gib": 0.0003
+      },
+      {
+        "rows": 4096,
+        "peak_mem_gib": 0.0012
+      },
+      {
+        "rows": 16384,
+        "peak_mem_gib": 0.0047
+      }
+    ]
+  }
+}

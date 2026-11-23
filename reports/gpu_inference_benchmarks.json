@@ -1,0 +1,124 @@
+{
+  "report": "gpu_inference_benchmarks",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "real p50/p95/p99 across batch sizes",
+  "workload": "mlp_inference",
+  "n_features": 13,
+  "batch_sizes": [
+    1,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    512,
+    1024,
+    2048,
+    4096
+  ],
+  "by_batch": [
+    {
+      "batch": 1,
+      "gpu_p50_ms": 0.1825,
+      "gpu_p95_ms": 0.2692,
+      "gpu_p99_ms": 0.2731,
+      "cpu_p50_ms": 0.03,
+      "gpu_throughput_rows_s": 5480.1,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 8,
+      "gpu_p50_ms": 0.2048,
+      "gpu_p95_ms": 0.2883,
+      "gpu_p99_ms": 0.3245,
+      "cpu_p50_ms": 0.0271,
+      "gpu_throughput_rows_s": 39056.1,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 16,
+      "gpu_p50_ms": 0.19,
+      "gpu_p95_ms": 0.2523,
+      "gpu_p99_ms": 0.2727,
+      "cpu_p50_ms": 0.0271,
+      "gpu_throughput_rows_s": 84192.1,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 32,
+      "gpu_p50_ms": 0.1807,
+      "gpu_p95_ms": 0.2606,
+      "gpu_p99_ms": 0.268,
+      "cpu_p50_ms": 0.0292,
+      "gpu_throughput_rows_s": 177060.7,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 64,
+      "gpu_p50_ms": 0.1602,
+      "gpu_p95_ms": 0.2248,
+      "gpu_p99_ms": 0.2375,
+      "cpu_p50_ms": 0.0304,
+      "gpu_throughput_rows_s": 399376.0,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 128,
+      "gpu_p50_ms": 0.155,
+      "gpu_p95_ms": 0.1769,
+      "gpu_p99_ms": 0.1868,
+      "cpu_p50_ms": 0.0347,
+      "gpu_throughput_rows_s": 825918.3,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 256,
+      "gpu_p50_ms": 0.1559,
+      "gpu_p95_ms": 0.1999,
+      "gpu_p99_ms": 0.2049,
+      "cpu_p50_ms": 0.0407,
+      "gpu_throughput_rows_s": 1642336.8,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 512,
+      "gpu_p50_ms": 0.1548,
+      "gpu_p95_ms": 0.2046,
+      "gpu_p99_ms": 0.2463,
+      "cpu_p50_ms": 0.0548,
+      "gpu_throughput_rows_s": 3308112.7,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 1024,
+      "gpu_p50_ms": 0.1525,
+      "gpu_p95_ms": 0.1893,
+      "gpu_p99_ms": 0.2164,
+      "cpu_p50_ms": 0.0805,
+      "gpu_throughput_rows_s": 6712904.3,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 2048,
+      "gpu_p50_ms": 0.1567,
+      "gpu_p95_ms": 0.1982,
+      "gpu_p99_ms": 0.1995,
+      "cpu_p50_ms": 0.1331,
+      "gpu_throughput_rows_s": 13067140.0,
+      "faster_device": "cpu"
+    },
+    {
+      "batch": 4096,
+      "gpu_p50_ms": 0.1526,
+      "gpu_p95_ms": 0.2004,
+      "gpu_p99_ms": 0.2115,
+      "cpu_p50_ms": 0.2339,
+      "gpu_throughput_rows_s": 26847929.0,
+      "faster_device": "gpu"
+    }
+  ],
+  "crossover_note": "GPU wins at large batches; CPU wins at tiny batches (sync-dominated) \u2014 reported honestly, not hidden"
+}

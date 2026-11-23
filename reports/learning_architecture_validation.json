@@ -1,0 +1,27 @@
+{
+  "report": "learning_architecture_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "GPU-first (MLX/Metal) adaptive ML/RL layer; recommendation-only; off the order/protective-exit path; authoritative journal separate.",
+  "platform_version": "learning-platform-1.0.0",
+  "subpackages": [
+    "benchmarks",
+    "calibration",
+    "contextual_bandits",
+    "datasets",
+    "environment",
+    "evaluation",
+    "features",
+    "inference",
+    "monitoring",
+    "offline_rl",
+    "orchestration",
+    "regime_models",
+    "registry",
+    "supervised"
+  ],
+  "mlx_metal_available": true,
+  "device": "Apple M5 Max",
+  "verdict": "learning layer operational; GPU-first with documented CPU fallback"
+}

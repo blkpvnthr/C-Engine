@@ -50,6 +50,15 @@ class DecisionEventType(str, Enum):
     TRANSACTION_COST_ANALYSIS = "transaction_cost_analysis"
     POSITION_MANAGEMENT = "position_management"
     PROFIT_PROTECTION = "profit_protection"
+    # --- adaptive learning platform (Milestone 6, §32) ---
+    INFERENCE_REQUEST = "inference_request"
+    PREDICTION = "prediction"
+    SHADOW_RECOMMENDATION = "shadow_recommendation"
+    MODEL_DISAGREEMENT = "model_disagreement"
+    DRIFT_DETECTION = "drift_detection"
+    TRAINING_RESULT = "training_result"
+    MODEL_PROMOTION = "model_promotion"
+    MODEL_ROLLBACK = "model_rollback"
 
 
 @dataclass
@@ -360,6 +369,85 @@ class DecisionEventSink:
                      "reason": action.reason, "policy": action.policy,
                      "maturity": action.maturity.value, "shadow_only": action.shadow_only,
                      "quantity": action.quantity}))
+
+    # -- adaptive learning evidence (Milestone 6, §32) -----------------------
+    def record_inference_request(self, req, now_ns: int) -> None:
+        """req is a cengine.learning.inference.InferenceRequest."""
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.INFERENCE_REQUEST, timestamp_ns=now_ns,
+            symbol_id=getattr(req, "symbol_id", None),
+            strategy_family=getattr(req, "strategy_family", None),
+            regime_version=getattr(req, "regime_version", None),
+            feature_version=getattr(req, "feature_schema_version", None),
+            payload={"task": getattr(req, "task", None),
+                     "model_id": getattr(req, "model_id", None),
+                     "model_version": getattr(req, "model_version", None),
+                     "observation_timestamp_ns": getattr(req, "observation_timestamp_ns", None),
+                     "availability_timestamp_ns": getattr(req, "availability_timestamp_ns", None),
+                     "prediction_horizon": getattr(req, "prediction_horizon", None)}))
+
+    def record_prediction(self, resp, now_ns: int) -> None:
+        """resp is a cengine.learning.inference.InferenceResponse."""
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.PREDICTION, timestamp_ns=now_ns,
+            symbol_id=getattr(resp, "symbol_id", None),
+            feature_version=None,
+            payload={"task": getattr(resp, "task", None),
+                     "prediction": getattr(resp, "prediction", None),
+                     "prediction_uncertainty": getattr(resp, "prediction_uncertainty", None),
+                     "applicability": getattr(resp, "applicability", None),
+                     "data_quality": getattr(resp, "data_quality", None),
+                     "model_maturity": getattr(resp, "model_maturity", None),
+                     "model_id": getattr(resp, "model_id", None),
+                     "model_version": getattr(resp, "model_version", None),
+                     "device": getattr(resp, "device", None),
+                     "abstention_reason": getattr(resp, "abstention_reason", None),
+                     "expiration_timestamp_ns": getattr(resp, "expiration_timestamp_ns", None)}))
+
+    def record_shadow_recommendation(self, *, symbol_id, now_ns: int, model_id,
+                                     model_version, champion_score, challenger_score,
+                                     selected, rank_basis, payload=None) -> None:
+        body = {"model_id": model_id, "model_version": model_version,
+                "champion_score": champion_score, "challenger_score": challenger_score,
+                "selected": selected, "rank_basis": rank_basis}
+        if payload:
+            body.update(payload)
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.SHADOW_RECOMMENDATION, timestamp_ns=now_ns,
+            symbol_id=symbol_id, payload=body))
+
+    def record_model_disagreement(self, *, symbol_id, now_ns: int, payload: dict) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.MODEL_DISAGREEMENT, timestamp_ns=now_ns,
+            symbol_id=symbol_id, payload=dict(payload)))
+
+    def record_drift(self, *, now_ns: int, payload: dict) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.DRIFT_DETECTION, timestamp_ns=now_ns,
+            payload=dict(payload)))
+
+    def record_training_result(self, *, now_ns: int, model_id, model_version,
+                               payload: dict) -> None:
+        body = {"model_id": model_id, "model_version": model_version}
+        body.update(payload)
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.TRAINING_RESULT, timestamp_ns=now_ns,
+            payload=body))
+
+    def record_model_promotion(self, *, now_ns: int, model_id, model_version,
+                               from_maturity, to_maturity, approved, reason="") -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.MODEL_PROMOTION, timestamp_ns=now_ns,
+            payload={"model_id": model_id, "model_version": model_version,
+                     "from_maturity": from_maturity, "to_maturity": to_maturity,
+                     "approved": bool(approved), "reason": reason}))
+
+    def record_model_rollback(self, *, now_ns: int, model_id, model_version,
+                              to_reference, reason="") -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.MODEL_ROLLBACK, timestamp_ns=now_ns,
+            payload={"model_id": model_id, "model_version": model_version,
+                     "to_reference": to_reference, "reason": reason}))
 
     # -- draining for later Parquet/DuckDB ingestion -------------------------
     def drain(self) -> list:

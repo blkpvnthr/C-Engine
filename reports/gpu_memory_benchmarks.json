@@ -1,0 +1,27 @@
+{
+  "report": "gpu_memory_benchmarks",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "real peak unified memory",
+  "workload": "unified_memory",
+  "sizes": [
+    1024,
+    4096,
+    16384
+  ],
+  "by_size": [
+    {
+      "rows": 1024,
+      "peak_mem_gib": 0.0003
+    },
+    {
+      "rows": 4096,
+      "peak_mem_gib": 0.0012
+    },
+    {
+      "rows": 16384,
+      "peak_mem_gib": 0.0047
+    }
+  ]
+}

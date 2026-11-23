@@ -1,0 +1,7 @@
+{
+  "report": "learning_economic_comparison",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "error": "'BootstrapCI' object has no attribute 'low'"
+}

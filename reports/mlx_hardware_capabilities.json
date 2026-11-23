@@ -1,0 +1,35 @@
+{
+  "report": "mlx_hardware_capabilities",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "actual runtime MLX/Metal inspection",
+  "report_version": "learning-hardware-1.0.0",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "machine": "arm64",
+  "is_apple_silicon": true,
+  "cpu_brand": "Apple M5 Max",
+  "unified_memory_gib": 48.0,
+  "mlx_installed": true,
+  "mlx_metal_available": true,
+  "mlx_import_error": null,
+  "device_name": "Apple M5 Max",
+  "gpu_architecture": "applegpu_g17s",
+  "max_recommended_working_set_gib": 37.44,
+  "max_buffer_length_gib": 28.08,
+  "memory_size_gib": 48.0,
+  "supported_precisions": [
+    "float32",
+    "float16",
+    "bfloat16"
+  ],
+  "native_metallib_present": true,
+  "raw_device_info": {
+    "device_name": "Apple M5 Max",
+    "max_recommended_working_set_size": 40200896512,
+    "memory_size": 51539607552,
+    "architecture": "applegpu_g17s",
+    "max_buffer_length": 30150672384,
+    "resource_limit": 499000
+  }
+}

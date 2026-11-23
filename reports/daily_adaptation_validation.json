@@ -1,0 +1,30 @@
+{
+  "report": "daily_adaptation_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "daily cycle over REAL lakehouse; trains only eligible tasks.",
+  "eligibility": {
+    "forward_return_prediction": "validation_eligible",
+    "strategy_net_return": "insufficient_data",
+    "probability_positive_return": "insufficient_data",
+    "regime_transition": "insufficient_data",
+    "execution_quality": "insufficient_data",
+    "policy_bandit": "insufficient_data",
+    "offline_rl_execution": "insufficient_data"
+  },
+  "trained": [
+    [
+      "forward_return_prediction",
+      "trained",
+      false
+    ]
+  ],
+  "skipped": [
+    [
+      "probability_positive_return",
+      "insufficient_data"
+    ]
+  ],
+  "errors": []
+}

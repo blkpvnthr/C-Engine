@@ -1,0 +1,11 @@
+{
+  "report": "model_registry_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "registry lifecycle + atomic checksummed artifacts (local).",
+  "registered": true,
+  "artifact_checksummed": true,
+  "corrupt_artifact_rejected": true,
+  "champion": "shadow"
+}

@@ -1,0 +1,9 @@
+{
+  "report": "model_promotion_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "promotion authorization: no auto-promote to live; explicit approval required; rollback always legal.",
+  "live_requires_explicit_approval": true,
+  "verdict": "no model can self-promote to live execution"
+}

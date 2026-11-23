@@ -1,0 +1,19 @@
+{
+  "report": "mlx_supervised_training_benchmarks",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "real training throughput",
+  "workload": "mlp_training",
+  "n": 40000,
+  "n_features": 13,
+  "epochs": 3,
+  "batch_size": 2048,
+  "gpu_seconds": 0.0206,
+  "cpu_seconds": 0.0259,
+  "gpu_examples_per_s": 5829888.8,
+  "cpu_examples_per_s": 4628305.2,
+  "gpu_speedup_x": 1.26,
+  "gpu_peak_mem_gib": 0.0184,
+  "note": "warm-up/compile excluded; mx.eval() forces completion before timing stops"
+}

@@ -1,60 +1,12 @@
 {
-  "acceptance_item": "M2 §7/§19 + M3 §12 + M4 §15 - financial invariants / independent protective exit",
-  "invariant": "unrealized_return < -0.005 triggers a mandatory protective exit",
-  "independence": [
-    "historical warm-up",
-    "discovery membership",
-    "subscription promotion",
-    "GPU availability",
-    "strategy qualification",
-    "portfolio optimization",
-    "elective trading eligibility",
-    "market regime classification",
-    "strategy maturity / execution authorization",
-    "strategy recommendations and arbitration",
-    "economic ranking",
-    "execution bridge state (active, BLOCKED, or conflicting)",
-    "execution planner / execution policies",
-    "L1 microstructure intelligence (stale, crossed, or absent)",
-    "transaction-cost estimates",
-    "discretionary profit-protection policies"
-  ],
-  "m4_execution_independence_verified": {
-    "fires_with_no_execution_planner": true,
-    "fires_despite_planner_and_microstructure_present": true,
-    "fires_when_microstructure_stale_or_crossed": true,
-    "exit_is_broker_compatible_market_order": "protective_exit uses MARKET (not a planner limit order)",
-    "no_discretionary_policy_delays_mandatory_exit": true,
-    "exit_arbiter_ranks_mandatory_above_shadow_profit_protection": true
-  },
-  "mechanism": "trade.py routes the protective exit path from authoritative native market state directly into the RiskEngine/OrderManager, bypassing elective discovery/intelligence/optimization. Exits are never gated by the exposure authorizer and are never arbitrated.",
-  "bridge_independence_verified": {
-    "fires_with_no_strategy_engine": true,
-    "fires_when_all_families_blocked": true,
-    "inflight_elective_order_does_not_block_mandatory_exit": "protective_exit uses a SEPARATE single-pending key (strategy_id 'protective_exit') from the bridge's 'regime_intelligence'; an in-flight elective order on the same symbol never blocks the mandatory close",
-    "never_arbitrated": "StrategyArbitrator only resolves elective recommendations; it emits/blocks no exit",
-    "five_second_periodic_backstop_preserved": true,
-    "threshold_unchanged": -0.005
-  },
-  "optimizer_independence_verified_m3": {
-    "fires_with_no_optimizer": true,
-    "fires_when_optimizer_or_gpu_fails": "the protective-exit path never calls the portfolio optimizer/covariance; a raising portfolio pipeline does not affect it",
-    "inflight_portfolio_order_does_not_block_exit": "protective_exit vs StrategyName.PORTFOLIO are separate single-pending keys; can_submit('protective_exit', sym) True while can_submit('portfolio', sym) False",
-    "optimizer_cannot_defer_suppress_or_veto": true,
-    "no_replacement_required_before_exit": true
-  },
-  "singletons_preserved": [
-    "one SIP connection",
-    "one UniversePublisher",
-    "one execution authority",
-    "one OrderManager"
-  ],
-  "offline_verification": {
-    "tests/test_protective_exit.py": 14,
-    "tests/test_protective_exit_independence.py": 5,
-    "tests/test_portfolio_exit_independence.py": 4,
-    "tests/test_execution_exit_independence.py": 4
-  },
-  "no_live_orders_during_testing": true,
-  "status": "PRESERVED + independence re-verified against the execution bridge, portfolio optimizer, execution planner, and L1 microstructure"
+  "report": "protective_exit_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "REAL AAPL bars; mandatory -0.5% exit as ENVIRONMENT DYNAMICS, independent of any model/policy.",
+  "trades": 2296,
+  "protective_exits": 458,
+  "min_protective_exit_reward": -0.005800000000000116,
+  "exit_floor_respected": true,
+  "independent_of_models": true
 }

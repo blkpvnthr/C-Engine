@@ -1,0 +1,11 @@
+{
+  "report": "gpu_learning_integration",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "MLX GPU inference operationally wired into trade.py behind CENGINE_LEARNING; daily cycle detached + off the event loop.",
+  "shadow_inference": true,
+  "daily_cycle_detached": true,
+  "dashboard_panel": "LEARNING",
+  "verdict": "GPU learning integrated; financial authority intact"
+}

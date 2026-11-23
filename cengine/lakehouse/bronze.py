@@ -46,6 +46,15 @@ _EVENT_DATASET = {
     "position_management": "position_events",
     "profit_protection": "position_events",
     "realized_outcome": "position_events",
+    # adaptive learning platform (Milestone 6, §32)
+    "inference_request": "learning_events",
+    "prediction": "learning_events",
+    "shadow_recommendation": "learning_events",
+    "model_disagreement": "learning_events",
+    "drift_detection": "model_events",
+    "training_result": "model_events",
+    "model_promotion": "model_events",
+    "model_rollback": "model_events",
 }
 
 BRONZE_DATASETS = sorted(set(_EVENT_DATASET.values()) | {
