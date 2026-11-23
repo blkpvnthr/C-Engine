@@ -3390,11 +3390,35 @@ def _start_scanner(host: ScannerHost):
         return None
 
 
+def _default_strategy_auth_for_mode(mode: str, current: str | None) -> str | None:
+    """Return the strategy-execution authorization to default for ``mode``.
+
+    Paper mode authorizes PAPER_RESEARCH out-of-the-box so ``python3 trade.py``
+    submits paper orders without extra flags (live stays hard-disabled). Returns
+    ``None`` to leave the environment untouched when the operator has set the var
+    explicitly (any value, including empty/disabling) or for non-paper modes.
+    """
+    if mode == "paper" and current is None:
+        return "paper_research"
+    return None
+
+
 def run_autonomous(mode: str) -> int:
     """paper | live | shadow autonomous run."""
     from canonical_universe import CanonicalUniverseManager
 
     paper = mode != "live"
+    # P0.3: paper mode is the zero-arg default; authorize PAPER_RESEARCH execution of
+    # uncertified strategies so orders flow out-of-the-box. The technical entry
+    # contract + native RiskEngine still gate every order and live stays disabled.
+    _default_auth = _default_strategy_auth_for_mode(
+        mode, os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH"))
+    if _default_auth is not None:
+        os.environ["CENGINE_STRATEGY_EXECUTION_AUTH"] = _default_auth
+        logger.warning(
+            "paper mode: CENGINE_STRATEGY_EXECUTION_AUTH defaulted to 'paper_research' "
+            "(uncertified RESEARCH strategies are paper-routable; set the var "
+            "explicitly, e.g. =none, to override)")
     key, secret = resolve_credentials()
     if not (key and secret):
         print("ERROR: Alpaca credentials missing from .env "
