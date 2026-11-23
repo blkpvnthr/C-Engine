@@ -1021,6 +1021,26 @@ class MarketEngine:
                 LOGGER.warning("local lakehouse analytics unavailable: %s", exc)
                 self._lakehouse = None
 
+        # Adaptive learning layer (Milestone 6): GPU-first (MLX/Metal) shadow inference +
+        # a detached daily-cycle loop. RECOMMENDATION-ONLY and strictly OFF the critical
+        # path — it never submits orders, never bypasses the native financial authority,
+        # and never touches the mandatory -0.5% protective exit. Gated by CENGINE_LEARNING
+        # (default on). In-session TRAINING is OFF by default (CENGINE_LEARNING_TRAINING);
+        # heavy training belongs to the out-of-session daily cycle. Any failure degrades to
+        # disabled without affecting trading.
+        self._learning = None
+        self._learning_last = {}
+        if os.environ.get("CENGINE_LEARNING", "1") != "0":
+            try:
+                from cengine.learning.inference.service import LearningInferenceService
+
+                self._learning = LearningInferenceService()
+                LOGGER.info("adaptive learning layer active (shadow inference; "
+                            "recommendation-only — never on the order/protection path)")
+            except Exception as exc:  # noqa: BLE001 — learning must never block startup
+                LOGGER.warning("adaptive learning layer unavailable: %s", exc)
+                self._learning = None
+
         # Optional execution bridge (directive §3/§17): connects authorized
         # recommendations to the EXISTING CandidateRouter. Default authorization is
         # NONE -> routes nothing. Even under PAPER/LIVE authorization nothing routes
@@ -1325,7 +1345,32 @@ class MarketEngine:
                 "binding_constraints": binding,
                 "reserved": res.reserved, "routed": res.routed,
                 "execution": self._execution_dashboard_stats(symbols, now_ns),
-                "lakehouse": self._lakehouse_dashboard_stats()})
+                "lakehouse": self._lakehouse_dashboard_stats(),
+                "learning": self._learning_dashboard_stats()})
+
+    def _learning_dashboard_stats(self) -> Optional[dict]:
+        """Non-blocking learning/GPU stats for the dashboard (M6 §33 / addendum §20), or
+        None when learning is disabled. Reports only genuinely-available metrics."""
+        if self._learning is None:
+            return None
+        try:
+            from cengine.learning.hardware import mlx_available
+            svc = self._learning
+            champ = svc.registry.champion("mlx_quantile_regressor") or {}
+            chall = svc.registry.challenger("mlx_quantile_regressor") or {}
+            st = svc.dashboard_stats()
+            pol = st.get("device_policy", {})
+            last = self._learning_last or {}
+            return {"backend": "mlx" if mlx_available() else "cpu",
+                    "inference_device": "gpu" if pol.get("gpu_available") else "cpu",
+                    "active_model": champ.get("model_version", "none"),
+                    "model_maturity": champ.get("maturity", "none"),
+                    "challenger": chall.get("model_version", "none"),
+                    "served": st.get("served", 0), "abstained": st.get("abstained", 0),
+                    "gpu_fallbacks": pol.get("fallback_count", 0),
+                    "last_cycle": last.get("summary", "idle")}
+        except Exception:  # noqa: BLE001 — dashboard stats must never raise
+            return None
 
     def _lakehouse_dashboard_stats(self) -> Optional[dict]:
         """Non-blocking lakehouse capture stats for the dashboard (M5 §31), or None when
@@ -1682,6 +1727,15 @@ class MarketEngine:
             self._lakehouse_task = asyncio.create_task(
                 self._run_lakehouse_drain(self._stop), name="lakehouse-drain")
 
+        # Detached learning loop (DETACHED, stop-driven; recommendation-only). Maintains the
+        # shadow inference service + (optional) out-of-band daily training. NOT in the
+        # FIRST_COMPLETED set — it can neither trigger nor block shutdown, and never touches
+        # the order path or the mandatory protective exit.
+        self._learning_task: Optional[asyncio.Task[None]] = None
+        if self._learning is not None:
+            self._learning_task = asyncio.create_task(
+                self._run_learning_cycle(self._stop), name="learning-cycle")
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -1749,6 +1803,9 @@ class MarketEngine:
             lakehouse_task = getattr(self, "_lakehouse_task", None)
             if lakehouse_task is not None and not lakehouse_task.done():
                 lakehouse_task.cancel()
+            learning_task = getattr(self, "_learning_task", None)
+            if learning_task is not None and not learning_task.done():
+                learning_task.cancel()
 
             await asyncio.gather(
                 *tasks,
@@ -1756,6 +1813,7 @@ class MarketEngine:
                 *( [warmup] if warmup is not None else [] ),
                 *( [regime] if regime is not None else [] ),
                 *( [lakehouse_task] if lakehouse_task is not None else [] ),
+                *( [learning_task] if learning_task is not None else [] ),
                 return_exceptions=True,
             )
 
@@ -2002,6 +2060,43 @@ class MarketEngine:
             except asyncio.CancelledError:
                 break
             await self._flush_lakehouse()
+
+    async def _run_learning_cycle(self, stop: asyncio.Event) -> None:
+        """Detached, stop-driven learning loop (recommendation-only, OUT OF BAND).
+
+        Keeps the shadow inference service warm and, only when CENGINE_LEARNING_TRAINING=1,
+        runs the daily adaptive learning cycle in a worker thread so GPU training never runs
+        on the event loop. It is never in the FIRST_COMPLETED wait set and never touches the
+        order path, native RiskEngine, reconciliation, or the mandatory protective exit.
+        Heavy training defaults OFF in-session (belongs to the out-of-session daily cycle).
+        """
+        interval = float(os.environ.get("CENGINE_LEARNING_CYCLE_S", "3600"))
+        train_in_session = os.environ.get("CENGINE_LEARNING_TRAINING", "0") != "0"
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass
+            except asyncio.CancelledError:
+                break
+            if not train_in_session:
+                continue
+            try:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, self._run_learning_cycle_sync)
+            except Exception:  # noqa: BLE001 — learning must never perturb the engine
+                pass
+
+    def _run_learning_cycle_sync(self) -> None:
+        """Blocking daily-cycle body; runs in a thread executor (never the event loop)."""
+        try:
+            from cengine.learning.orchestration.daily_cycle import DailyLearningCycle
+            sink = getattr(self, "_decision_sink", None)
+            out = DailyLearningCycle(decision_sink=sink).run()
+            self._learning_last = {"summary": f"trained={len(out.get('trained', []))} "
+                                              f"skipped={len(out.get('skipped', []))}"}
+        except Exception:  # noqa: BLE001
+            pass
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():
@@ -2426,6 +2521,21 @@ class ConsoleDecisionStream:
                 f"buffer={lh.get('buffer', 0)} "
                 f"dropped={lh.get('dropped', 0)} "
                 f"quarantined={lh.get('quarantined', 0)}",
+            )
+        # Learning + GPU-resource panel (M6 §33 / addendum §20): recommendation-only;
+        # only genuinely-available metrics shown. Never implies order authority.
+        if extra.get("learning") is not None:
+            lr = extra["learning"]
+            self._emit(
+                "LEARNING",
+                f"backend={lr.get('backend', 'n/a')} "
+                f"infer_device={lr.get('inference_device', 'n/a')} "
+                f"active_model={lr.get('active_model', 'none')} "
+                f"maturity={lr.get('model_maturity', 'none')} "
+                f"challenger={lr.get('challenger', 'none')} "
+                f"served={lr.get('served', 0)} "
+                f"abstained={lr.get('abstained', 0)} "
+                f"gpu_fallbacks={lr.get('gpu_fallbacks', 0)}",
             )
 
 
