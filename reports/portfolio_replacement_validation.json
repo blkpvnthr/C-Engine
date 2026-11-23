@@ -1,0 +1,16 @@
+{
+  "report": "portfolio_replacement_validation",
+  "milestone": "M3 §13 — intelligent portfolio replacement",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "module": "cengine/portfolio_replacement.py (ReplacementCoordinator), reusing market_scan/replacement.select_replacement + ReplacementEligibility",
+  "workflow": "MANDATORY_EXIT_TRIGGERED -> EXIT_ORDER_SUBMITTED -> EXIT_PARTIALLY_FILLED -> EXIT_FULLY_FILLED -> BROKER_RECONCILED -> CAPITAL_AVAILABLE -> REPLACEMENT_EVALUATION -> REPLACEMENT_AUTHORIZED -> REPLACEMENT_ORDER_SUBMITTED (or HELD_CASH)",
+  "guarantees": {
+    "exit_never_gated": "Replacement reacts only AFTER the mandatory exit has fully filled AND broker-reconciled; it never gates/delays the exit.",
+    "no_forced_reinvest": "No eligible candidate -> hold cash (HELD_CASH).",
+    "no_capital_hold": "capital_available<=0 -> hold cash.",
+    "no_immediate_reentry": "A no-reentry cooldown excludes the just-stopped-out symbol (and any symbol still cooling) from replacement selection even if eligible.",
+    "qualification": "Replacement candidates must pass the existing ReplacementEligibility gates (seller exhaustion, positive momentum, DI+/BB/VWAP, liquidity, regime) + downstream native authorization."
+  },
+  "tests": {"tests/test_portfolio_replacement.py": 8},
+  "verdict": "Replacement workflow operational; reconciliation-gated; no forced reinvestment; no uncontrolled re-entry."
+}

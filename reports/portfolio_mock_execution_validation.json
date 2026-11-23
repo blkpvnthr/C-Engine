@@ -1,0 +1,25 @@
+{
+  "report": "portfolio_mock_execution_validation",
+  "milestone": "M3 §22 — full-path portfolio mock certification",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "scope_honesty": "Exercises REAL production components (GPU covariance, native C++ RiskEngine, OrderManager) + an ISOLATED in-memory mock broker. NOT economic validation; NO live orders. Native risk runs against a fresh per-test RuntimeState.",
+  "path": "returns -> PortfolioAnalytics (GPU covariance) -> PortfolioOptimizer (native/CVXPY) -> CapitalReservationLedger -> CandidateRouter -> exposure gate -> native RiskEngine -> OrderManager -> SimulatedBroker -> fill reconciliation -> portfolio decision evidence",
+  "scenarios_covered": [
+    "multiple simultaneous eligible strategies routed + filled through native risk",
+    "competing capital -> reservation prevents overspend",
+    "excessive concentration -> per-asset cap binds",
+    "insufficient buying power -> native RiskEngine rejects",
+    "fractional quantities (allow_fractional)",
+    "stale/unreconciled portfolio state -> fail-closed, no routing",
+    "insufficient return history -> no optimization",
+    "partial fills -> PARTIAL_FILL + COMPLETE_FILL",
+    "broker rejection -> terminal REJECTED",
+    "advisory default (authorization NONE) -> routes nothing but emits evidence",
+    "GPU unavailable -> CPU covariance fallback still routes",
+    "unauthorized leveraged-inverse (SQQQ) blocked by exposure gate",
+    "duplicate run / restart -> reservation idempotent + pending guard prevents duplicate order"
+  ],
+  "traceability": "portfolio_decision_id links recommendation -> reservation -> ORDER_INTENT -> RISK_APPROVAL -> BROKER_ACK -> PARTIAL/COMPLETE_FILL via correlation_id.",
+  "tests": {"tests/test_portfolio_mock_execution.py": 13},
+  "verdict": "MOCK-EXECUTION CERTIFIED through the existing financial authority. Economic/paper/live certification remain separate, gated milestones."
+}

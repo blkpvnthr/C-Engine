@@ -1,5 +1,5 @@
 {
-  "acceptance_item": "7 + 19 - financial invariants / independent protective exit",
+  "acceptance_item": "M2 §7/§19 + M3 §12 - financial invariants / independent protective exit",
   "invariant": "unrealized_return < -0.005 triggers a mandatory protective exit",
   "independence": [
     "historical warm-up",
@@ -24,6 +24,13 @@
     "five_second_periodic_backstop_preserved": true,
     "threshold_unchanged": -0.005
   },
+  "optimizer_independence_verified_m3": {
+    "fires_with_no_optimizer": true,
+    "fires_when_optimizer_or_gpu_fails": "the protective-exit path never calls the portfolio optimizer/covariance; a raising portfolio pipeline does not affect it",
+    "inflight_portfolio_order_does_not_block_exit": "protective_exit vs StrategyName.PORTFOLIO are separate single-pending keys; can_submit('protective_exit', sym) True while can_submit('portfolio', sym) False",
+    "optimizer_cannot_defer_suppress_or_veto": true,
+    "no_replacement_required_before_exit": true
+  },
   "singletons_preserved": [
     "one SIP connection",
     "one UniversePublisher",
@@ -32,8 +39,9 @@
   ],
   "offline_verification": {
     "tests/test_protective_exit.py": 14,
-    "tests/test_protective_exit_independence.py": 5
+    "tests/test_protective_exit_independence.py": 5,
+    "tests/test_portfolio_exit_independence.py": 4
   },
   "no_live_orders_during_testing": true,
-  "status": "PRESERVED + independence re-verified against the new execution bridge"
+  "status": "PRESERVED + independence re-verified against the execution bridge AND the portfolio optimizer"
 }

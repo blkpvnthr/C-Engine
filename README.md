@@ -73,17 +73,21 @@ flowchart TD
         O[Opportunity Discovery]
         P[Operational Scanner]
         Q[Strategy Intelligence]
-        R[Portfolio Optimizer]
+        PA[GPU Portfolio Analytics · covariance/EWMA]
+        R[Portfolio Optimizer · native + CVXPY]
+        CR[Capital Reservation · atomic]
         O --> P
         P --> Q
         Q --> R
+        PA --> R
+        R --> CR
     end
 
     J --> O
     K --> O
     L --> O
     M --> Q
-    N --> R
+    N --> PA
 
     subgraph Execution[Risk and Execution]
         W[Strategy Execution Bridge · maturity-gated · default-off]
@@ -99,7 +103,7 @@ flowchart TD
         U --> V
     end
 
-    R --> S
+    CR --> X
     Q --> W
     G --> T
     V -->|Execution reports and fills| G
@@ -137,9 +141,14 @@ Capabilities are tracked in four distinct states — **implemented & offline-val
 | **Strategy → execution bridge** (maturity-gated; routes through existing authority) | ✅ Implemented · **mock-execution certified** · default-off |
 | Isolated mock broker + full-path acceptance (5 families × instrument classes) | ✅ Implemented · offline-validated |
 | Decision + execution evidence (full lifecycle, recoverable) | ✅ Implemented · offline-validated |
-| Portfolio analytics / optimizer operational consumers · dashboard | 🎯 Target |
-| Economic validation (walk-forward / OOS edge, SIP vs IEX) | 🎯 Target — not yet begun |
-| Paper / live execution certification of the five families | ⏳ Gated (separate validation) |
+| **GPU portfolio analytics** (covariance/EWMA operationally consumed) | ✅ Implemented · on-device M5 Max · CPU parity <7e-11 |
+| **Native + CVXPY portfolio optimizer** (constrained allocation, risk contributions) | ✅ Implemented · offline-validated |
+| **Capital reservation** (atomic, no double-spend) + versioned PortfolioState | ✅ Implemented · offline-validated |
+| **Portfolio → execution** (optimizer → reservation → existing authority) | ✅ **mock-execution certified** · default-advisory |
+| Intelligent replacement (reconciliation-gated, no forced reinvest) | ✅ Implemented · offline-validated |
+| Portfolio dashboard panel + decision evidence | ✅ Implemented · non-blocking |
+| Economic validation (walk-forward / OOS edge, SIP vs IEX) | 🎯 Target — synthetic-only so far; genuine OOS deferred |
+| Paper / live execution certification (strategies + portfolio) | ⏳ Gated (separate validation) |
 
 Illustrating a component in the diagram is **not** a claim that it is production-certified. Nodes marked *(target)* in the detailed diagrams below are not certified capabilities.
 
@@ -157,6 +166,12 @@ The five-family regime intelligence is **advisory by default**. The `StrategyExe
 Maturity (`cengine/strategy_maturity.py`) is a dedicated ladder — `RESEARCH` (default) → `SHADOW` → `REPLAY_VALIDATED` → `MOCK_EXECUTION` → `PAPER_ELIGIBLE` → `LIVE_ELIGIBLE` (plus `BLOCKED`/`DISABLED`) — **separate** from the advisory `EXECUTION` eligibility. The authorization context is `NONE` (default — routes nothing), `MOCK`, `PAPER`, or `LIVE`. Critically, **mock execution is isolated**: a `MOCK_EXECUTION` family is routable only under `MOCK` authorization and is *never* paper- or live-routable, so exercising a family through the isolated mock broker grants no production trading eligibility. `BLOCKED` is a hard stop that overrides every authorization. Nothing is auto-promoted; promotion requires regression tests **and** explicit operator assertion.
 
 The bridge is wired into `trade.py` behind `CENGINE_STRATEGY_EXECUTION_AUTH` (default `none`), so the zero-argument engine remains advisory-only. The full production path — all five families → bridge → router → exposure gate → **real native C++ RiskEngine** → `OrderManager` → isolated mock broker → fill reconciliation → decision/execution evidence — is **mock-execution certified** across instrument classes (equity / broad / sector / leveraged-bull / inverse / leveraged-inverse) and scenarios (stale observations, unauthorized exposure, insufficient capital, partial fills, broker rejection, duplicate prevention). Mock certification is **not** economic validation and does **not** confer paper/live eligibility.
+
+### GPU-accelerated portfolio intelligence
+
+The portfolio layer (Milestone 3) sizes capital across qualified opportunities and routes through the **same** execution authority — it adds no parallel engine and reuses the existing CVXPY `RegimeMarkowitzAllocator`, exposure registry, reservation ledger, and native `RiskEngine`. Flow: GPU covariance (`cengine/portfolio_analytics.py` — operationally consuming the `covariance_matrix`/`ewma_covariance_matrix`/`column_means` Metal kernels, CPU-parity <7e-11 on M5 Max) → optimizer (`cengine/portfolio_optimizer.py` — native C++ risk-based allocator in `risk/portfolio_allocator.cpp`, or CVXPY mean-variance when reliable expected returns exist; heuristic scores are **never** converted to fabricated returns) → hard constraints (`cengine/portfolio_constraints.py`, §8, never silently relaxed) → atomic capital reservation (`cengine/capital_reservation.py` — prevents double-spend; unknown outcomes never release capital) → the existing `CandidateRouter` → exposure gate → native `RiskEngine` → `OrderManager`.
+
+Authoritative, versioned `PortfolioState` (`cengine/portfolio_state.py`) is broker-reconciled and **fails closed** when stale/unreconciled; submitted sells are never treated as completed liquidations. Intelligent replacement (`cengine/portfolio_replacement.py`) evaluates new opportunities **only after** a mandatory exit has fully filled and reconciled, holds cash when nothing qualifies, and blocks immediate re-entry into a just-stopped symbol. The path is wired into `trade.py` behind `CENGINE_PORTFOLIO_EXECUTION_AUTH` (default `none` → advisory: it emits portfolio state + decision evidence and routes nothing). The independent **−0.5% protective exit is never deferred, suppressed, or vetoed** by the optimizer (re-verified under optimizer/GPU failure). The GPU covariance kernel is parity-validated but, being correctness-first (one-thread-per-cell), is not yet faster than numpy BLAS at tested sizes, so covariance runs on CPU below the (unreached) measured crossover; the GPU monte-carlo/reductions kernels remain compiled-but-unbound (a tracked future increment). See [docs/portfolio_intelligence.md](docs/portfolio_intelligence.md). **Mock-certified; not economically validated, paper-, or live-certified.**
 
 ## Runtime data-flow overview
 

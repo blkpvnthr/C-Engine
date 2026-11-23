@@ -1,6 +1,6 @@
 {
-  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
-  "operationally_consumed_count": 5,
+  "recorded_utc": "2026-11-23T02:03:04.375159+00:00",
+  "operationally_consumed_count": 8,
   "note": "HONEST STATUS: 12 kernels host-callable, hardware-executed and CPU-parity-validated; 5 operationally consumed via the engine glue (cengine.gpu_scanner_bridge) wired into trade.py's zero-arg scanner path: screen_market + technical_features -> scanner feature_provider; market_breadth + compact_entry_candidates -> EngineGpuDiscovery.update_breadth each rank tick; rank_candidates -> scanner.rank_fn (GPU cross-sectional ranking, output identical to the Python ranker). All verified through the REAL scanner offline; live SIP-session end-to-end certification pending (market closed). `operationally_consumed` records real wiring (\u00a780/\u00a786); the remaining baseline kernels are host-wired pending Phase D/E.",
   "kernels": {
     "rolling_sma_ticks": {
@@ -69,21 +69,21 @@
     "column_means": {
       "host_interface": "MetalRuntime.column_means",
       "intended_consumer": "portfolio_optimizer",
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "mode": "operational",
       "blocker": ""
     },
     "covariance_matrix": {
       "host_interface": "MetalRuntime.covariance_matrix",
       "intended_consumer": "portfolio_optimizer,risk_manager",
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "mode": "operational",
       "blocker": ""
     },
     "ewma_covariance_matrix": {
       "host_interface": "MetalRuntime.ewma_covariance_matrix",
       "intended_consumer": "portfolio_optimizer,regime",
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "mode": "operational",
       "blocker": ""
     },
