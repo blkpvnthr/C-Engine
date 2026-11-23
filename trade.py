@@ -983,6 +983,50 @@ class MarketEngine:
                 LOGGER.warning("regime intelligence unavailable: %s", exc)
                 self._regime_pipeline = None
 
+        # Optional execution bridge (directive §3/§17): connects authorized
+        # recommendations to the EXISTING CandidateRouter. Default authorization is
+        # NONE -> routes nothing. Even under PAPER/LIVE authorization nothing routes
+        # unless a family has been separately promoted to the matching maturity
+        # (default RESEARCH). Mock execution is isolated and never grants live
+        # eligibility. The bridge creates no parallel engine and bypasses no control.
+        self._exec_bridge = None
+        self._bridge_audit_handler = None
+        if self._regime_pipeline is not None:
+            try:
+                from cengine.strategy_execution_bridge import (
+                    StrategyExecutionBridge,
+                    make_decision_audit_handler,
+                )
+                from cengine.strategy_maturity import ExecutionAuthorization
+
+                auth_raw = os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH", "none").lower()
+                authorization = {
+                    "none": ExecutionAuthorization.NONE,
+                    "mock": ExecutionAuthorization.MOCK,
+                    "paper": ExecutionAuthorization.PAPER,
+                    "live": ExecutionAuthorization.LIVE,
+                }.get(auth_raw, ExecutionAuthorization.NONE)
+                runtime_state_for_bridge = getattr(self._adapter_module, "STATE", None)
+                if (authorization is not ExecutionAuthorization.NONE
+                        and runtime_state_for_bridge is not None):
+                    self._exec_bridge = StrategyExecutionBridge(
+                        router=self.router, registry=self._regime_pipeline.registry,
+                        sink=self._regime_pipeline.sink,
+                        price_ticks_fn=runtime_state_for_bridge.price_ticks,
+                        authorization=authorization,
+                        max_route=int(os.environ.get("CENGINE_MAX_CONCURRENT_ENTRIES", "10")))
+                    # Compose execution-evidence emission onto the OrderManager audit
+                    # chain so bridge orders produce ack/fill/risk decision events.
+                    self._bridge_audit_handler = make_decision_audit_handler(
+                        self._regime_pipeline.sink, self._exec_bridge.correlation_index)
+                    LOGGER.warning(
+                        "strategy execution bridge ACTIVE authorization=%s (%s); "
+                        "families still gated by maturity (default RESEARCH)",
+                        authorization.value, self._exec_bridge.describe())
+            except Exception as exc:  # noqa: BLE001 — must never block startup
+                LOGGER.warning("strategy execution bridge unavailable: %s", exc)
+                self._exec_bridge = None
+
     def _exposure_opposing_fn(self):
         """Pairwise opposing-exposure predicate from the exposure registry: two
         symbols oppose if they share an underlying exposure group with opposite
@@ -1013,7 +1057,7 @@ class MarketEngine:
         interval = float(os.environ.get("CENGINE_REGIME_SECONDS", "15"))
         while not stop.is_set():
             try:
-                self._regime_intelligence_tick(_time.time_ns())
+                await self._regime_intelligence_tick(_time.time_ns())
             except Exception as exc:  # noqa: BLE001 — advisory; never kill the loop
                 LOGGER.warning("regime intelligence tick failed: %s", exc)
             try:
@@ -1021,10 +1065,11 @@ class MarketEngine:
             except asyncio.TimeoutError:
                 pass
 
-    def _regime_intelligence_tick(self, now_ns: int) -> Optional[dict]:
+    async def _regime_intelligence_tick(self, now_ns: int) -> Optional[dict]:
         """One advisory pass: compute native screen rows over refs + canonical +
-        positions, run the regime/strategy pipeline, log telemetry. Returns the
-        pipeline result (or None if inactive)."""
+        positions, run the regime/strategy pipeline, log telemetry, and (only if an
+        authorized execution bridge is active) route recommendations through the
+        existing order path. Returns the pipeline result (or None if inactive)."""
         if self._regime_pipeline is None or self._gpu_discovery is None:
             return None
         refs = ["SPY", "QQQ", "DIA", "IWM"]
@@ -1058,6 +1103,18 @@ class MarketEngine:
                     len(out["recommendations"]),
                     len(out["arbitration"]["selected"]),
                     len(out["arbitration"]["research"]), tele["events_emitted"])
+        # Execution bridge (default-off): route authorized recommendations through
+        # the EXISTING order path. With default maturity (RESEARCH) nothing routes.
+        if self._exec_bridge is not None:
+            try:
+                bo = await self._exec_bridge.route_recommendations(
+                    out["recommendations"], now_ns=now_ns)
+                if bo.submitted or bo.by_outcome("risk_rejected"):
+                    LOGGER.warning("exec bridge: submitted=%d skipped=%d",
+                                   bo.submitted, bo.skipped)
+                out["bridge"] = bo
+            except Exception as exc:  # noqa: BLE001 — bridge must never kill the loop
+                LOGGER.warning("exec bridge route failed: %s", exc)
         return out
 
     def _warmup_priority_inputs(self) -> dict:
@@ -1668,6 +1725,14 @@ class MarketEngine:
         if self.portfolio is not None:
             self.portfolio.track_order(order)
         self.strategy_state.on_order(order)
+        # Execution-evidence for bridge-routed orders (decision events), composed
+        # onto the audit chain. No-op unless the execution bridge is active.
+        bridge_audit = getattr(self, "_bridge_audit_handler", None)
+        if bridge_audit is not None:
+            try:
+                bridge_audit(event, order)
+            except Exception:  # noqa: BLE001 — evidence must never block the order path
+                pass
         self.journal.append(
             "order_event",
             max(order.last_event_ns, time.time_ns()),

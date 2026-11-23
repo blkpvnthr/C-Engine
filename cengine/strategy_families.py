@@ -29,6 +29,7 @@ from enum import Enum
 from typing import Optional
 
 from cengine.regime_engine import RegimeDirection, TrendStructure
+from cengine.strategy_maturity import MaturityState
 
 FEATURE_VERSION = "features-1.0.0"
 
@@ -245,11 +246,24 @@ def passes_entry_contract(row: dict) -> tuple[bool, str]:
 
 # --- family registry --------------------------------------------------------
 class StrategyFamilyRegistry:
-    """Holds the five family specs + eligibility. Never auto-enables execution."""
+    """Holds the five family specs + eligibility + maturity. Never auto-enables
+    execution.
+
+    Two INDEPENDENT dimensions are tracked per family:
+
+    * ``eligibility`` (:class:`EligibilityState`) — governs the ADVISORY arbitration
+      path; ``EXECUTION`` means authorized live elective entry and is default-off.
+    * ``maturity`` (:class:`MaturityState`) — governs the EXECUTION BRIDGE and, in
+      particular, isolated mock-broker authorization. Mock maturity is deliberately
+      separate from ``EXECUTION`` eligibility so exercising the mock path can never
+      grant paper/live routing (directive §4).
+    """
 
     def __init__(self, specs: Optional[dict] = None) -> None:
         # deep-ish copy so per-instance eligibility changes don't leak globally
         self._specs = {f: _copy_spec(s) for f, s in (specs or FAMILY_SPECS).items()}
+        # Maturity defaults to RESEARCH for every family; promotion is explicit.
+        self._maturity: dict = {f: MaturityState.RESEARCH for f in self._specs}
 
     def spec(self, family: StrategyFamily) -> StrategyFamilySpec:
         return self._specs[family]
@@ -274,6 +288,52 @@ class StrategyFamilyRegistry:
 
     def disable(self, family: StrategyFamily) -> None:
         self._specs[family].eligibility = EligibilityState.DISABLED
+
+    # --- maturity dimension (execution bridge; independent of eligibility) ----
+    def maturity(self, family: StrategyFamily) -> MaturityState:
+        return self._maturity[family]
+
+    def set_maturity(self, family: StrategyFamily, state: MaturityState) -> None:
+        """Explicitly set a family's maturity. Never called automatically."""
+        self._maturity[family] = state
+
+    def mark_mock_execution_eligible(self, family: StrategyFamily, *,
+                                     test_authorization: bool) -> MaturityState:
+        """Grant ISOLATED mock-execution authorization — ONLY if the family has
+        regression tests AND the caller explicitly asserts test authorization.
+
+        This NEVER implies paper/live eligibility (see
+        :func:`cengine.strategy_maturity.authorization_permits`) and NEVER touches
+        the advisory ``EXECUTION`` eligibility state. A BLOCKED family is never
+        promoted. Returns the resulting maturity.
+        """
+        spec = self._specs[family]
+        if (test_authorization and spec.has_regression_tests
+                and self._maturity[family] is not MaturityState.BLOCKED):
+            self._maturity[family] = MaturityState.MOCK_EXECUTION
+        return self._maturity[family]
+
+    def mark_paper_eligible(self, family: StrategyFamily, *,
+                            validated: bool) -> MaturityState:
+        """Promote to PAPER_ELIGIBLE only with regression tests + explicit validation."""
+        spec = self._specs[family]
+        if (validated and spec.has_regression_tests
+                and self._maturity[family] is not MaturityState.BLOCKED):
+            self._maturity[family] = MaturityState.PAPER_ELIGIBLE
+        return self._maturity[family]
+
+    def mark_live_eligible(self, family: StrategyFamily, *,
+                           validated: bool) -> MaturityState:
+        """Promote to LIVE_ELIGIBLE only with regression tests + explicit validation."""
+        spec = self._specs[family]
+        if (validated and spec.has_regression_tests
+                and self._maturity[family] is not MaturityState.BLOCKED):
+            self._maturity[family] = MaturityState.LIVE_ELIGIBLE
+        return self._maturity[family]
+
+    def block(self, family: StrategyFamily) -> None:
+        """Hard stop: BLOCKED overrides every authorization (directive §16)."""
+        self._maturity[family] = MaturityState.BLOCKED
 
 
 def _copy_spec(s: StrategyFamilySpec) -> StrategyFamilySpec:

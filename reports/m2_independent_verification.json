@@ -1,0 +1,40 @@
+{
+  "report": "m2_independent_verification",
+  "milestone": "Milestone 2 — Market Regime + Adaptive Strategy Intelligence",
+  "verification_branch": "feature/m2-execution-certification",
+  "merged_implementation": {
+    "merged_to": "main",
+    "merge_commit": "409c54d (PR #4)",
+    "implementation_commit": "d93077a",
+    "characterization": "ADVISORY — regime/strategy intelligence wired as a detached loop that emits recommendations + decision evidence but routes nothing to execution."
+  },
+  "baseline_established": {
+    "pytest": "489 passed in ~15.7s",
+    "ruff": "All checks passed (0 violations)",
+    "native_library": "build-metal/_cengine_native.cpython-311-darwin.so present",
+    "metal_library": "build-metal/cengine.metallib present"
+  },
+  "dod_verification": [
+    {"item": "Market regime classification across levels", "status": "VERIFIED", "evidence": "cengine/regime_engine.py RegimeLevel{BROAD,BENCHMARK,SECTOR,INSTRUMENT}; assess_broad() + assess_instrument(level=...). tests/test_regime_engine.py."},
+    {"item": "Independent regime dimensions + hysteresis", "status": "VERIFIED", "evidence": "4 independent str-Enums (direction/trend/volatility/liquidity); hysteresis applied to DIRECTION only via _apply_hysteresis with min_persistence_updates=2; staleness via max_age_ns. Tested."},
+    {"item": "Five-family registry", "status": "VERIFIED", "evidence": "cengine/strategy_families.py StrategyFamily{MOMENTUM_CONTINUATION,VOLATILITY_BREAKOUT,TREND_PULLBACK,MEAN_REVERSION,MULTI_DAY_SWING}; full per-family metadata/versions."},
+    {"item": "Strategy maturity + authorization states", "status": "GAP (partial)", "evidence": "Merged impl uses a 3-state EligibilityState{DISABLED,RESEARCH,EXECUTION}. Directive §4 requires richer maturity (research/shadow/replay/mock/paper/live) with isolated mock authorization. ADDRESSED in this package via cengine/strategy_maturity.py."},
+    {"item": "Strategy arbitration", "status": "VERIFIED", "evidence": "cengine/strategy_arbitration.py StrategyArbitrator.arbitrate resolves stale/duplicate/conflict/opposing/capital; returns selected/rejected/research. Tested."},
+    {"item": "Economic opportunity ranking", "status": "VERIFIED", "evidence": "EconomicRanker: net = gross - cost (once); deterministic research fallback explicitly labeled; unknown net stays None. Tested."},
+    {"item": "Decision-event capture", "status": "VERIFIED (contract) / GAP (execution emitters)", "evidence": "cengine/decision_events.py DecisionEventType already defines ORDER_INTENT/BROKER_ACK/PARTIAL_FILL/COMPLETE_FILL/EXIT_DECISION/REALIZED_OUTCOME/RISK_APPROVAL/RISK_REJECTION; only regime/recommendation/arbitration emitters existed. Execution-lifecycle emitters ADDED in this package."},
+    {"item": "Integration into trade.py", "status": "VERIFIED (advisory only)", "evidence": "trade.py:968-984 constructs RegimeStrategyPipeline; detached task _run_regime_intelligence (1007-1061) emits evidence+telemetry and returns out; out is NEVER handed to self.router. Confirmed non-routing."},
+    {"item": "Native C++/Metal computational responsibilities", "status": "VERIFIED", "evidence": "See reports/native_strategy_architecture.json — heavy numerics (features/breadth/screening/ranking/risk) native/Metal; regime/strategy layer is lightweight orchestration (~34us/symbol, 201ms full-universe, off hot path). No migration warranted."},
+    {"item": "Existing strategy + execution compatibility", "status": "VERIFIED", "evidence": "No native/Metal source changed by M2; existing order path (strategies.py -> CandidateRouter -> OrderManager -> native RiskEngine -> AlpacaExecutionVenue) and independent protective exit untouched. 489 tests green."}
+  ],
+  "gaps_identified": [
+    {"gap": "No execution integration", "detail": "Advisory recommendations never reach CandidateRouter/OrderManager. Directive §3 requires the architecture be CAPABLE of generating eligible recommendations that reach the existing execution authority.", "resolution": "cengine/strategy_execution_bridge.py routes eligible recommendations through the EXISTING router -> exposure gate -> native RiskEngine -> OrderManager."},
+    {"gap": "No richer maturity / isolated mock authorization", "detail": "Directive §4 wants research/shadow/replay/mock/paper/live with mock exercised under isolated test authorization without granting live eligibility.", "resolution": "cengine/strategy_maturity.py MaturityState + ExecutionAuthorization; mock authorization is strictly separate from the advisory EXECUTION eligibility (live)."},
+    {"gap": "No in-tree mock broker", "detail": "Only test doubles existed; §9 requires an isolated mock broker to exercise the full path.", "resolution": "cengine/mock_broker.py SimulatedBroker (ExecutionVenue) + cengine/mock_adapters.py."},
+    {"gap": "Decision-event execution emitters + recovery", "detail": "§8 requires order-intent/ack/fill/exit/outcome evidence + overflow/persistence/recovery tests.", "resolution": "Execution emitters added; integrity tests added; financial events remain recoverable from the authoritative journal."}
+  ],
+  "safety_invariants_confirmed": {
+    "mandatory_protective_exit_independent": "protective_exit.py ProtectiveExitCoordinator runs as its own 5s task on threshold -0.005, uses in-engine positions + live price source, submits via the SAME OrderManager; never arbitrated, never vetoed by strategy intelligence.",
+    "advisory_default_non_routing": "All families default RESEARCH; arbitration 'selected' requires EXECUTION; pipeline has no order imports; bridge authorization defaults NONE."
+  },
+  "conclusion": "Merged M2 is IMPLEMENTATION-COMPLETE and OPERATIONALLY-ADVISORY. The remaining gaps are execution integration, richer maturity/mock authorization, an isolated mock broker, and execution-evidence emitters — all addressed in feature/m2-execution-certification without re-implementing merged components."
+}

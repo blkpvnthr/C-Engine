@@ -1,5 +1,5 @@
 {
-  "acceptance_item": "7 - financial invariants / independent protective exit",
+  "acceptance_item": "7 + 19 - financial invariants / independent protective exit",
   "invariant": "unrealized_return < -0.005 triggers a mandatory protective exit",
   "independence": [
     "historical warm-up",
@@ -8,9 +8,22 @@
     "GPU availability",
     "strategy qualification",
     "portfolio optimization",
-    "elective trading eligibility"
+    "elective trading eligibility",
+    "market regime classification",
+    "strategy maturity / execution authorization",
+    "strategy recommendations and arbitration",
+    "economic ranking",
+    "execution bridge state (active, BLOCKED, or conflicting)"
   ],
-  "mechanism": "trade.py routes the protective exit path from authoritative native market state directly into the RiskEngine/OrderManager, bypassing elective discovery/intelligence/optimization. Exits are never gated by the exposure authorizer.",
+  "mechanism": "trade.py routes the protective exit path from authoritative native market state directly into the RiskEngine/OrderManager, bypassing elective discovery/intelligence/optimization. Exits are never gated by the exposure authorizer and are never arbitrated.",
+  "bridge_independence_verified": {
+    "fires_with_no_strategy_engine": true,
+    "fires_when_all_families_blocked": true,
+    "inflight_elective_order_does_not_block_mandatory_exit": "protective_exit uses a SEPARATE single-pending key (strategy_id 'protective_exit') from the bridge's 'regime_intelligence'; an in-flight elective order on the same symbol never blocks the mandatory close",
+    "never_arbitrated": "StrategyArbitrator only resolves elective recommendations; it emits/blocks no exit",
+    "five_second_periodic_backstop_preserved": true,
+    "threshold_unchanged": -0.005
+  },
   "singletons_preserved": [
     "one SIP connection",
     "one UniversePublisher",
@@ -18,9 +31,9 @@
     "one OrderManager"
   ],
   "offline_verification": {
-    "tests/test_protective_exit.py": 14
+    "tests/test_protective_exit.py": 14,
+    "tests/test_protective_exit_independence.py": 5
   },
   "no_live_orders_during_testing": true,
-  "status": "PRESERVED + offline-verified",
-  "recorded_utc": "2026-11-22T23:48:23.994497+00:00"
+  "status": "PRESERVED + independence re-verified against the new execution bridge"
 }

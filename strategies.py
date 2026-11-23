@@ -59,6 +59,11 @@ class StrategyName(str, Enum):
     DUAL_MA = "dual_ma"
     APO_MEAN_REVERSION = "apo_mean_reversion"
     DI_BB = "di_bb"
+    # Routing identity for recommendations originated by the adaptive five-family
+    # regime-intelligence execution bridge. Keeps the single-pending state guard
+    # and order attribution separate from the legacy per-strategy signals. The
+    # specific family/version attribution rides in the decision-event evidence.
+    REGIME_INTELLIGENCE = "regime_intelligence"
 
 
 @dataclass(frozen=True, slots=True)

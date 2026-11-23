@@ -86,18 +86,24 @@ flowchart TD
     N --> R
 
     subgraph Execution[Risk and Execution]
+        W[Strategy Execution Bridge · maturity-gated · default-off]
         S[Native RiskEngine]
         T[Independent Protective Exits]
         U[OrderManager]
-        V[Alpaca Execution]
+        V[Alpaca Execution / Mock Broker]
+        W --> X[CandidateRouter + Exposure Gate]
+        X --> U
+        U --> S
         S --> U
         T --> S
         U --> V
     end
 
     R --> S
+    Q --> W
     G --> T
     V -->|Execution reports and fills| G
+    U -.->|decision + execution evidence| Y[DecisionEventSink]
 ```
 
 *High-level overview only — illustrating a component here is not a claim that it is production-certified. See the per-subsystem diagrams and the [implementation roadmap](#implementation-roadmap-and-validation) for the verified status of each stage.*
@@ -126,15 +132,31 @@ Capabilities are tracked in four distinct states — **implemented & offline-val
 | Independent −0.5% protective exits | ✅ Implemented · offline-validated |
 | Exposure authorization (geared/inverse gated) | ✅ Implemented · offline-validated |
 | Real-time SIP session certification (live acks, live freshness, full-market load) | ⏳ Session-gated (market-hours) |
-| Portfolio analytics / optimizer operational consumers | 🎯 Target |
-| Regime engine · five-family strategy consolidation · dashboard | 🎯 Target |
+| Market regime engine (4 levels · 4 independent dimensions · hysteresis) | ✅ Implemented · offline-validated (advisory) |
+| Five-family strategy architecture + arbitration + economic ranking | ✅ Implemented · offline-validated (advisory) |
+| **Strategy → execution bridge** (maturity-gated; routes through existing authority) | ✅ Implemented · **mock-execution certified** · default-off |
+| Isolated mock broker + full-path acceptance (5 families × instrument classes) | ✅ Implemented · offline-validated |
+| Decision + execution evidence (full lifecycle, recoverable) | ✅ Implemented · offline-validated |
+| Portfolio analytics / optimizer operational consumers · dashboard | 🎯 Target |
 | Economic validation (walk-forward / OOS edge, SIP vs IEX) | 🎯 Target — not yet begun |
+| Paper / live execution certification of the five families | ⏳ Gated (separate validation) |
 
 Illustrating a component in the diagram is **not** a claim that it is production-certified. Nodes marked *(target)* in the detailed diagrams below are not certified capabilities.
 
 ### Independent protective exit path
 
-The protective exit path (`G → T → S → U → V`) is **deliberately separate** from elective opportunity discovery, strategy evaluation, and portfolio optimization. Protective exits are driven directly by authoritative native market state (`G`) into the Independent Protective Exits (`T`) and the `RiskEngine` (`S`) — they do **not** depend on GPU availability, scanner rankings, GPU analytics, or the portfolio optimizer. The strict **−0.5% protective exit invariant** is preserved: a position breaching −0.5% is exited through this independent path regardless of the state of any elective discovery, intelligence, or optimization component.
+The protective exit path (`G → T → S → U → V`) is **deliberately separate** from elective opportunity discovery, strategy evaluation, and portfolio optimization. Protective exits are driven directly by authoritative native market state (`G`) into the Independent Protective Exits (`T`) and the `RiskEngine` (`S`) — they do **not** depend on GPU availability, scanner rankings, GPU analytics, or the portfolio optimizer. The strict **−0.5% protective exit invariant** is preserved: a position breaching −0.5% is exited through this independent path regardless of the state of any elective discovery, intelligence, or optimization component. It is never arbitrated, and it uses a **separate single-pending key** from elective strategy orders, so an in-flight elective order never blocks a mandatory close.
+
+### Strategy execution bridge and maturity gating
+
+The five-family regime intelligence is **advisory by default**. The `StrategyExecutionBridge` (`cengine/strategy_execution_bridge.py`) connects authorized recommendations to the **existing** execution authority (`CandidateRouter → exposure gate → native RiskEngine → OrderManager`) — it creates no parallel engine and bypasses no control. Two independent gates must both open before anything routes:
+
+1. **`conditions_passed`** — the strategy/entry/regime conditions themselves passed (strict elective-long contract: `DI+5m > DI−5m AND (price > VWAP OR SMA20 OR BB-mid) AND developing_1m > prev_1m_close`), and
+2. **maturity + authorization** — the family's independently-verified maturity permits the run's authorization.
+
+Maturity (`cengine/strategy_maturity.py`) is a dedicated ladder — `RESEARCH` (default) → `SHADOW` → `REPLAY_VALIDATED` → `MOCK_EXECUTION` → `PAPER_ELIGIBLE` → `LIVE_ELIGIBLE` (plus `BLOCKED`/`DISABLED`) — **separate** from the advisory `EXECUTION` eligibility. The authorization context is `NONE` (default — routes nothing), `MOCK`, `PAPER`, or `LIVE`. Critically, **mock execution is isolated**: a `MOCK_EXECUTION` family is routable only under `MOCK` authorization and is *never* paper- or live-routable, so exercising a family through the isolated mock broker grants no production trading eligibility. `BLOCKED` is a hard stop that overrides every authorization. Nothing is auto-promoted; promotion requires regression tests **and** explicit operator assertion.
+
+The bridge is wired into `trade.py` behind `CENGINE_STRATEGY_EXECUTION_AUTH` (default `none`), so the zero-argument engine remains advisory-only. The full production path — all five families → bridge → router → exposure gate → **real native C++ RiskEngine** → `OrderManager` → isolated mock broker → fill reconciliation → decision/execution evidence — is **mock-execution certified** across instrument classes (equity / broad / sector / leveraged-bull / inverse / leveraged-inverse) and scenarios (stale observations, unauthorized exposure, insufficient capital, partial fills, broker rejection, duplicate prevention). Mock certification is **not** economic validation and does **not** confer paper/live eligibility.
 
 ## Runtime data-flow overview
 
