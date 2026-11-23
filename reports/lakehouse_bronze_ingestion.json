@@ -1,0 +1,16 @@
+{
+  "generated_utc": "2026-11-23T03:29:21Z",
+  "report": "lakehouse_bronze_ingestion",
+  "milestone": "M5 \u00a78-10",
+  "provenance": "MOCK-CERTIFICATION decision lifecycle through the real bronze path (no live trading session); market bars are genuine SIP (see lakehouse_historical_sip_ingestion.json)",
+  "ingested": 11,
+  "written": 11,
+  "dropped": 0,
+  "quarantined": 0,
+  "by_dataset": {
+    "engine_decisions": 5,
+    "portfolio_decisions": 2,
+    "fill_events": 4
+  },
+  "nonblocking": "bounded, loss-accounted; never blocks order/protective-exit path"
+}

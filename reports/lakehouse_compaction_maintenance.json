@@ -1,0 +1,34 @@
+{
+  "generated_utc": "2026-11-23T03:29:21Z",
+  "report": "lakehouse_compaction_maintenance",
+  "milestone": "M5 \u00a724",
+  "version": "lakehouse-maintenance-1.0.0",
+  "compact_bronze": {
+    "partitions": 0,
+    "files_before": 0,
+    "files_after": 0,
+    "rows_in": 0,
+    "rows_out": 0,
+    "errors": []
+  },
+  "compact_silver": {
+    "partitions": 0,
+    "files_before": 0,
+    "files_after": 0,
+    "rows_in": 0,
+    "rows_out": 0,
+    "errors": []
+  },
+  "compact_gold": {
+    "partitions": 0,
+    "files_before": 0,
+    "files_after": 0,
+    "rows_in": 0,
+    "rows_out": 0,
+    "errors": []
+  },
+  "retention": {
+    "pruned_partitions": 0,
+    "pruned_files": 0
+  }
+}

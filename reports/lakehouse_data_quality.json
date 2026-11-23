@@ -1,0 +1,108 @@
+{
+  "generated_utc": "2026-11-23T03:29:21Z",
+  "report": "lakehouse_data_quality",
+  "milestone": "M5 \u00a723",
+  "total_checks": 14,
+  "passed": 14,
+  "failed": 0,
+  "checks": [
+    {
+      "check": "pk_uniqueness",
+      "dataset": "engine_decisions",
+      "passed": true,
+      "detail": "0 duplicate event_ids",
+      "count": 0
+    },
+    {
+      "check": "required_timestamps",
+      "dataset": "engine_decisions",
+      "passed": true,
+      "detail": "0 rows missing timestamps",
+      "count": 0
+    },
+    {
+      "check": "point_in_time_availability",
+      "dataset": "engine_decisions",
+      "passed": true,
+      "detail": "0 rows with availability < event time",
+      "count": 0
+    },
+    {
+      "check": "row_count",
+      "dataset": "engine_decisions",
+      "passed": true,
+      "detail": "5 rows",
+      "count": 5
+    },
+    {
+      "check": "pk_uniqueness",
+      "dataset": "portfolio_decisions",
+      "passed": true,
+      "detail": "0 duplicate event_ids",
+      "count": 0
+    },
+    {
+      "check": "required_timestamps",
+      "dataset": "portfolio_decisions",
+      "passed": true,
+      "detail": "0 rows missing timestamps",
+      "count": 0
+    },
+    {
+      "check": "point_in_time_availability",
+      "dataset": "portfolio_decisions",
+      "passed": true,
+      "detail": "0 rows with availability < event time",
+      "count": 0
+    },
+    {
+      "check": "row_count",
+      "dataset": "portfolio_decisions",
+      "passed": true,
+      "detail": "2 rows",
+      "count": 2
+    },
+    {
+      "check": "pk_uniqueness",
+      "dataset": "fill_events",
+      "passed": true,
+      "detail": "0 duplicate event_ids",
+      "count": 0
+    },
+    {
+      "check": "required_timestamps",
+      "dataset": "fill_events",
+      "passed": true,
+      "detail": "0 rows missing timestamps",
+      "count": 0
+    },
+    {
+      "check": "point_in_time_availability",
+      "dataset": "fill_events",
+      "passed": true,
+      "detail": "0 rows with availability < event time",
+      "count": 0
+    },
+    {
+      "check": "row_count",
+      "dataset": "fill_events",
+      "passed": true,
+      "detail": "4 rows",
+      "count": 4
+    },
+    {
+      "check": "price_validity",
+      "dataset": "fills",
+      "passed": true,
+      "detail": "0 negative fill prices",
+      "count": 0
+    },
+    {
+      "check": "financial_scale_consistency",
+      "dataset": "fills",
+      "passed": true,
+      "detail": "0 suspiciously small tick prices (possible cents-scale regression)",
+      "count": 0
+    }
+  ]
+}
