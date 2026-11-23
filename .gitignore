@@ -56,3 +56,4 @@ data/lakehouse/
 *.duckdb.wal
 models/
 data/model_registry/
+.claude/

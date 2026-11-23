@@ -1,0 +1,102 @@
+{
+  "version": "m7-accounting-audit-1.0.0",
+  "available": true,
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "SPY",
+    "QQQ"
+  ],
+  "data_label": "historical_replay",
+  "exits_resolved": 15000,
+  "m7_trade_level_accounting": {
+    "n_trades": 15000,
+    "net_expectancy_per_trade": -0.001075,
+    "profit_factor": 0.6408,
+    "win_rate": 0.352,
+    "per_trade_sharpe_not_annualized": -0.1207,
+    "max_drawdown_compound_all_in_sequential": 1.0,
+    "max_drawdown_additive_sum": 16.1629,
+    "net_return_sum": -16.1318,
+    "net_return_compounded": -1.0,
+    "interpretation": "these are INDEPENDENT per-trade returns compounded as if a single all-in, fully-reinvested, sequential position \u2014 NOT executable portfolio equity; the entries overlap in time (see concurrency)"
+  },
+  "capital_constrained_portfolio_accounting": {
+    "config": {
+      "initial_capital": 100000.0,
+      "capital_fraction_per_position": 0.1,
+      "max_concurrent_positions": 10,
+      "max_gross_exposure": 1.0,
+      "cost_frac": 0.0004,
+      "protective_stop": 0.005,
+      "emergency_stop": 0.03,
+      "max_hold_bars": 120,
+      "allow_fractional_shares": true
+    },
+    "n_entry_signals": 15000,
+    "n_trades_taken": 15000,
+    "n_skipped_no_capital": 0,
+    "n_skipped_concurrency": 0,
+    "final_equity": 19768.03,
+    "min_cash_observed": 10669.63,
+    "cash_never_negative": true,
+    "total_return": -0.8023197160836997,
+    "cagr": -0.21298496589281735,
+    "max_drawdown": 0.8028162180018794,
+    "sharpe_annualized": -5.20132663224108,
+    "sortino_annualized": -4.795334014305369,
+    "volatility_annualized": 0.04583906766699939,
+    "win_rate": 0.352,
+    "net_expectancy_per_trade": -0.0010754547140673168,
+    "profit_factor": 0.6408233661278874,
+    "avg_concurrent_positions": 0.676,
+    "peak_concurrent_positions": 7,
+    "avg_capital_utilization": 0.0676,
+    "turnover": 749.84,
+    "span_days": 2472.2,
+    "note": "capital-constrained portfolio replay on genuine bars; executable-equity drawdown (time-indexed), not compounded per-trade; simulated, not live",
+    "per_symbol_trades": {
+      "MSFT": 3000,
+      "AAPL": 3000,
+      "NVDA": 3000,
+      "SPY": 3000,
+      "QQQ": 3000
+    }
+  },
+  "cash_conservation": {
+    "ok": true,
+    "initial_capital": 100000.0,
+    "final_equity": 19768.03,
+    "min_cash_observed": 10669.63,
+    "cash_never_negative": true,
+    "total_return": -0.8023197160836997,
+    "return_consistent": true,
+    "final_equity_non_negative": true
+  },
+  "concurrency": {
+    "peak_concurrent_positions": 7,
+    "avg_concurrent_positions": 0.676,
+    "overlaps_exist": true
+  },
+  "sharpe_annualization_note": "M7 reported a PER-TRADE Sharpe (periods_per_year=None), not annualized; the portfolio replay reports a properly annualized Sharpe from periodic equity returns. Both remain negative for the incumbent.",
+  "drawdown_finding": {
+    "m7_reported_drawdown_fraction": 1.0,
+    "corrected_portfolio_equity_drawdown_fraction": 0.8028,
+    "conclusion": "The M7 ~90%+ drawdown is a COMPOUNDED INDEPENDENT TRADE-LEVEL artifact (all-in sequential single-position reinvestment), not executable portfolio equity. Under a capital-constrained portfolio (10% per position, max 10 concurrent), the time-indexed equity drawdown is 80.3%. The strategy's per-trade economics are still negative, so the corrected accounting does NOT rescue the strategy \u2014 it only corrects the magnitude/interpretation of the drawdown and the Sharpe basis.",
+    "genuine_accounting_defect": "Scoring overlapping entries as a single sequential all-in compounded series misrepresents executable drawdown and capital at risk; the portfolio accountant (cengine/alpha/portfolio_replay.py) is the corrected model."
+  },
+  "preserved_m7_benchmark": {
+    "canonical_instruments_passed": "0 of 5",
+    "net_expectancy_per_trade": "~ -0.001",
+    "profit_factor": "~ 0.6",
+    "reported_per_trade_sharpe": "~ -0.2",
+    "negative_at_zero_cost": true,
+    "recovery_above_exit_60m": "~95.7%",
+    "recovery_above_entry_60m": "~47.7%",
+    "certified_economic_edge": false,
+    "live_deployment": "inactive",
+    "source": "M7 sealed-holdout certification (reports/m7_certification_report.md)"
+  },
+  "note": "ACCOUNTING correction only \u2014 the per-trade economics (negative expectancy, PF<1) are preserved and unchanged; the correction is to the drawdown interpretation and Sharpe annualization basis. Historical-replay, not live."
+}
