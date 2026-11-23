@@ -12,6 +12,7 @@ from cengine.learning.supervised.baselines import (
     SklearnClassifier,
     SklearnRegressor,
 )
+from cengine.learning.supervised.trainer import TrainingReport, train_forward_return_model
 
 __all__ = [
     "ConstantBaseline",
@@ -21,5 +22,7 @@ __all__ = [
     "SklearnRegressor",
     "Standardizer",
     "TrainConfig",
+    "TrainingReport",
     "regression_metrics",
+    "train_forward_return_model",
 ]
