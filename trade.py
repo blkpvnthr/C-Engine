@@ -1063,15 +1063,16 @@ class MarketEngine:
                     StrategyExecutionBridge,
                     make_decision_audit_handler,
                 )
-                from cengine.strategy_maturity import ExecutionAuthorization
+                from cengine.strategy_maturity import (
+                    ExecutionAuthorization,
+                    authorization_from_string,
+                )
 
-                auth_raw = os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH", "none").lower()
-                authorization = {
-                    "none": ExecutionAuthorization.NONE,
-                    "mock": ExecutionAuthorization.MOCK,
-                    "paper": ExecutionAuthorization.PAPER,
-                    "live": ExecutionAuthorization.LIVE,
-                }.get(auth_raw, ExecutionAuthorization.NONE)
+                # PAPER_RESEARCH (P0.3) authorizes paper execution of uncertified
+                # RESEARCH-maturity families; default NONE keeps execution opt-in
+                # ("expressly authorized"). Fail-safe: unknown values -> NONE.
+                authorization = authorization_from_string(
+                    os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH"))
                 runtime_state_for_bridge = getattr(self._adapter_module, "STATE", None)
                 if (authorization is not ExecutionAuthorization.NONE
                         and runtime_state_for_bridge is not None):
@@ -1087,7 +1088,8 @@ class MarketEngine:
                         self._regime_pipeline.sink, self._exec_bridge.correlation_index)
                     LOGGER.warning(
                         "strategy execution bridge ACTIVE authorization=%s (%s); "
-                        "families still gated by maturity (default RESEARCH)",
+                        "every entry still requires the technical entry contract + "
+                        "native RiskEngine approval (no gate bypassed)",
                         authorization.value, self._exec_bridge.describe())
             except Exception as exc:  # noqa: BLE001 — must never block startup
                 LOGGER.warning("strategy execution bridge unavailable: %s", exc)
@@ -1116,13 +1118,13 @@ class MarketEngine:
                     PortfolioQuantityPolicy,
                 )
                 from cengine.portfolio_state import PortfolioStateBuilder
-                from cengine.strategy_maturity import ExecutionAuthorization
+                from cengine.strategy_maturity import (
+                    ExecutionAuthorization,
+                    authorization_from_string,
+                )
 
-                pf_auth = {
-                    "none": ExecutionAuthorization.NONE, "mock": ExecutionAuthorization.MOCK,
-                    "paper": ExecutionAuthorization.PAPER, "live": ExecutionAuthorization.LIVE,
-                }.get(os.environ.get("CENGINE_PORTFOLIO_EXECUTION_AUTH", "none").lower(),
-                      ExecutionAuthorization.NONE)
+                pf_auth = authorization_from_string(
+                    os.environ.get("CENGINE_PORTFOLIO_EXECUTION_AUTH"))
                 rstate = getattr(self._adapter_module, "STATE", None)
                 if rstate is not None:
                     exposure_info = (self._exposure_registry.get
