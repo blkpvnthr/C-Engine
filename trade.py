@@ -1103,6 +1103,7 @@ class MarketEngine:
         # routes through the SAME OrderManager. Fail-safe; never blocks startup.
         self._portfolio_pipeline = None
         self._portfolio_returns: dict[str, dict[int, float]] = {}
+        self._portfolio_seeded = False  # P0.5: one-time warm-bar return seed done?
         self._portfolio_last_price: dict[str, int] = {}
         self._portfolio_state_builder = None
         self._portfolio_audit_handler = None
@@ -1318,6 +1319,25 @@ class MarketEngine:
         # Build + emit state evidence always (advisory telemetry).
         self._regime_pipeline.sink.record_portfolio_state(state, now_ns)
         self._last_portfolio_state = state
+
+        # One-time seed of observed returns from the already-warmed native 1m bars so
+        # the optimizer reaches covariance readiness immediately after warm-up instead
+        # of after ~min_obs live ticks (the return map starts empty every restart).
+        # Real closes only (no fabrication); best-effort; never blocks the tick. P0.5.
+        if not self._portfolio_seeded and self._gpu_discovery is not None:
+            self._portfolio_seeded = True
+            try:
+                seeded = self._gpu_discovery.provider.export_returns(
+                    candidates, ref_ns=now_ns, window=window)
+                for sym, series in seeded.items():
+                    self._portfolio_returns.setdefault(sym, {}).update(series)
+                if seeded:
+                    LOGGER.info(
+                        "portfolio returns seeded from warmed native bars: symbols=%d "
+                        "(optimizer readiness no longer waits on live-tick warmup)",
+                        len(seeded))
+            except Exception:  # noqa: BLE001 — seeding is best-effort; never block
+                pass
 
         symbols = tuple(s for s in candidates
                         if len(self._portfolio_returns.get(s, {})) >= min_obs)

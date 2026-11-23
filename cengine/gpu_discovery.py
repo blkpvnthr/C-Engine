@@ -32,6 +32,29 @@ import _cengine_native as native
 _TF_1M = native.BarTimeframe.ONE_MINUTE
 _TF_5M = native.BarTimeframe.FIVE_MINUTE
 
+_ONE_MINUTE_NS = 60 * 1_000_000_000
+
+
+def _closes_to_returns(
+    closes: list[float], ref_ns: int, interval_ns: int
+) -> dict[int, float]:
+    """Close-to-close simple returns keyed by right-aligned synthetic bar times.
+
+    Real data only: a non-positive close breaks the chain so no return is ever
+    fabricated across a gap (directive: never fabricate returns). Scale-invariant
+    -- ticks or raw price produce identical ratios. The most recent close is keyed
+    at ``ref_ns`` and each earlier bar one ``interval_ns`` before, so the same
+    bucket aligns across symbols for covariance estimation.
+    """
+    series: dict[int, float] = {}
+    n = len(closes)
+    for i in range(1, n):
+        prev, cur = closes[i - 1], closes[i]
+        if prev and prev > 0 and cur and cur > 0:
+            ts = ref_ns - (n - 1 - i) * interval_ns
+            series[ts] = (cur - prev) / prev
+    return series
+
 
 def _discover_metallib() -> Optional[str]:
     try:
@@ -127,6 +150,42 @@ class GpuDiscoveryProvider:
             sid = self.engine.symbol_id(s)
             if sid is not None:
                 out.append((s, sid))
+        return out
+
+    def export_returns(
+        self,
+        symbols: list[str],
+        *,
+        ref_ns: int,
+        window: int | None = None,
+        interval_ns: int = _ONE_MINUTE_NS,
+    ) -> dict[str, dict[int, float]]:
+        """Close-to-close return series per symbol from the already-warmed native
+        1-minute bar window, for seeding the portfolio optimizer's return map so it
+        is ready immediately after warm-up instead of after ~min_obs live ticks.
+
+        Reuses the SAME ``export_bar_window`` accessor as ``compute``; real closes
+        ONLY (no fabrication); symbols unknown to the engine and rows with fewer
+        than two bars are skipped. Returns {} rather than raising when nothing is
+        available so callers can seed best-effort.
+        """
+        valid = self._ids(symbols)
+        if not valid:
+            return {}
+        ids = [sid for _, sid in valid]
+        bw = self.engine.export_bar_window(ids, _TF_1M, window or self._window)
+        closes = list(bw.closes)
+        counts = list(bw.counts)
+        stride = int(bw.max_window)
+        out: dict[str, dict[int, float]] = {}
+        for row, (sym, _sid) in enumerate(valid):
+            n = int(counts[row])
+            if n < 2:
+                continue
+            start = row * stride
+            series = _closes_to_returns(closes[start:start + n], ref_ns, interval_ns)
+            if series:
+                out[sym] = series
         return out
 
     def ingest_bars(self, bars: list[tuple], timeframe) -> int:
