@@ -13,6 +13,7 @@ rebuild) the Milestone 5 lakehouse and the Milestone 6 learning layer.
 """
 
 from cengine.optimization.attribution import PerformanceAttributionEngine
+from cengine.optimization.config import OptimizationConfig, load_config
 from cengine.optimization.contracts import (
     OPTIMIZATION_CONTRACTS_VERSION,
     CollectionTask,
@@ -33,7 +34,12 @@ from cengine.optimization.economic import (
 from cengine.optimization.experiments import ExperimentBudget, ExperimentPlanner
 from cengine.optimization.hypotheses import HypothesisGenerator
 from cengine.optimization.memory import OptimizationMemory
+from cengine.optimization.orchestration import (
+    AutonomousOptimizationCycle,
+    run_autonomous_cycle,
+)
 from cengine.optimization.search import SearchSpace, default_search_spaces
+from cengine.optimization.validation import oos_windows, purged_walk_forward
 
 OPTIMIZATION_PLATFORM_VERSION = "optimization-platform-1.0.0"
 
@@ -41,7 +47,13 @@ __all__ = [
     "META_OPTIMIZER_VERSION",
     "OPTIMIZATION_CONTRACTS_VERSION",
     "OPTIMIZATION_PLATFORM_VERSION",
+    "AutonomousOptimizationCycle",
     "CandidateEvaluation",
+    "OptimizationConfig",
+    "load_config",
+    "oos_windows",
+    "purged_walk_forward",
+    "run_autonomous_cycle",
     "CollectionTask",
     "DataSufficiencyController",
     "Diagnostic",

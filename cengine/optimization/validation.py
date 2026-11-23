@@ -14,6 +14,7 @@ from typing import Optional
 import duckdb
 
 from cengine.lakehouse.config import LakehouseConfig
+from cengine.optimization.contracts import safe_ticker
 
 VALIDATION_VERSION = "oos-validation-1.0.0"
 _DAY_NS = 86_400 * 1_000_000_000
@@ -39,12 +40,13 @@ def _data_span(config: LakehouseConfig, symbol: str, timeframe: str = "1Min") ->
     if not base.exists() or not any(base.rglob("*.parquet")):
         return None
     glob = str(base / "**" / "*.parquet").replace("'", "''")
+    sym = safe_ticker(symbol)
     con = duckdb.connect()
     try:
         r = con.execute(
-            f"SELECT min(event_timestamp_ns), max(event_timestamp_ns) FROM "
-            f"read_parquet('{glob}', union_by_name=true) WHERE symbol_id='{symbol}' "
-            f"AND timeframe='{timeframe}'").fetchone()
+            "SELECT min(event_timestamp_ns), max(event_timestamp_ns) FROM "
+            f"read_parquet('{glob}', union_by_name=true) WHERE symbol_id=? "
+            "AND timeframe=?", [sym, str(timeframe)]).fetchone()
     finally:
         con.close()
     if not r or r[0] is None:

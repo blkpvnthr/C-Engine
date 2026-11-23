@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Optional
@@ -134,6 +135,21 @@ class CollectionTask:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+
+_TICKER_RE = re.compile(r"^[A-Z0-9.\-]{1,12}$")
+
+
+def safe_ticker(symbol: str) -> str:
+    """Validate a ticker before it is interpolated into SQL (defense against injection).
+
+    Tickers are uppercase alphanumerics plus '.'/'-'; anything else is rejected. Returns the
+    normalized symbol. Use this on ANY symbol that reaches a DuckDB query string.
+    """
+    s = str(symbol).strip().upper()
+    if not _TICKER_RE.match(s):
+        raise ValueError(f"invalid ticker symbol: {symbol!r} (expected ^[A-Z0-9.\\-]{{1,12}}$)")
+    return s
 
 
 def stable_id(prefix: str, *parts) -> str:

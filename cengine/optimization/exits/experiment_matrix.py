@@ -25,6 +25,7 @@ import numpy as np
 
 from cengine.lakehouse.config import LakehouseConfig
 from cengine.learning.evaluation import DATA_LABEL_HISTORICAL_REPLAY
+from cengine.optimization.contracts import safe_ticker
 from cengine.optimization.economic import evaluate_candidate
 from cengine.optimization.exits.adaptive import asset_class_stop_range
 
@@ -74,7 +75,8 @@ def _load_1m(config: LakehouseConfig, symbol: str, *, start_ns=None, end_ns=None
     if not base.exists() or not any(base.rglob("*.parquet")):
         return None
     glob = str(base / "**" / "*.parquet").replace("'", "''")
-    where = [f"symbol_id='{symbol}'", "timeframe='1Min'", "bar_close_ticks>0"]
+    sym = safe_ticker(symbol)   # validate before interpolation (SQL-injection guard)
+    where = [f"symbol_id='{sym}'", "timeframe='1Min'", "bar_close_ticks>0"]
     if start_ns is not None:
         where.append(f"event_timestamp_ns>={int(start_ns)}")
     if end_ns is not None:

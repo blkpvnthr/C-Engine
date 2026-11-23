@@ -22,6 +22,7 @@ import duckdb
 import numpy as np
 
 from cengine.lakehouse.config import DEFAULT_PRICE_SCALE, LakehouseConfig
+from cengine.optimization.contracts import safe_ticker
 
 COUNTERFACTUAL_VERSION = "exit-counterfactual-1.0.0"
 
@@ -59,12 +60,13 @@ def _load_1m(config: LakehouseConfig, symbol: str) -> Optional[dict]:
     glob = _glob(config)
     if glob is None:
         return None
+    sym = safe_ticker(symbol)   # validate before interpolation (SQL-injection guard)
     con = duckdb.connect()
     try:
         tbl = con.sql(
             f"SELECT event_timestamp_ns ts, bar_open_ticks o, bar_high_ticks h, "
             f"bar_low_ticks l, bar_close_ticks c FROM read_parquet('{glob}', "
-            f"union_by_name=true) WHERE symbol_id='{symbol}' AND timeframe='1Min' "
+            f"union_by_name=true) WHERE symbol_id='{sym}' AND timeframe='1Min' "
             f"AND bar_close_ticks>0 ORDER BY ts").to_arrow_table()
     finally:
         con.close()
