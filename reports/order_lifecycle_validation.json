@@ -1,0 +1,18 @@
+{
+  "report": "order_lifecycle_validation",
+  "milestone": "M4 §4/§11",
+  "module": "order_manager.py (reused + verified)",
+  "idempotency_recovery": {
+    "duplicate_client_order_id": "DuplicateClientOrderId raised",
+    "duplicate_broker_events": "venue_sequence staleness ignores re-applied updates",
+    "out_of_order_fills": "rejected without venue_sequence when event_ns regresses",
+    "monotonic_fills": "cumulative fill cannot exceed approved or move backwards",
+    "average_price": "weighted avg from explicitly-priced deltas; never invents fill prices",
+    "partial_vs_complete": "FILLED iff cumulative==approved; PARTIALLY_FILLED strictly partial",
+    "unknown_outcome": "capital NOT released on unknown broker outcome (CapitalReservationLedger.mark_unknown)",
+    "recovery": "AlpacaExecutionVenue.startup_reconcile rebuilds broker positions/orders on restart/reconnect",
+    "stable_client_ids": "deterministic client_order_id; never blind-resubmit an unknown-outcome order"
+  },
+  "tests": {"tests/test_order_lifecycle.py": "existing", "tests/test_execution_reconciliation.py": "existing (tick-scale updated)", "tests/test_execution_mock_certification.py": 20},
+  "verdict": "Order lifecycle + reservations remain consistent through failures (idempotent, recoverable)."
+}

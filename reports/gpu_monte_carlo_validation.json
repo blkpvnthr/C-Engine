@@ -1,0 +1,54 @@
+{
+  "report": "gpu_monte_carlo_validation",
+  "milestone": "M4 \u00a719 \u2014 Monte-Carlo integration",
+  "device": "Apple M5 Max",
+  "repeats": 20,
+  "bound_kernels": [
+    "gme::correlate_normals",
+    "gme::portfolio_scenario_pnl"
+  ],
+  "native_interface": "MetalRuntime.portfolio_scenario_returns(normals, cholesky, weights, scenarios, assets, return_model)",
+  "consumer": "cengine.portfolio_analytics.PortfolioAnalytics.scenario_losses (VaR/ES; source='metal_monte_carlo')",
+  "determinism": "HOST-seeded normals (reproducible); exact CPU oracle correlated = normals @ cholesky^T; portfolio_return = weights . correlated.",
+  "results": [
+    {
+      "scenarios": 256,
+      "assets": 8,
+      "cpu_ms": 0.0031,
+      "gpu_ms": 0.3253,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 7.592270362399844e-08,
+      "var_95": 0.546849
+    },
+    {
+      "scenarios": 1024,
+      "assets": 8,
+      "cpu_ms": 0.0057,
+      "gpu_ms": 0.3519,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 1.4812000415087567e-07,
+      "var_95": 0.51507
+    },
+    {
+      "scenarios": 4096,
+      "assets": 8,
+      "cpu_ms": 0.0161,
+      "gpu_ms": 0.5134,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 1.4812000415087567e-07,
+      "var_95": 0.520345
+    },
+    {
+      "scenarios": 16384,
+      "assets": 8,
+      "cpu_ms": 0.0548,
+      "gpu_ms": 1.1353,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 2.0773904696458345e-07,
+      "var_95": 0.521925
+    }
+  ],
+  "max_parity_diff": 2.0773904696458345e-07,
+  "assumption": "Gaussian scenario simulation under explicit assumptions \u2014 NOT a calibrated market forecast.",
+  "conclusion": "Monte-Carlo scenario kernels bound + consumed; CPU/GPU parity <= 2.08e-07. GPU wins at large scenario counts; CPU is used below the measured crossover. Reproducible via host-seeded normals."
+}

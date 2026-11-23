@@ -1,0 +1,20 @@
+{
+  "report": "execution_mock_certification",
+  "milestone": "M4 §24",
+  "branch": "feature/intelligent-execution",
+  "scope_honesty": "Full production execution path through the REAL native C++ RiskEngine + isolated mock broker. NOT economic validation; NO live orders. Native risk runs against a fresh per-test RuntimeState.",
+  "path": "portfolio recommendation -> ExecutionPlanner (limit price from L1 microstructure) -> CapitalReservation -> existing CandidateRouter -> exposure gate -> native RiskEngine -> OrderManager -> SimulatedBroker -> fills -> TransactionCostAnalysis -> decision evidence",
+  "scenarios_covered": [
+    "instrument classes (equity/broad/sector routed; leveraged-bull/inverse/leveraged-inverse blocked unless authorized)",
+    "narrow spread -> marketable limit fill with EXECUTION_PLAN + MICROSTRUCTURE_SNAPSHOT + COMPLETE_FILL evidence",
+    "wide spread -> passive/bounded limit", "stale microstructure -> immediate (market)",
+    "partial fills", "broker rejection", "insufficient capital -> native risk rejects",
+    "unauthorized exposure blocked", "duplicate/restart reservation idempotency",
+    "advisory default (NONE) -> routes nothing but emits shadow plan + evidence",
+    "GPU unavailable -> CPU covariance fallback still routes",
+    "TransactionCostAnalysis (implementation shortfall + realized slippage) on a fill",
+    "mandatory protective-exit independence from the execution planner"
+  ],
+  "tests": {"tests/test_execution_mock_certification.py": 20},
+  "verdict": "MOCK-EXECUTION CERTIFIED through the existing financial authority."
+}

@@ -1,0 +1,26 @@
+{
+  "report": "gpu_reduction_integration",
+  "milestone": "M4 \u00a719 \u2014 numerical reductions",
+  "status": "compiled-but-unbound (deliberate)",
+  "kernels_compiled": [
+    "reduce_sum_partials",
+    "reduce_moment_partials",
+    "reduce_minmax_partials",
+    "reduce_dot_partials",
+    "reduce_covariance_sufficient_partials",
+    "reduce_matrix_column_partials",
+    "reduce_pnl_partials",
+    "reduce_threshold_tail_partials",
+    "reduce_validation_counts",
+    "reduce_histogram_partials",
+    "combine_sum_partials",
+    "combine_covariance_partials",
+    "combine_pnl_partials",
+    "combine_threshold_tail_partials",
+    "normalize_zscores"
+  ],
+  "host_callable": false,
+  "operationally_consumed": false,
+  "measured_justification": "The reduction kernels are two-stage (partial -> combine) designed for large-N on-device reductions. The portfolio/execution workloads in this milestone operate on small candidate-set arrays (<= a few hundred names) and per-scenario Monte-Carlo PnL where the VaR/ES reduction is a trivial numpy quantile \u2014 binding the GPU reduction kernels for these would be an ARTIFICIAL/REDUNDANT operational call (explicitly disallowed by \u00a719). They remain compiled + pipeline-callable; binding is deferred until a genuine large-N reduction workload exists (e.g. full-universe cross-sectional statistics or large-scenario tail moments).",
+  "honesty": "Reported separately from consumed kernels; operational kernel count is NOT inflated by redundant calls."
+}

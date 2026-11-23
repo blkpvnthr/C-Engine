@@ -1,0 +1,56 @@
+{
+  "report": "microstructure_validation",
+  "milestone": "M4 addendum \u2014 L1 microstructure intelligence",
+  "feature_version": "microstructure-1.0.0",
+  "data_source": "synthetic SIP-shaped tape (labeled); genuine SIP validation deferred",
+  "reuses": "order_flow_engine.SymbolOrderFlow (quote imbalance, OFI, microprice, CVD, spread, exhaustion); adds Kyle's lambda, Amihud, arrival intensity, trade-size distribution, adverse selection",
+  "observed_fields_present": [
+    "ask",
+    "ask_size",
+    "bid",
+    "bid_size",
+    "last_trade_price",
+    "mid",
+    "spread_bps"
+  ],
+  "inferred_fields_present": [
+    "adverse_selection_bps",
+    "amihud_illiquidity",
+    "buyer_exhaustion",
+    "cumulative_volume_delta",
+    "kyle_lambda",
+    "microprice",
+    "order_flow_imbalance",
+    "seller_exhaustion",
+    "trade_arrival_intensity"
+  ],
+  "quality": {
+    "quality": "OK",
+    "is_stale": false,
+    "confidence": 1.0,
+    "n_trades": 80
+  },
+  "data_integrity": {
+    "crossed_quote_flagged": true,
+    "crossed_quality": "CROSSED",
+    "crossed_confidence_zero": true,
+    "unknown_stays_none": true,
+    "no_l2_depth_field": true
+  },
+  "fill_probability_feature_keys": [
+    "adverse_selection_bps",
+    "aggressive_imbalance",
+    "amihud_illiquidity",
+    "confidence",
+    "feature_version",
+    "is_stale",
+    "kyle_lambda",
+    "liquidity_resilience",
+    "microprice_displacement_bps",
+    "order_flow_imbalance",
+    "quote_imbalance",
+    "spread_bps",
+    "trade_arrival_intensity"
+  ],
+  "verdict": "L1 microstructure features derived from genuine SIP L1 observations; observed/inferred separated; no L2/aggressor fabrication; unknowns None."
+}

@@ -1,0 +1,62 @@
+{
+  "report": "gpu_covariance_optimization",
+  "milestone": "M4 \u00a719 \u2014 covariance optimization",
+  "device": "Apple M5 Max",
+  "observations": 120,
+  "repeats": 20,
+  "results": [
+    {
+      "assets": 8,
+      "cpu_ms": 0.0104,
+      "gpu_ms": 0.4939,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 3.1447029360956794e-11
+    },
+    {
+      "assets": 16,
+      "cpu_ms": 0.0101,
+      "gpu_ms": 0.5223,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 4.5671678922500417e-11
+    },
+    {
+      "assets": 30,
+      "cpu_ms": 0.0121,
+      "gpu_ms": 0.5303,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 3.947218519108429e-11
+    },
+    {
+      "assets": 64,
+      "cpu_ms": 0.0169,
+      "gpu_ms": 0.6193,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 4.7580716547746676e-11
+    },
+    {
+      "assets": 128,
+      "cpu_ms": 0.0306,
+      "gpu_ms": 0.706,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 4.488943011792326e-11
+    },
+    {
+      "assets": 256,
+      "cpu_ms": 0.1251,
+      "gpu_ms": 1.0555,
+      "gpu_faster": false,
+      "max_abs_parity_diff": 4.909723892905244e-11
+    }
+  ],
+  "max_parity_diff": 4.909723892905244e-11,
+  "cpu_gpu_crossover_assets": null,
+  "optimizations_considered": [
+    "tiled covariance (threadgroup reductions)",
+    "memory coalescing",
+    "symmetric (upper-triangular) computation",
+    "persistent buffers",
+    "batched portfolio analytics"
+  ],
+  "conclusion": "The existing covariance_matrix kernel is correctness-first (one thread per matrix cell, no parallel reduction) and remains PARITY-VALIDATED (<= 4.91e-11). At the candidate-set sizes that can actually enter a portfolio (<= a few hundred names), optimized numpy/BLAS covariance is faster than this kernel across all tested sizes, so covariance stays on CPU per the measured crossover policy. A tiled/threadgroup-reduction covariance kernel is the documented optimization path; it is deferred because it would not change the operational decision at realistic candidate-set sizes. The kernel is retained, consumed (M3), and parity-validated.",
+  "decision": "CPU covariance for realistic candidate sets; GPU kernel retained + parity-validated; tiled kernel documented as measured-justified deferral."
+}
