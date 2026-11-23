@@ -1,0 +1,11 @@
+{
+  "service": "governance",
+  "ok": true,
+  "failures": [],
+  "checks": {
+    "protective_exit": true,
+    "native_module": true,
+    "risk_gate": true,
+    "worker_isolation": true
+  }
+}

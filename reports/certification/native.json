@@ -1,0 +1,148 @@
+{
+  "report": "m7_certification_native",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 5
+  },
+  "results": [
+    {
+      "check": "native.module",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "native extension exposes all authoritative types",
+      "metrics": {
+        "required": [
+          "RiskEngine",
+          "DiscoveryEngine",
+          "MetalRuntime",
+          "RiskRequest",
+          "evaluate_emergency_exit",
+          "clamp_emergency_threshold"
+        ],
+        "missing": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804617894000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.risk_gate",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "native RiskEngine operational: 10-share order accepted; 50k-share order rejected (RiskRejectReason.QUANTITY_LIMIT_EXCEEDED)",
+      "metrics": {
+        "small_accepted": true,
+        "oversized_rejected": true,
+        "oversized_reason": "RiskRejectReason.QUANTITY_LIMIT_EXCEEDED"
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "native RiskEngine is the sole financial authority for every order",
+      "as_of_ns": 1795416804618196000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.metal_runtime",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "Metal device 'Apple M5 Max'; compiled SMA kernel executes correctly",
+      "metrics": {
+        "device": "Apple M5 Max",
+        "kernel_sma_ok": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804753922000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.gpu_cpu_parity",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "GPU reproduces the CPU reference exactly (EMA match=True, APO match=True) \u2014 acceleration is correctness-preserving",
+      "metrics": {
+        "ema_exact_match": true,
+        "apo_exact_match": true,
+        "sample": {
+          "gpu_ema": [
+            10000,
+            10020,
+            10026,
+            10060,
+            10108,
+            10136,
+            10188,
+            10226,
+            10264,
+            10311
+          ],
+          "cpu_ema": [
+            10000,
+            10020,
+            10026,
+            10060,
+            10108,
+            10136,
+            10188,
+            10226,
+            10264,
+            10311
+          ]
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756531000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.cpu_fallback",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "documented CPU fallback: 4 CPU reference kernels + DevicePolicy override \u2014 platform degrades safely without a GPU",
+      "metrics": {
+        "cpu_reference_kernels": [
+          "ema_ticks",
+          "apo_ticks",
+          "column_means",
+          "covariance_matrix"
+        ],
+        "device_policy": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "GPU/Metal is an acceleration layer; risk + protective exit never depend on it",
+      "as_of_ns": 1795416804756569000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

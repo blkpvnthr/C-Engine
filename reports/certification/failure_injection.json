@@ -1,0 +1,127 @@
+{
+  "report": "m7_certification_failure_injection",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 6
+  },
+  "results": [
+    {
+      "check": "failure_injection.worker_isolation",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "learning fault isolated; essential protection/execution workers never auto-killed; protection independent of learning",
+      "metrics": {
+        "learning_isolated": true,
+        "protection_untouched": true,
+        "protection_independent": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756597000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.gpu_unavailable",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "forced-CPU policy resolves off-GPU and CPU kernels compute (safe degradation)",
+      "metrics": {
+        "cpu_compute_ok": true,
+        "device_policy_forces_cpu": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756605000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.empty_lakehouse",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "missing lakehouse degrades certification to INSUFFICIENT_DATA (no crash)",
+      "metrics": {
+        "degraded_gracefully": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756618000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.protective_exit_isolation",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "protective-exit scan isolates a per-symbol broker/venue failure and never raises (the monitor must never die)",
+      "metrics": {
+        "did_not_raise": true,
+        "submitted": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804757549000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.single_instance",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "second trade instance blocked while lock held; lock reusable after release",
+      "metrics": {
+        "second_blocked": true,
+        "reacquired_after_release": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804759299000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.durable_checkpoint",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "atomic checkpoint survives a write/read round-trip; missing file -> None",
+      "metrics": {
+        "roundtrip_ok": true,
+        "missing_returns_none": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804760050000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

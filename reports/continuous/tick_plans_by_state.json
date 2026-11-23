@@ -1,0 +1,91 @@
+{
+  "regular": {
+    "state": "regular_session",
+    "active_workers": [
+      "protection",
+      "execution",
+      "discovery",
+      "acquisition",
+      "optimization"
+    ],
+    "run_optimization": false,
+    "run_acquisition": false,
+    "run_governance_full": true,
+    "execution_window": true,
+    "gpu_pressure": 0.1,
+    "reasons": {
+      "optimization": "bounded_research_in_session",
+      "acquisition": "off_session_or_non_research"
+    }
+  },
+  "overnight": {
+    "state": "overnight_research",
+    "active_workers": [
+      "protection",
+      "execution",
+      "optimization"
+    ],
+    "run_optimization": true,
+    "run_acquisition": true,
+    "run_governance_full": true,
+    "execution_window": false,
+    "gpu_pressure": 0.1,
+    "reasons": {
+      "optimization": "scheduled",
+      "acquisition": "scheduled"
+    }
+  },
+  "premarket": {
+    "state": "pre_market",
+    "active_workers": [
+      "protection",
+      "execution",
+      "discovery",
+      "acquisition"
+    ],
+    "run_optimization": false,
+    "run_acquisition": false,
+    "run_governance_full": true,
+    "execution_window": false,
+    "gpu_pressure": 0.1,
+    "reasons": {
+      "optimization": "off_session_or_non_research",
+      "acquisition": "off_session_or_non_research"
+    }
+  },
+  "afterhours": {
+    "state": "after_hours",
+    "active_workers": [
+      "protection",
+      "execution",
+      "discovery",
+      "acquisition"
+    ],
+    "run_optimization": false,
+    "run_acquisition": false,
+    "run_governance_full": true,
+    "execution_window": false,
+    "gpu_pressure": 0.1,
+    "reasons": {
+      "optimization": "off_session_or_non_research",
+      "acquisition": "off_session_or_non_research"
+    }
+  },
+  "weekend": {
+    "state": "weekend_research",
+    "active_workers": [
+      "protection",
+      "execution",
+      "optimization"
+    ],
+    "run_optimization": true,
+    "run_acquisition": true,
+    "run_governance_full": true,
+    "execution_window": false,
+    "gpu_pressure": 0.1,
+    "reasons": {
+      "optimization": "scheduled",
+      "acquisition": "scheduled"
+    }
+  }
+}

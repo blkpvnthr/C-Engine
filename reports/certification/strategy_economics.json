@@ -1,0 +1,826 @@
+{
+  "report": "m7_certification_strategy_economics",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "not_certified": 6
+  },
+  "results": [
+    {
+      "check": "strategy_economics.AAPL",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "AAPL holdout n=3000 expectancy=-0.00114 PF=0.60 Sharpe=-0.20 DD=97.0% -> not_certified; fails: ['expectancy_not_positive:-0.001136', 'profit_factor_below:0.598<1.1', 'sharpe_not_positive:-0.201', 'drawdown_exceeds:0.970>0.25', 'does_not_beat_buy_and_hold', 'does_not_beat_random_placebo']",
+      "metrics": {
+        "symbol": "AAPL",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -3.40755089098223,
+            "net_expectancy": -0.0011358502969940766,
+            "sharpe": -0.20116870527622085,
+            "sortino": -0.28714823680210216,
+            "profit_factor": 0.5976468719004049,
+            "win_rate": 0.34833333333333333,
+            "max_drawdown": 0.9700734015978053,
+            "avg_win": 0.004843544886583383,
+            "avg_loss": -0.004331997594609649
+          },
+          "score": -4.523364409778391,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9700734015978053"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.7490886996534893,
+              "net_expectancy": -0.0005830295665511631,
+              "sharpe": -0.08553120534289832,
+              "sortino": -0.11853912662424354,
+              "profit_factor": 0.7823028078290915,
+              "win_rate": 0.42233333333333334,
+              "max_drawdown": 0.8794095530337942,
+              "avg_win": 0.004960863534750053,
+              "avg_loss": -0.004636181649268207
+            },
+            "score": -2.6900859068240397,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.8794095530337942"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": 0.6413718626834981,
+              "net_expectancy": 0.6413718626834981,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": Infinity,
+              "win_rate": 1.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.6413718626834981,
+              "avg_loss": 0.0
+            },
+            "score": 0.6413718626834981,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2979,
+            "metrics": {
+              "net_return": -2.7384021628334025,
+              "net_expectancy": -0.0009192353685241365,
+              "sharpe": -0.17631777094155418,
+              "sortino": -0.2531797370018026,
+              "profit_factor": 0.6233770691471622,
+              "win_rate": 0.37865055387714,
+              "max_drawdown": 0.9389913292233654,
+              "avg_win": 0.00401820596069045,
+              "avg_loss": -0.003928113715014709
+            },
+            "score": -3.805947417415177,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9389913292233654"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.001136",
+            "profit_factor_below:0.598<1.1",
+            "sharpe_not_positive:-0.201",
+            "drawdown_exceeds:0.970>0.25",
+            "does_not_beat_buy_and_hold",
+            "does_not_beat_random_placebo"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": false,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416875687954000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.MSFT",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "MSFT holdout n=3000 expectancy=-0.00123 PF=0.57 Sharpe=-0.21 DD=98.1% -> not_certified; fails: ['expectancy_not_positive:-0.001228', 'profit_factor_below:0.569<1.1', 'sharpe_not_positive:-0.211', 'drawdown_exceeds:0.981>0.25', 'does_not_beat_buy_and_hold', 'does_not_beat_random_placebo']",
+      "metrics": {
+        "symbol": "MSFT",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -3.6829496156601946,
+            "net_expectancy": -0.0012276498718867316,
+            "sharpe": -0.21064058862266227,
+            "sortino": -0.3073471249852195,
+            "profit_factor": 0.5694454886417614,
+            "win_rate": 0.3396666666666667,
+            "max_drawdown": 0.9809997057632208,
+            "avg_win": 0.0047801949206457035,
+            "avg_loss": -0.004318005169004625
+          },
+          "score": -4.819781886500527,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9809997057632208"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -3.4651595419486863,
+              "net_expectancy": -0.001155053180649562,
+              "sharpe": -0.14998181210874278,
+              "sortino": -0.18858648735659747,
+              "profit_factor": 0.6295633600204849,
+              "win_rate": 0.41,
+              "max_drawdown": 0.9817439580365179,
+              "avg_win": 0.004787884132787902,
+              "avg_loss": -0.005284890974733223
+            },
+            "score": -4.543839189150869,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9817439580365179"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": -0.015775123358896016,
+              "net_expectancy": -0.015775123358896016,
+              "sharpe": 0.0,
+              "sortino": -1.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": -0.015775123358896016
+            },
+            "score": -0.523662685038344,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2985,
+            "metrics": {
+              "net_return": -3.2317243037334418,
+              "net_expectancy": -0.0010826547081184059,
+              "sharpe": -0.1886139891850145,
+              "sortino": -0.2780728185797132,
+              "profit_factor": 0.6002526259187768,
+              "win_rate": 0.36482412060301506,
+              "max_drawdown": 0.963805017614868,
+              "avg_win": 0.004456099438497377,
+              "avg_loss": -0.004263932801823357
+            },
+            "score": -4.336697697039078,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.963805017614868"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.001228",
+            "profit_factor_below:0.569<1.1",
+            "sharpe_not_positive:-0.211",
+            "drawdown_exceeds:0.981>0.25",
+            "does_not_beat_buy_and_hold",
+            "does_not_beat_random_placebo"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": false,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416888693678000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.NVDA",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "NVDA holdout n=3000 expectancy=-0.00118 PF=0.64 Sharpe=-0.17 DD=97.4% -> not_certified; fails: ['expectancy_not_positive:-0.001177', 'profit_factor_below:0.641<1.1', 'sharpe_not_positive:-0.172', 'drawdown_exceeds:0.974>0.25', 'does_not_beat_buy_and_hold']",
+      "metrics": {
+        "symbol": "NVDA",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -3.530206064617023,
+            "net_expectancy": -0.001176735354872341,
+            "sharpe": -0.17244982617504556,
+            "sortino": -0.2696102942386189,
+            "profit_factor": 0.6411174802121887,
+            "win_rate": 0.31033333333333335,
+            "max_drawdown": 0.973834911554558,
+            "avg_win": 0.0067738517620103775,
+            "avg_loss": -0.004754307421483171
+          },
+          "score": -4.641223277001632,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.973834911554558"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.8953317797725977,
+              "net_expectancy": -0.0006317772599241993,
+              "sharpe": -0.06769361995333413,
+              "sortino": -0.09267931761488768,
+              "profit_factor": 0.8221391904510373,
+              "win_rate": 0.43266666666666664,
+              "max_drawdown": 0.8793523008079425,
+              "avg_win": 0.006749562737813219,
+              "avg_loss": -0.006261024802264485
+            },
+            "score": -2.8241542517891163,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.8793523008079425"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": -0.18916310769038208,
+              "net_expectancy": -0.18916310769038208,
+              "sharpe": 0.0,
+              "sortino": -1.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": -0.18916310769038208
+            },
+            "score": -0.7837446615355731,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2985,
+            "metrics": {
+              "net_return": -3.9103797748835443,
+              "net_expectancy": -0.0013100099748353583,
+              "sharpe": -0.20600177947703766,
+              "sortino": -0.2960892222589594,
+              "profit_factor": 0.5754550700731319,
+              "win_rate": 0.32763819095477387,
+              "max_drawdown": 0.9827478384335185,
+              "avg_win": 0.005419607626560505,
+              "avg_loss": -0.004589315412884761
+            },
+            "score": -5.043466882152985,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9827478384335185"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.001177",
+            "profit_factor_below:0.641<1.1",
+            "sharpe_not_positive:-0.172",
+            "drawdown_exceeds:0.974>0.25",
+            "does_not_beat_buy_and_hold"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": true,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416901808698000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.SPY",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "SPY holdout n=3000 expectancy=-0.00083 PF=0.55 Sharpe=-0.22 DD=91.8% -> not_certified; fails: ['expectancy_not_positive:-0.000826', 'profit_factor_below:0.553<1.1', 'sharpe_not_positive:-0.224', 'drawdown_exceeds:0.918>0.25', 'does_not_beat_buy_and_hold']",
+      "metrics": {
+        "symbol": "SPY",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -2.4790926350712392,
+            "net_expectancy": -0.000826364211690413,
+            "sharpe": -0.22421241406724274,
+            "sortino": -0.2883192037665259,
+            "profit_factor": 0.552922168792186,
+            "win_rate": 0.38433333333333336,
+            "max_drawdown": 0.9183315917568301,
+            "avg_win": 0.002659159056189111,
+            "avg_loss": -0.0030022214547142847
+          },
+          "score": -3.5430849394386894,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9183315917568301"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.8372117998340989,
+              "net_expectancy": -0.000612403933278033,
+              "sharpe": -0.15283649541246577,
+              "sortino": -0.19515781063730223,
+              "profit_factor": 0.6439045994994462,
+              "win_rate": 0.4116666666666667,
+              "max_drawdown": 0.845461751352178,
+              "avg_win": 0.0026899699698245483,
+              "avg_loss": -0.002923130148763408
+            },
+            "score": -2.78171402157931,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.845461751352178"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": 0.12327400907775861,
+              "net_expectancy": 0.12327400907775861,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": Infinity,
+              "win_rate": 1.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.12327400907775861,
+              "avg_loss": 0.0
+            },
+            "score": 0.12327400907775861,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2988,
+            "metrics": {
+              "net_return": -2.51014343195843,
+              "net_expectancy": -0.0008400747764251774,
+              "sharpe": -0.2844129552785936,
+              "sortino": -0.3403707295714958,
+              "profit_factor": 0.4533206664983388,
+              "win_rate": 0.35642570281124497,
+              "max_drawdown": 0.9208460820584834,
+              "avg_win": 0.0019544375263985253,
+              "avg_loss": -0.0023877375962417366
+            },
+            "score": -3.6023687476007824,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9208460820584834"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.000826",
+            "profit_factor_below:0.553<1.1",
+            "sharpe_not_positive:-0.224",
+            "drawdown_exceeds:0.918>0.25",
+            "does_not_beat_buy_and_hold"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": true,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416915259108000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.QQQ",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "QQQ holdout n=3000 expectancy=-0.00088 PF=0.60 Sharpe=-0.20 DD=94.2% -> not_certified; fails: ['expectancy_not_positive:-0.000884', 'profit_factor_below:0.596<1.1', 'sharpe_not_positive:-0.204', 'drawdown_exceeds:0.942>0.25', 'does_not_beat_buy_and_hold', 'does_not_beat_random_placebo']",
+      "metrics": {
+        "symbol": "QQQ",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -2.6524166209957656,
+            "net_expectancy": -0.0008841388736652552,
+            "sharpe": -0.20368228762667648,
+            "sortino": -0.26946707439331846,
+            "profit_factor": 0.5958500121464047,
+            "win_rate": 0.3883333333333333,
+            "max_drawdown": 0.9418078526064662,
+            "avg_win": 0.0033566819852115545,
+            "avg_loss": -0.003576540127393583
+          },
+          "score": -3.7307462808625877,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9418078526064662"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.598208282652321,
+              "net_expectancy": -0.0005327360942174403,
+              "sharpe": -0.10514587322394828,
+              "sortino": -0.13810612727629393,
+              "profit_factor": 0.7406918156684006,
+              "win_rate": 0.44166666666666665,
+              "max_drawdown": 0.8757379292757813,
+              "avg_win": 0.003445393423580224,
+              "avg_loss": -0.003679614667997682
+            },
+            "score": -2.544839082900248,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.8757379292757813"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": 0.11750707283331692,
+              "net_expectancy": 0.11750707283331692,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": Infinity,
+              "win_rate": 1.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.11750707283331692,
+              "avg_loss": 0.0
+            },
+            "score": 0.11750707283331692,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2986,
+            "metrics": {
+              "net_return": -2.561826140365853,
+              "net_expectancy": -0.0008579457938264745,
+              "sharpe": -0.21712753765395795,
+              "sortino": -0.27957739909828494,
+              "profit_factor": 0.5547245296037482,
+              "win_rate": 0.3787675820495646,
+              "max_drawdown": 0.9246037013565783,
+              "avg_win": 0.002821861194690096,
+              "avg_loss": -0.0031015370089274128
+            },
+            "score": -3.6277693097760375,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9246037013565783"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.000884",
+            "profit_factor_below:0.596<1.1",
+            "sharpe_not_positive:-0.204",
+            "drawdown_exceeds:0.942>0.25",
+            "does_not_beat_buy_and_hold",
+            "does_not_beat_random_placebo"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": false,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416928592029000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.portfolio",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "0/5 symbols clear the frozen economic gates on the sealed holdout",
+      "metrics": {
+        "symbols_scored": 5,
+        "symbols_passed": 0,
+        "holdout_access_audit": {
+          "total_accesses": 5,
+          "granted": 5,
+          "symbols_touched": 5,
+          "symbols_touched_more_than_once": {},
+          "reasons": [
+            "economic_certification_scoring"
+          ]
+        }
+      },
+      "sample_size": 5,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "",
+      "as_of_ns": 1795416928592098000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

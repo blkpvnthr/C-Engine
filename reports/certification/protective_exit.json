@@ -1,0 +1,197 @@
+{
+  "report": "m7_certification_protective_exit",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 4
+  },
+  "results": [
+    {
+      "check": "protective_exit.contract_math",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "long/short unrealized return symmetric at \u22120.6%; triggers at <= -0.500% (at=-0.0050 fires, above=-0.0040 holds)",
+      "metrics": {
+        "long_ret": -0.006,
+        "short_ret": -0.006,
+        "at_threshold": -0.005,
+        "above_threshold": -0.004,
+        "threshold": -0.005
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804760076000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.independence",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "protective-exit coordinator imports no ML/GPU/lakehouse/scanner module \u2014 protection is independent of learning & discovery",
+      "metrics": {
+        "forbidden_imports_found": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804760345000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.emergency_candidate",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "native \u22123% emergency candidate pure & inactive-by-default; clamp never widens risk (result \u2265 current) across 5 cases",
+      "metrics": {
+        "breach_at_-4pct": true,
+        "holds_at_-2pct": true,
+        "clamp_never_widens_risk": true,
+        "candidate_threshold": -0.03,
+        "active_in_live": false
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "the \u22123% emergency is a RESEARCH CANDIDATE and is not wired into the live path",
+      "as_of_ns": 1795416804760359000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.recovery_reproduction",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "recovery ABOVE EXIT @60m = 95.7% (block-bootstrap 95% CI (0.95372, 0.95946)), n=20572 over 20572 exit events; recovery ABOVE ENTRY @60m = 47.7% (the harder, decision-relevant bar)",
+      "metrics": {
+        "symbols": [
+          "AAPL",
+          "MSFT",
+          "NVDA",
+          "SPY",
+          "QQQ"
+        ],
+        "total_exit_events": 20572,
+        "recovery_above_exit": {
+          "h_1m": {
+            "rate": 0.77771,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.77187,
+              0.78344
+            ]
+          },
+          "h_5m": {
+            "rate": 0.88377,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.8792,
+              0.88859
+            ]
+          },
+          "h_15m": {
+            "rate": 0.92553,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.9215,
+              0.92937
+            ]
+          },
+          "h_30m": {
+            "rate": 0.94191,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.93875,
+              0.94507
+            ]
+          },
+          "h_60m": {
+            "rate": 0.95669,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.95372,
+              0.95946
+            ]
+          }
+        },
+        "recovery_above_entry": {
+          "h_1m": {
+            "rate": 0.09037,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.08589,
+              0.09445
+            ]
+          },
+          "h_5m": {
+            "rate": 0.15419,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.14777,
+              0.16056
+            ]
+          },
+          "h_15m": {
+            "rate": 0.25778,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.24893,
+              0.26696
+            ]
+          },
+          "h_30m": {
+            "rate": 0.35782,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.34557,
+              0.36861
+            ]
+          },
+          "h_60m": {
+            "rate": 0.47662,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.46549,
+              0.48901
+            ]
+          }
+        },
+        "overlap_audit": {
+          "per_symbol_events": {
+            "AAPL": 4674,
+            "MSFT": 4226,
+            "NVDA": 5000,
+            "SPY": 2794,
+            "QQQ": 3878
+          },
+          "note": "events are spaced by entry_stride=60 bars; the 60-min horizon windows can overlap and cluster by regime, so the block-bootstrap CI (not a naive binomial) is the honest uncertainty; effective sample < naive n"
+        },
+        "note": "independent reimplementation on genuine 1m bars; recovery ABOVE EXIT is easy (exit sits below entry) and does NOT prove the \u22120.5% exit is wrong \u2014 downside avoided, capital reuse and opportunity cost are not captured here"
+      },
+      "sample_size": 20572,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "MEASUREMENT reproduction only; a high recovery-above-exit rate is NOT evidence the \u22120.5% exit is economically wrong (see strategy_economics, which shows the exit+entry has negative net expectancy on the sealed holdout)",
+      "as_of_ns": 1795416952683359000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

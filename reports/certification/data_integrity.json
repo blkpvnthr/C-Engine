@@ -1,0 +1,508 @@
+{
+  "report": "m7_certification_data_integrity",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 8
+  },
+  "results": [
+    {
+      "check": "data_integrity.inventory",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "12,217,591 bars across 2 timeframes; 1Min=6,764,426/5sym; 5Min=5,453,165/31sym",
+      "metrics": {
+        "timeframes": {
+          "1Min": {
+            "bars": 6764426,
+            "symbols": 5,
+            "start": "2019-12-31",
+            "end": "2026-11-20"
+          },
+          "5Min": {
+            "bars": 5453165,
+            "symbols": 31,
+            "start": "2019-12-31",
+            "end": "2026-11-20"
+          }
+        },
+        "file_count": 47619
+      },
+      "sample_size": 12217591,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "certification floor = 100,000 bars",
+      "as_of_ns": 1795416773892626000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.duplicates",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "no duplicate (symbol,timeframe,timestamp) bars",
+      "metrics": {
+        "duplicate_key_groups": 0,
+        "tolerance": 0.0
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416776848393000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.monotonic",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "timestamps strictly increasing within every partition",
+      "metrics": {
+        "non_increasing_steps": 0
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416780350150000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.ohlc_validity",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "all bars satisfy OHLC ordering, positivity and non-negative volume",
+      "metrics": {
+        "ohlc_order_violations": 0,
+        "nonpositive_price": 0,
+        "negative_volume": 0
+      },
+      "sample_size": 12217591,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416783952306000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.point_in_time",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "no look-ahead; availability timestamps present on all bars",
+      "metrics": {
+        "lookahead_bars": 0,
+        "null_availability": 0
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "point-in-time guard: a bar may never be available before its own timestamp",
+      "as_of_ns": 1795416787035046000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.price_scale",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "uniform price_scale=10000",
+      "metrics": {
+        "distinct_price_scales": [
+          10000
+        ]
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416789904715000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.session_coverage",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "all 36 series >= 90% trading-day coverage (worst 100.0%)",
+      "metrics": {
+        "worst_coverage": 1.0,
+        "below_threshold": [],
+        "per_symbol": [
+          {
+            "symbol": "AMD",
+            "timeframe": "5Min",
+            "present_days": 99,
+            "expected_days": 99,
+            "coverage": 1.0,
+            "bars_per_day": 186.6,
+            "span": "2026-05-01..2026-09-22"
+          },
+          {
+            "symbol": "DOG",
+            "timeframe": "5Min",
+            "present_days": 1752,
+            "expected_days": 1732,
+            "coverage": 1.0115,
+            "bars_per_day": 95.5,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLP",
+            "timeframe": "5Min",
+            "present_days": 1761,
+            "expected_days": 1732,
+            "coverage": 1.0167,
+            "bars_per_day": 93.1,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLV",
+            "timeframe": "5Min",
+            "present_days": 1763,
+            "expected_days": 1732,
+            "coverage": 1.0179,
+            "bars_per_day": 95.7,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "MSFT",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 186.4,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "META",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 185.6,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "SPY",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 187.8,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "TSLA",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 188.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "AAPL",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 187.2,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "QQQ",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 188.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "GOOGL",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 187.6,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "AMZN",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 185.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "NVDA",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 188.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "SOXX",
+            "timeframe": "5Min",
+            "present_days": 1769,
+            "expected_days": 1732,
+            "coverage": 1.0214,
+            "bars_per_day": 112.3,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLK",
+            "timeframe": "5Min",
+            "present_days": 1781,
+            "expected_days": 1732,
+            "coverage": 1.0283,
+            "bars_per_day": 113.2,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SH",
+            "timeframe": "5Min",
+            "present_days": 1781,
+            "expected_days": 1732,
+            "coverage": 1.0283,
+            "bars_per_day": 126.5,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "DIA",
+            "timeframe": "5Min",
+            "present_days": 1783,
+            "expected_days": 1732,
+            "coverage": 1.0294,
+            "bars_per_day": 130.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "PSQ",
+            "timeframe": "5Min",
+            "present_days": 1784,
+            "expected_days": 1732,
+            "coverage": 1.03,
+            "bars_per_day": 126.0,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "SMH",
+            "timeframe": "5Min",
+            "present_days": 1786,
+            "expected_days": 1732,
+            "coverage": 1.0312,
+            "bars_per_day": 115.5,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLE",
+            "timeframe": "5Min",
+            "present_days": 1793,
+            "expected_days": 1732,
+            "coverage": 1.0352,
+            "bars_per_day": 134.0,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "XLF",
+            "timeframe": "5Min",
+            "present_days": 1794,
+            "expected_days": 1732,
+            "coverage": 1.0358,
+            "bars_per_day": 136.6,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "GLD",
+            "timeframe": "5Min",
+            "present_days": 1794,
+            "expected_days": 1732,
+            "coverage": 1.0358,
+            "bars_per_day": 144.4,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "TLT",
+            "timeframe": "5Min",
+            "present_days": 1794,
+            "expected_days": 1732,
+            "coverage": 1.0358,
+            "bars_per_day": 148.6,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "SOXL",
+            "timeframe": "5Min",
+            "present_days": 1795,
+            "expected_days": 1732,
+            "coverage": 1.0364,
+            "bars_per_day": 169.8,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "SDS",
+            "timeframe": "5Min",
+            "present_days": 1795,
+            "expected_days": 1732,
+            "coverage": 1.0364,
+            "bars_per_day": 140.1,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SOXS",
+            "timeframe": "5Min",
+            "present_days": 1797,
+            "expected_days": 1732,
+            "coverage": 1.0375,
+            "bars_per_day": 167.7,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "UPRO",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 158.4,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "AAPL",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 749.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "IWM",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 173.6,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "QQQ",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 820.7,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "TQQQ",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 181.3,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "NVDA",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 756.6,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SQQQ",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 181.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "MSFT",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 632.4,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SPY",
+            "timeframe": "1Min",
+            "present_days": 1799,
+            "expected_days": 1732,
+            "coverage": 1.0387,
+            "bars_per_day": 802.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "PLTR",
+            "timeframe": "5Min",
+            "present_days": 1609,
+            "expected_days": 1544,
+            "coverage": 1.0421,
+            "bars_per_day": 176.3,
+            "span": "2020-09-30..2026-11-21"
+          }
+        ]
+      },
+      "sample_size": 36,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "coverage measured at trading-day granularity vs NYSE calendar",
+      "as_of_ns": 1795416793140200000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.timeframe_alignment",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "AAPL: 99.99% of 8419 5m buckets reconcile from 1m (high/low/close); volume match 8418/8419",
+      "metrics": {
+        "symbol": "AAPL",
+        "buckets": 8419,
+        "high_ok": 8418,
+        "low_ok": 8418,
+        "close_ok": 8418,
+        "volume_ok": 8418,
+        "price_consistency": 0.9999
+      },
+      "sample_size": 8419,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "bounded spot-check over ~20 recent trading days",
+      "as_of_ns": 1795416803747518000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

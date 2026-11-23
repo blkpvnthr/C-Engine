@@ -1,0 +1,229 @@
+{
+  "report": "m7_certification_stress",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "not_certified": 5
+  },
+  "results": [
+    {
+      "check": "stress.AAPL",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "AAPL: covid_crash_2020=-0.00159(DD95%), bear_market_2022=-0.00137(DD99%), calm_2021=-0.00089(DD82%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1607,
+            "net_expectancy": -0.001586,
+            "profit_factor": 0.656,
+            "sharpe": -0.148,
+            "max_drawdown": 0.9462
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001369,
+            "profit_factor": 0.586,
+            "sharpe": -0.221,
+            "max_drawdown": 0.9851
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 1846,
+            "net_expectancy": -0.000894,
+            "profit_factor": 0.627,
+            "sharpe": -0.192,
+            "max_drawdown": 0.8159
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417042654029000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.MSFT",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "MSFT: covid_crash_2020=-0.00183(DD96%), bear_market_2022=-0.00156(DD99%), calm_2021=-0.00101(DD81%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1581,
+            "net_expectancy": -0.001834,
+            "profit_factor": 0.625,
+            "sharpe": -0.168,
+            "max_drawdown": 0.9574
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001556,
+            "profit_factor": 0.587,
+            "sharpe": -0.214,
+            "max_drawdown": 0.9922
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 1513,
+            "net_expectancy": -0.001006,
+            "profit_factor": 0.601,
+            "sharpe": -0.2,
+            "max_drawdown": 0.8103
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417059880174000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.NVDA",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "NVDA: covid_crash_2020=-0.00159(DD95%), bear_market_2022=-0.00156(DD99%), calm_2021=-0.00203(DD100%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1440,
+            "net_expectancy": -0.001594,
+            "profit_factor": 0.708,
+            "sharpe": -0.105,
+            "max_drawdown": 0.9468
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001558,
+            "profit_factor": 0.65,
+            "sharpe": -0.157,
+            "max_drawdown": 0.9926
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 2347,
+            "net_expectancy": -0.002032,
+            "profit_factor": 0.606,
+            "sharpe": -0.052,
+            "max_drawdown": 0.9999
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417077223687000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.SPY",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "SPY: covid_crash_2020=-0.00207(DD97%), bear_market_2022=-0.00132(DD98%), calm_2021=-0.00067(DD33%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1588,
+            "net_expectancy": -0.002072,
+            "profit_factor": 0.555,
+            "sharpe": -0.207,
+            "max_drawdown": 0.9714
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001324,
+            "profit_factor": 0.542,
+            "sharpe": -0.254,
+            "max_drawdown": 0.9819
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 541,
+            "net_expectancy": -0.000671,
+            "profit_factor": 0.577,
+            "sharpe": -0.215,
+            "max_drawdown": 0.3263
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417094599738000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.QQQ",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "QQQ: covid_crash_2020=-0.00224(DD98%), bear_market_2022=-0.00154(DD99%), calm_2021=-0.00071(DD55%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1583,
+            "net_expectancy": -0.002239,
+            "profit_factor": 0.532,
+            "sharpe": -0.225,
+            "max_drawdown": 0.9794
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001542,
+            "profit_factor": 0.543,
+            "sharpe": -0.254,
+            "max_drawdown": 0.9907
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 1072,
+            "net_expectancy": -0.000709,
+            "profit_factor": 0.626,
+            "sharpe": -0.184,
+            "max_drawdown": 0.5542
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417112542681000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

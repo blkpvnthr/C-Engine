@@ -1,0 +1,303 @@
+{
+  "report": "m7_certification_capital_sensitivity",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "not_certified": 6,
+    "insufficient_data": 1
+  },
+  "results": [
+    {
+      "check": "capital_sensitivity.AAPL",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "AAPL: expectancy@0bps=-0.00033, @4bps=-0.00114; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -0.000328,
+            "profit_factor": 0.862,
+            "sharpe": -0.056
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000737,
+            "profit_factor": 0.716,
+            "sharpe": -0.128
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.001136,
+            "profit_factor": 0.598,
+            "sharpe": -0.201
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.001924,
+            "profit_factor": 0.421,
+            "sharpe": -0.348
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.003523,
+            "profit_factor": 0.207,
+            "sharpe": -0.691
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795416966729631000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.MSFT",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "MSFT: expectancy@0bps=-0.00041, @4bps=-0.00123; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -0.000408,
+            "profit_factor": 0.829,
+            "sharpe": -0.069
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000815,
+            "profit_factor": 0.688,
+            "sharpe": -0.138
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.001228,
+            "profit_factor": 0.569,
+            "sharpe": -0.211
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.00205,
+            "profit_factor": 0.391,
+            "sharpe": -0.361
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.00362,
+            "profit_factor": 0.194,
+            "sharpe": -0.676
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795416981498428000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.NVDA",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "NVDA: expectancy@0bps=-0.00038, @4bps=-0.00118; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -0.000379,
+            "profit_factor": 0.866,
+            "sharpe": -0.054
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000785,
+            "profit_factor": 0.743,
+            "sharpe": -0.114
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.001177,
+            "profit_factor": 0.641,
+            "sharpe": -0.172
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.002005,
+            "profit_factor": 0.466,
+            "sharpe": -0.307
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.003572,
+            "profit_factor": 0.258,
+            "sharpe": -0.587
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795416996346522000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.SPY",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "SPY: expectancy@0bps=-0.00001, @4bps=-0.00083; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -1e-05,
+            "profit_factor": 0.993,
+            "sharpe": -0.003
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.0004,
+            "profit_factor": 0.749,
+            "sharpe": -0.108
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.000826,
+            "profit_factor": 0.553,
+            "sharpe": -0.224
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.001647,
+            "profit_factor": 0.306,
+            "sharpe": -0.463
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.0033,
+            "profit_factor": 0.097,
+            "sharpe": -0.996
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795417010318177000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.QQQ",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "QQQ: expectancy@0bps=-0.00002, @4bps=-0.00088; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -1.8e-05,
+            "profit_factor": 0.99,
+            "sharpe": -0.004
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000454,
+            "profit_factor": 0.768,
+            "sharpe": -0.102
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.000884,
+            "profit_factor": 0.596,
+            "sharpe": -0.204
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.001736,
+            "profit_factor": 0.36,
+            "sharpe": -0.414
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.003335,
+            "profit_factor": 0.143,
+            "sharpe": -0.851
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795417024525282000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.market_impact_capacity",
+      "component": "strategy",
+      "verdict": "insufficient_data",
+      "summary": "true size/impact capacity not assessable from L1 bars; only cost sensitivity is evidenced",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "capacity requires depth/impact modeling or live fills \u2014 not fabricated",
+      "as_of_ns": 1795417024525315000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.portfolio",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "0/5 symbols retain positive expectancy at the realistic 4bps cost",
+      "metrics": {
+        "cost_robust": 0,
+        "scored": 5
+      },
+      "sample_size": 5,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795417024525321000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

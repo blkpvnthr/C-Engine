@@ -1,0 +1,37 @@
+{
+  "service": "acquisition",
+  "timeframe": "1Min",
+  "available": true,
+  "gaps": [
+    {
+      "symbol": "QQQ",
+      "last_bar_ns": 1795222740000000000,
+      "gap_days": 2.26
+    },
+    {
+      "symbol": "SPY",
+      "last_bar_ns": 1795222740000000000,
+      "gap_days": 2.26
+    },
+    {
+      "symbol": "NVDA",
+      "last_bar_ns": 1795222740000000000,
+      "gap_days": 2.26
+    },
+    {
+      "symbol": "AAPL",
+      "last_bar_ns": 1795222740000000000,
+      "gap_days": 2.26
+    },
+    {
+      "symbol": "MSFT",
+      "last_bar_ns": 1795222740000000000,
+      "gap_days": 2.26
+    }
+  ],
+  "stalest": {
+    "symbol": "QQQ",
+    "last_bar_ns": 1795222740000000000,
+    "gap_days": 2.26
+  }
+}

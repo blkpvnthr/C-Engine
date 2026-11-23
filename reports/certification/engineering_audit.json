@@ -1,0 +1,332 @@
+{
+  "report": "m7_certification_engineering_audit",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 15
+  },
+  "results": [
+    {
+      "check": "engineering_audit.platform",
+      "component": "platform",
+      "verdict": "certified",
+      "summary": "103 modules audited, 0 BLOCKED",
+      "metrics": {
+        "audit_version": "m7a-engineering-audit-1.0.0",
+        "total_modules": 103,
+        "blocked": []
+      },
+      "sample_size": 103,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416767148048000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.execution",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 4 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 4,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767147987000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.protective_exit",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "all 2 modules import; 2 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 2,
+        "blocked": 0,
+        "unit_tested_or_consumed": 2,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 2,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767147993000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.strategies",
+      "component": "strategies",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 4 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 4,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767147998000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.regime",
+      "component": "regime",
+      "verdict": "certified",
+      "summary": "all 3 modules import; 3 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 3,
+        "blocked": 0,
+        "unit_tested_or_consumed": 3,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 3,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148001000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.portfolio",
+      "component": "portfolio",
+      "verdict": "certified",
+      "summary": "all 11 modules import; 11 unit-tested, 8 operationally consumed",
+      "metrics": {
+        "modules": 11,
+        "blocked": 0,
+        "unit_tested_or_consumed": 11,
+        "operationally_consumed": 8,
+        "blocked_modules": []
+      },
+      "sample_size": 11,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148007000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.risk_native",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "all 9 modules import; 9 unit-tested, 2 operationally consumed",
+      "metrics": {
+        "modules": 9,
+        "blocked": 0,
+        "unit_tested_or_consumed": 9,
+        "operationally_consumed": 2,
+        "blocked_modules": []
+      },
+      "sample_size": 9,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148012000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.discovery_gpu",
+      "component": "discovery_gpu",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 3 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 3,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148015000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.lakehouse",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "all 11 modules import; 11 unit-tested, 2 operationally consumed",
+      "metrics": {
+        "modules": 11,
+        "blocked": 0,
+        "unit_tested_or_consumed": 11,
+        "operationally_consumed": 2,
+        "blocked_modules": []
+      },
+      "sample_size": 11,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148020000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.learning_ml",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148024000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.learning_bandit_rl",
+      "component": "learning_bandit_rl",
+      "verdict": "certified",
+      "summary": "all 9 modules import; 9 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 9,
+        "blocked": 0,
+        "unit_tested_or_consumed": 9,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 9,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148028000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.autonomous_opt",
+      "component": "autonomous_opt",
+      "verdict": "certified",
+      "summary": "all 13 modules import; 13 unit-tested, 0 operationally consumed",
+      "metrics": {
+        "modules": 13,
+        "blocked": 0,
+        "unit_tested_or_consumed": 13,
+        "operationally_consumed": 0,
+        "blocked_modules": []
+      },
+      "sample_size": 13,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148033000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.continuous_runtime",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "all 3 modules import; 3 unit-tested, 3 operationally consumed",
+      "metrics": {
+        "modules": 3,
+        "blocked": 0,
+        "unit_tested_or_consumed": 3,
+        "operationally_consumed": 3,
+        "blocked_modules": []
+      },
+      "sample_size": 3,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148036000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.infra_safety",
+      "component": "infra_safety",
+      "verdict": "certified",
+      "summary": "all 11 modules import; 11 unit-tested, 11 operationally consumed",
+      "metrics": {
+        "modules": 11,
+        "blocked": 0,
+        "unit_tested_or_consumed": 11,
+        "operationally_consumed": 11,
+        "blocked_modules": []
+      },
+      "sample_size": 11,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148040000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.market_data",
+      "component": "market_data",
+      "verdict": "certified",
+      "summary": "all 3 modules import; 2 unit-tested, 2 operationally consumed",
+      "metrics": {
+        "modules": 3,
+        "blocked": 0,
+        "unit_tested_or_consumed": 2,
+        "operationally_consumed": 2,
+        "blocked_modules": []
+      },
+      "sample_size": 3,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148042000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

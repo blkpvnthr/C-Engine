@@ -1,0 +1,124 @@
+{
+  "report": "m7_certification_entry_contract",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 5
+  },
+  "results": [
+    {
+      "check": "entry_contract.AAPL",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "AAPL: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 35326,
+        "full_in_region": 35326
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416810131360000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.MSFT",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "MSFT: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 33721,
+        "full_in_region": 33721
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416814926507000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.NVDA",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "NVDA: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 50626,
+        "full_in_region": 50626
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416820119263000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.SPY",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "SPY: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 19492,
+        "full_in_region": 19492
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416825180454000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.QQQ",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "QQQ: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 27159,
+        "full_in_region": 27159
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416830306065000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}
