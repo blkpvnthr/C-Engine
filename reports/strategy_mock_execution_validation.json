@@ -1,0 +1,45 @@
+{
+  "report": "strategy_mock_execution_validation",
+  "milestone": "M2 execution certification (directive §9)",
+  "branch": "feature/m2-execution-certification",
+  "scope_honesty": "MOCK execution exercises the real production decision path through an ISOLATED in-memory broker under test-only authorization. It is NOT economic validation and grants NO paper/live eligibility. No live orders.",
+  "real_components_exercised": [
+    "MarketRegimeEngine (real classification)",
+    "real family evaluators (momentum/breakout/pullback/mean-reversion/swing)",
+    "RegimeCompatibilityPolicy + EconomicRanker + StrategyArbitrator",
+    "StrategyExecutionBridge",
+    "CandidateRouter + ExposureRegistry.authorize_entry",
+    "REAL native C++ RiskEngine (NativeRiskAdapter -> _cengine_native.RiskEngine)",
+    "OrderManager state machine + reconciliation",
+    "SimulatedBroker (isolated mock venue)",
+    "DecisionEventSink (execution evidence)"
+  ],
+  "families_certified_through_real_path": {
+    "MOMENTUM_CONTINUATION": "filled via real path",
+    "VOLATILITY_BREAKOUT": "filled via real path",
+    "TREND_PULLBACK": "filled via real path (recovery regime)",
+    "MEAN_REVERSION": "filled via real path (recovery regime, positive-reversal confirmed)",
+    "MULTI_DAY_SWING": "filled via real path (research-only by eligibility; mock-exercised under test authorization)"
+  },
+  "instrument_classes_covered": [
+    "conventional equity (AAPL) -> routed",
+    "broad-market ETF (SPY) -> routed",
+    "sector ETF (XLK) -> routed",
+    "leveraged long ETF (TQQQ) -> BLOCKED unless authorized; routed when authorized",
+    "inverse ETF (SH) -> BLOCKED unless authorized; routed when authorized",
+    "leveraged inverse ETF (SQQQ) -> BLOCKED unless authorized; routed when authorized"
+  ],
+  "scenarios_covered": [
+    "bullish/expansion and bullish/recovery regimes",
+    "stale observation -> regime invalid -> no recommendation",
+    "unauthorized geared/inverse exposure blocked by the gate",
+    "insufficient capital -> native RiskEngine rejects (order notional exceeds buying power)",
+    "partial-then-full fill with PARTIAL_FILL + COMPLETE_FILL evidence",
+    "broker rejection -> terminal REJECTED",
+    "duplicate order prevention via single-pending guard",
+    "recommendation decision_id traceable through ORDER_INTENT -> RISK_APPROVAL -> BROKER_ACK -> fill"
+  ],
+  "determinism": "Mock broker uses monotonic counters (no wall-clock/random); native risk runs against a fresh per-test RuntimeState (never the process-global one).",
+  "tests": {"test_mock_execution_fullpath.py": 19, "test_mock_broker.py": 7},
+  "verdict": "MOCK-EXECUTION CERTIFIED. Economic validation and paper/live certification remain separate, pending milestones."
+}

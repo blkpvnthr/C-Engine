@@ -1,0 +1,50 @@
+{
+  "report": "strategy_execution_integration",
+  "milestone": "M2 execution certification (directive §3, §14-17)",
+  "branch": "feature/m2-execution-certification",
+  "summary": "The advisory five-family pipeline is now CAPABLE of generating eligible recommendations that reach the EXISTING execution authority, through a new bridge that creates no parallel engine and bypasses no financial control.",
+  "production_path_connected": [
+    "Alpaca SIP (unchanged; authoritative feed)",
+    "Native Market State (DiscoveryEngine)",
+    "Metal Analytics (technical_features / market_breadth / screen / rank kernels)",
+    "Opportunity Discovery -> Canonical UniversePublisher",
+    "MarketRegimeEngine (regime-1.0.0)",
+    "StrategyRegistry (five families)",
+    "StrategyRecommendation (+ conditions_passed)",
+    "StrategyArbitration + EconomicRanking (ranking consumed by bridge ordering)",
+    "StrategyExecutionBridge (NEW; gated by maturity + authorization)",
+    "Existing Position Sizing (QuantityPolicy)",
+    "CandidateRouter (EXISTING)",
+    "Exposure Authorization gate (EXISTING ExposureRegistry.authorize_entry)",
+    "Native C++ RiskEngine (EXISTING; real engine exercised)",
+    "OrderManager (EXISTING)",
+    "Mock Broker (SimulatedBroker) / fill reconciliation",
+    "Decision + Execution Evidence (DecisionEventSink)"
+  ],
+  "new_components": {
+    "cengine/strategy_maturity.py": "MaturityState + ExecutionAuthorization + authorization_permits (mock isolated from paper/live).",
+    "cengine/strategy_execution_bridge.py": "StrategyExecutionBridge + make_decision_audit_handler. Routes conditions-passing, maturity-authorized LONG recommendations in rank order through the existing CandidateRouter.",
+    "cengine/mock_broker.py": "SimulatedBroker ExecutionVenue (full/partial/reject/nofill plans; deterministic).",
+    "cengine/mock_adapters.py": "Real native RiskEngine + SimulatedBroker adapter for ENGINE_NATIVE_ADAPTER_MODULE full-engine mock runs."
+  },
+  "trade_py_wiring": {
+    "gate": "CENGINE_STRATEGY_EXECUTION_AUTH (default 'none')",
+    "default_behavior": "authorization NONE -> bridge routes nothing (advisory preserved).",
+    "defense_in_depth": "Even under PAPER/LIVE authorization nothing routes unless a family is separately promoted to the matching maturity (default RESEARCH). Mock authorization requires MOCK_EXECUTION maturity (default off).",
+    "audit_composition": "make_decision_audit_handler composed onto _audit_order so bridge orders emit ack/fill/risk decision events without replacing StrategyStateBook / journal."
+  },
+  "controls_preserved": [
+    "single-pending guard (StrategyStateBook.can_submit)",
+    "exposure authorization gate (geared/inverse blocked unless authorized)",
+    "buy/sell conflict withholding",
+    "native C++ RiskEngine authority (approve/reduce/reject)",
+    "OrderManager state machine + reconciliation",
+    "independent -0.5% protective exit (never arbitrated, separate pending key)"
+  ],
+  "tests": {
+    "test_strategy_execution_bridge.py": 10,
+    "test_mock_execution_fullpath.py": 19,
+    "test_mock_broker.py": 7
+  },
+  "verdict": "EXECUTION INTEGRATION COMPLETE (mock-certified). Not economically validated and not live-eligible."
+}

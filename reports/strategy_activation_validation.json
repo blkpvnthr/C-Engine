@@ -1,0 +1,33 @@
+{
+  "report": "strategy_activation_validation",
+  "milestone": "M2 execution certification (directive §4, §16)",
+  "branch": "feature/m2-execution-certification",
+  "maturity_ladder": ["BLOCKED", "DISABLED", "RESEARCH", "SHADOW", "REPLAY_VALIDATED",
+                      "MOCK_EXECUTION", "PAPER_ELIGIBLE", "LIVE_ELIGIBLE"],
+  "authorization_contexts": ["NONE", "MOCK", "PAPER", "LIVE"],
+  "default_family_maturity": "RESEARCH (all five families)",
+  "permit_matrix": {
+    "NONE": "nothing routes",
+    "MOCK": "MOCK_EXECUTION | PAPER_ELIGIBLE | LIVE_ELIGIBLE",
+    "PAPER": "PAPER_ELIGIBLE | LIVE_ELIGIBLE (NOT mock-only)",
+    "LIVE": "LIVE_ELIGIBLE only"
+  },
+  "safety_invariants_verified": [
+    "MOCK authorization never permits a RESEARCH/SHADOW/REPLAY family.",
+    "A MOCK_EXECUTION family is NOT paper- or live-routable (mock success grants no live eligibility).",
+    "BLOCKED is a hard stop overriding every authorization and cannot be promoted.",
+    "Promotion requires regression tests AND explicit operator assertion; never automatic.",
+    "Advisory EXECUTION eligibility (live elective-entry gate) is a SEPARATE dimension, untouched by mock promotion."
+  ],
+  "activation_states_supported": {
+    "research_evaluation": "default; evaluated + logged",
+    "shadow_recommendations": "SHADOW maturity",
+    "historical_replay": "REPLAY_VALIDATED maturity",
+    "mock_execution": "MOCK_EXECUTION maturity under MOCK authorization (isolated test authorization)",
+    "paper_execution": "PAPER_ELIGIBLE maturity under PAPER authorization",
+    "authorized_live_execution": "LIVE_ELIGIBLE maturity under LIVE authorization"
+  },
+  "legacy_strategies_preserved": "Turtle/DualMA/APO (+ opt-in DIBB) retain their existing authorized behavior; the bridge uses a separate routing identity (StrategyName.REGIME_INTELLIGENCE).",
+  "tests": {"test_strategy_maturity.py": 11},
+  "verdict": "ACTIVATION POLICY ENFORCED. No strategy auto-promoted; mock isolated from live."
+}

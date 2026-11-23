@@ -1,0 +1,68 @@
+{
+  "report": "native_strategy_architecture",
+  "milestone": "M2 execution certification (directive §5)",
+  "generated_on_branch": "feature/m2-execution-certification",
+  "purpose": "Determine whether the Python-based regime/strategy modules satisfy the intended C++/ObjC++/Metal/Python architecture, measuring actual workload before proposing any migration.",
+  "intended_language_boundaries": {
+    "cpp20": "authoritative financial + performance-critical computation",
+    "objcpp": "persistent Metal runtime host",
+    "metal": "parallel numerical analytics",
+    "python": "orchestration, provider integration, research, configuration, persistence"
+  },
+  "actual_native_surface": {
+    "pybind_module": "_cengine_native (build-metal/_cengine_native.cpython-311-darwin.so)",
+    "metal_library": "build-metal/cengine.metallib",
+    "exposed_classes": [
+      "RiskEngine.evaluate / activate_kill_switch / deactivate_kill_switch",
+      "DiscoveryEngine (ingest_quotes/trades/bars, snapshot, export_bar_window, coverage)",
+      "ScreeningInput/ScreeningOutput + screen_market_cpu",
+      "TechFeatures + technical_features_cpu",
+      "BreadthCounters + market_breadth_cpu",
+      "RankInput/RankParams/RankOutput + rank_scores_cpu + compact_entry_candidates_cpu",
+      "MetalRuntime (function_names, has_kernel, ensure_pipeline, telemetry)",
+      "LimitOrderBook"
+    ],
+    "metal_kernels_dir": "metal/*.metal (covariance, reductions, imbalance, indicators, monte-carlo, technical_indicators, market_breadth, opportunity_screening, opportunity_ranking)"
+  },
+  "python_regime_strategy_modules": {
+    "files": [
+      "cengine/regime_engine.py",
+      "cengine/strategy_families.py",
+      "cengine/strategy_arbitration.py",
+      "cengine/decision_events.py",
+      "cengine/regime_strategy_pipeline.py"
+    ],
+    "what_they_do": "Deterministic condition gates + light per-scope aggregation over feature rows that are ALREADY produced by the native/Metal screen. regime_engine reuses amps_v4_regime.directional_score (fed by native technical_features) and the GPU market_breadth snapshot; family evaluators mirror the native screen_market SCREEN_ENTRY_QUALIFIED contract.",
+    "heavy_numerics_delegated_to_native": [
+      "technical feature computation (native TechFeatures / Metal technical_indicators)",
+      "market breadth (native BreadthCounters / Metal market_breadth)",
+      "screening / entry qualification (native ScreeningOutput / Metal opportunity_screening)",
+      "economic/opportunity ranking kernels (native rank_scores / Metal opportunity_ranking)",
+      "covariance / EWMA / reductions (Metal)",
+      "risk evaluation + position sizing (native RiskEngine)"
+    ],
+    "python_only_math": "O(symbols) mean/sum aggregation of a handful of benchmark reference rows and per-dimension threshold comparisons; no matrix math, no per-tick loops."
+  },
+  "measured_workload": {
+    "benchmark": "RegimeStrategyPipeline.run() over fully-populated feature rows (5 families each)",
+    "hardware": "Apple M5 Max (session host)",
+    "results": [
+      {"symbols": 100, "evals": 500, "pass_ms": 2.26, "per_symbol_us": 22.62},
+      {"symbols": 1000, "evals": 5000, "pass_ms": 28.26, "per_symbol_us": 28.26},
+      {"symbols": 5958, "evals": 29790, "pass_ms": 201.31, "per_symbol_us": 33.79}
+    ],
+    "full_tradable_universe_pass_ms": 201.31,
+    "advisory_cadence_seconds": 15,
+    "duty_cycle_pct": 1.34,
+    "on_hot_path": false,
+    "note": "The advisory pass is scheduled off the market-ingestion / protective-exit hot path; one full-universe pass every 15s consumes ~1.3% wall-clock."
+  },
+  "conclusion": {
+    "verdict": "PYTHON PLACEMENT IS CORRECT — NO C++ MIGRATION WARRANTED",
+    "rationale": "The regime/strategy layer is lightweight orchestration (condition gates + small aggregations) over numerics that are ALREADY native/Metal. A full-universe advisory pass is ~201 ms at ~34 us/symbol, off the hot path. Per directive §5, lightweight orchestration must not be rewritten in C++ without a demonstrated architectural or performance benefit; none exists here.",
+    "remaining_native_gaps": [
+      "NONE blocking certification. The screen/features/breadth/ranking/risk numerics are native; regime/strategy orchestration is appropriately Python.",
+      "Optional future work (not required): if the family evaluators ever move to per-tick (sub-second) cadence over the full universe, revisit vectorization or a native screen_market extension; at the current 15s advisory cadence this is unjustified."
+    ]
+  }
+}
