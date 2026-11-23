@@ -1,0 +1,36 @@
+{
+  "version": "runtime-supervisor-1.0.0",
+  "workers": {
+    "protection": {
+      "priority": 0,
+      "healthy": true,
+      "restarts": 0,
+      "essential": true
+    },
+    "execution": {
+      "priority": 1,
+      "healthy": true,
+      "restarts": 0,
+      "essential": true
+    },
+    "discovery": {
+      "priority": 2,
+      "healthy": true,
+      "restarts": 0,
+      "essential": false
+    },
+    "acquisition": {
+      "priority": 5,
+      "healthy": true,
+      "restarts": 0,
+      "essential": false
+    },
+    "optimization": {
+      "priority": 9,
+      "healthy": true,
+      "restarts": 0,
+      "essential": false
+    }
+  },
+  "protection_independent_of_learning": true
+}

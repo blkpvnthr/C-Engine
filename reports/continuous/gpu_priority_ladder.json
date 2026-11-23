@@ -1,0 +1,45 @@
+{
+  "ladder": [
+    {
+      "priority": 0,
+      "name": "P0_PROTECTION"
+    },
+    {
+      "priority": 1,
+      "name": "P1_MARKET_EXEC"
+    },
+    {
+      "priority": 2,
+      "name": "P2_DISCOVERY"
+    },
+    {
+      "priority": 3,
+      "name": "P3_ML_INFERENCE"
+    },
+    {
+      "priority": 4,
+      "name": "P4_PORTFOLIO"
+    },
+    {
+      "priority": 5,
+      "name": "P5_FEATURES"
+    },
+    {
+      "priority": 6,
+      "name": "P6_ML_TRAINING"
+    },
+    {
+      "priority": 7,
+      "name": "P7_BANDIT"
+    },
+    {
+      "priority": 8,
+      "name": "P8_OFFLINE_RL"
+    },
+    {
+      "priority": 9,
+      "name": "P9_RESEARCH"
+    }
+  ],
+  "note": "P0 protection never gated; research (>=P6) suspended under GPU pressure and bounded in-session"
+}

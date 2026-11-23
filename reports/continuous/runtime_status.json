@@ -1,0 +1,95 @@
+{
+  "version": "continuous-runtime-service-1.0.0",
+  "now_ns": 1795417801423858000,
+  "plan": {
+    "state": "overnight_research",
+    "active_workers": [
+      "protection",
+      "execution",
+      "optimization"
+    ],
+    "run_optimization": true,
+    "run_acquisition": true,
+    "run_governance_full": true,
+    "execution_window": false,
+    "gpu_pressure": 0.0,
+    "reasons": {
+      "optimization": "scheduled",
+      "acquisition": "scheduled"
+    }
+  },
+  "health": {
+    "version": "runtime-supervisor-1.0.0",
+    "workers": {
+      "protection": {
+        "priority": 0,
+        "healthy": true,
+        "restarts": 0,
+        "essential": true
+      },
+      "execution": {
+        "priority": 1,
+        "healthy": true,
+        "restarts": 0,
+        "essential": true
+      },
+      "discovery": {
+        "priority": 2,
+        "healthy": true,
+        "restarts": 0,
+        "essential": false
+      },
+      "acquisition": {
+        "priority": 5,
+        "healthy": true,
+        "restarts": 0,
+        "essential": false
+      },
+      "optimization": {
+        "priority": 9,
+        "healthy": true,
+        "restarts": 0,
+        "essential": false
+      }
+    },
+    "protection_independent_of_learning": true
+  },
+  "degraded_reason": "",
+  "acquisition_plan": {
+    "service": "acquisition",
+    "timeframe": "1Min",
+    "available": true,
+    "gaps": [
+      {
+        "symbol": "QQQ",
+        "last_bar_ns": 1795222740000000000,
+        "gap_days": 2.26
+      },
+      {
+        "symbol": "SPY",
+        "last_bar_ns": 1795222740000000000,
+        "gap_days": 2.26
+      },
+      {
+        "symbol": "NVDA",
+        "last_bar_ns": 1795222740000000000,
+        "gap_days": 2.26
+      },
+      {
+        "symbol": "AAPL",
+        "last_bar_ns": 1795222740000000000,
+        "gap_days": 2.26
+      },
+      {
+        "symbol": "MSFT",
+        "last_bar_ns": 1795222740000000000,
+        "gap_days": 2.26
+      }
+    ],
+    "stalest": {
+      "symbol": "QQQ",
+      "last_bar_ns": 1795222740000000000,
+      "gap_days": 2.26
+    }
+  }
+}

@@ -145,13 +145,19 @@ def make_sip_fetch_fn(key: str, sec: str,
     import urllib.parse
     import urllib.request
 
-    def fetch(symbols, timeframe, start, limit=10000) -> dict:
+    def fetch(symbols, timeframe, start, limit=10000, *, end=None,
+              max_pages=5000) -> dict:
+        # Paginate FULLY while a next_page_token is present (up to a generous safety cap),
+        # so multi-year windows are not silently truncated. A low cap previously starved
+        # later symbols / later dates over long windows (M5 latent bug, §38 fix).
         out: dict[str, list] = {s: [] for s in symbols}
         params = {"symbols": ",".join(symbols), "timeframe": timeframe,
                   "feed": "sip", "start": start, "limit": str(limit),
                   "adjustment": "raw"}
+        if end:
+            params["end"] = end
         token: Optional[str] = None
-        for _ in range(20):
+        for _ in range(max_pages):
             q = dict(params)
             if token:
                 q["page_token"] = token
@@ -160,7 +166,7 @@ def make_sip_fetch_fn(key: str, sec: str,
             req.add_header("APCA-API-KEY-ID", key)
             req.add_header("APCA-API-SECRET-KEY", sec)
             try:
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                with urllib.request.urlopen(req, timeout=60) as resp:
                     doc = json.loads(resp.read().decode("utf-8", "replace"))
             except urllib.error.HTTPError as e:
                 return {"__error__": f"HTTP {e.code}"}

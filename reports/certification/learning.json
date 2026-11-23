@@ -1,0 +1,167 @@
+{
+  "report": "m7_certification_learning",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 4,
+    "insufficient_data": 2
+  },
+  "results": [
+    {
+      "check": "learning.infrastructure",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "learning + autonomous-optimization stack imports cleanly",
+      "metrics": {
+        "modules": [
+          "cengine.learning.datasets.eligibility",
+          "cengine.learning.evaluation.economic",
+          "cengine.learning.inference.service",
+          "cengine.learning.contextual_bandits.linucb",
+          "cengine.learning.offline_rl.cql_iql",
+          "cengine.optimization.controller"
+        ],
+        "missing": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830349847000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.data_eligibility",
+      "component": "learning_ml",
+      "verdict": "insufficient_data",
+      "summary": "eligibility by state {'validation_eligible': 1, 'insufficient_data': 6}; strategy-relevant validation-eligible tasks: NONE (only the theoretical forward_return target is eligible; no realized-outcome layers materialized)",
+      "metrics": {
+        "by_state": {
+          "validation_eligible": 1,
+          "insufficient_data": 6
+        },
+        "tasks": [
+          {
+            "task": "forward_return_prediction",
+            "eligibility": "validation_eligible"
+          },
+          {
+            "task": "strategy_net_return",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "probability_positive_return",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "regime_transition",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "execution_quality",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "policy_bandit",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "offline_rl_execution",
+            "eligibility": "insufficient_data"
+          }
+        ]
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "strategy-relevant supervised/bandit/RL learning cannot be economically certified without realized outcomes (no live sessions during certification)",
+      "as_of_ns": 1795416847068017000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.provenance_discipline",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "synthetic & historical-replay results cannot claim profitability; only genuine realized ('real') outcomes can",
+      "metrics": {
+        "synthetic_claim_blocked": true,
+        "historical_replay_claim_blocked": true,
+        "real_claim_allowed": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416847068796000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.recommendation_only",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "no learning module routes orders (imports no order-manager / execution-venue / submit path) \u2014 a learning fault can never place a trade",
+      "metrics": {
+        "offenders": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416847085478000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.autonomous_opt_safety",
+      "component": "autonomous_opt",
+      "verdict": "certified",
+      "summary": "optimization config refuses risk expansion, locks the \u22120.5% production exit, and refuses to loosen the \u22123% emergency (tightening allowed)",
+      "metrics": {
+        "default_valid": true,
+        "risk_expansion_blocked": true,
+        "production_exit_locked": true,
+        "emergency_loosen_blocked": true,
+        "emergency_tighten_allowed": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "the governed loop retains the incumbent \u2014 it certified NO economic improvement, the correct falsification-first outcome",
+      "as_of_ns": 1795416847085629000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.bandit_rl",
+      "component": "learning_bandit_rl",
+      "verdict": "insufficient_data",
+      "summary": "contextual-bandit / offline-RL policies require logged action-propensity + realized-reward data from live/paper sessions \u2014 none available",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "implemented + unit-tested (engineering), but economically INSUFFICIENT_DATA; no fabricated behavior probabilities or rewards",
+      "as_of_ns": 1795416847085636000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

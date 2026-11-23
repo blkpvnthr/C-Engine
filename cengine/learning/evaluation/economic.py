@@ -37,7 +37,13 @@ ECONOMIC_METRICS_VERSION = "economic-metrics-1.0.0"
 # Accepted provenance labels. 'synthetic' results may NEVER be used to claim profitability.
 DATA_LABEL_SYNTHETIC = "synthetic"
 DATA_LABEL_REAL = "real"
-_VALID_LABELS = (DATA_LABEL_SYNTHETIC, DATA_LABEL_REAL)
+# historical-replay: simulated trading outcomes driven by GENUINE historical market bars
+# (Milestone 6B §38). Distinct from engineering fixtures ('synthetic') and from genuine
+# executed outcomes ('real'); it is NOT a real-profitability claim (no live executions), so
+# profitability_claim_allowed stays False for it — but it is kept as its own provenance class
+# so the three evidence types are never silently mixed.
+DATA_LABEL_HISTORICAL_REPLAY = "historical_replay"
+_VALID_LABELS = (DATA_LABEL_SYNTHETIC, DATA_LABEL_REAL, DATA_LABEL_HISTORICAL_REPLAY)
 
 # Sample-size floors below which no verdict beyond "research-only" is honest. These gate the
 # *verdict text*; the metrics themselves are always computed so the pipeline keeps working.
@@ -228,6 +234,9 @@ def economic_metrics(
     m.profitability_claim_allowed = label == DATA_LABEL_REAL and m.n >= _MIN_DECISIONS_FOR_VERDICT
     if label == DATA_LABEL_SYNTHETIC:
         m.note = "synthetic evidence: illustrative only — NOT a profitability claim"
+    elif label == DATA_LABEL_HISTORICAL_REPLAY:
+        m.note = ("historical-replay simulation on genuine bars: research estimate, "
+                  "NOT actual trading performance and NOT a profitability claim")
     elif m.n < _MIN_DECISIONS_FOR_VERDICT:
         m.note = (f"real but small (n={m.n}<{_MIN_DECISIONS_FOR_VERDICT}): "
                   "research-only, not a profitability claim")

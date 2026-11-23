@@ -1,0 +1,12 @@
+{
+  "report": "optimization_native_emergency_validation",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "scope_honesty": "candidate native C++ emergency exit \u2014 INACTIVE (not wired into RiskEngine.evaluate); crash-independent; M7 certifies activation.",
+  "triggers_at_minus_3pct": true,
+  "not_triggered_at_minus_2pct": true,
+  "never_overrides_tighter_stop": true,
+  "cannot_be_loosened": true,
+  "risk_engine_independent": true
+}

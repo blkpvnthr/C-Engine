@@ -34,6 +34,9 @@ wheel.packages = ["cengine", "market_data"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "slow: heavy end-to-end checks (e.g. full lakehouse certification passes)",
+]
 # Keep the repo root on sys.path for tests regardless of invocation (`pytest` vs
 # `python -m pytest`), so top-level modules import live from the repo and never fall
 # back to a stale installed copy.

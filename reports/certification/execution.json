@@ -1,0 +1,93 @@
+{
+  "report": "m7_certification_execution",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 3,
+    "insufficient_data": 1
+  },
+  "results": [
+    {
+      "check": "execution.planner",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "execution planner produces an executable, deterministic plan (executable=True)",
+      "metrics": {
+        "executable": true,
+        "deterministic": true,
+        "policy": ""
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830324372000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.cost_model",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "transaction-cost estimator conservative-by-default: total 15.5bps (spread 10.0 + impact 5.0 + fee 0.5)",
+      "metrics": {
+        "total_cost_bps": 15.5,
+        "spread_bps": 10.0,
+        "impact_bps": 5.0,
+        "fee_bps": 0.5
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830324389000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.conservative_fills",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "certification fill model: stop-before-target within a bar, gap-through at the open, costs on both sides (no favorable-fill assumption)",
+      "metrics": {
+        "stop_before_target": true,
+        "gap_through_at_open": true,
+        "cost_applied": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830325766000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.realized_quality",
+      "component": "execution",
+      "verdict": "insufficient_data",
+      "summary": "realized slippage / fill-ratio / cancel-reprice require executed (paper or live) orders \u2014 none available during certification",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "not estimated as if real; see paper-trading framework",
+      "as_of_ns": 1795416830325783000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}

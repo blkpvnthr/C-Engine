@@ -1,0 +1,96 @@
+{
+  "report": "optimization_counterfactual_exits",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "scope_honesty": "OBSERVED subsequent prices + SIMULATED outcomes on genuine 1m bars; a recovery does NOT prove holding was the superior portfolio decision.",
+  "per_symbol": {
+    "AAPL": {
+      "events": 2000,
+      "recovery_above_exit_rate": {
+        "h_1m": 0.773,
+        "h_5m": 0.8815,
+        "h_15m": 0.9205,
+        "h_30m": 0.937,
+        "h_60m": 0.9565
+      },
+      "recovery_above_entry_rate": {
+        "h_1m": 0.076,
+        "h_5m": 0.1415,
+        "h_15m": 0.259,
+        "h_30m": 0.383,
+        "h_60m": 0.5095
+      }
+    },
+    "SPY": {
+      "events": 2000,
+      "recovery_above_exit_rate": {
+        "h_1m": 0.786,
+        "h_5m": 0.881,
+        "h_15m": 0.917,
+        "h_30m": 0.931,
+        "h_60m": 0.9495
+      },
+      "recovery_above_entry_rate": {
+        "h_1m": 0.0855,
+        "h_5m": 0.12,
+        "h_15m": 0.1835,
+        "h_30m": 0.254,
+        "h_60m": 0.356
+      }
+    },
+    "QQQ": {
+      "events": 2000,
+      "recovery_above_exit_rate": {
+        "h_1m": 0.779,
+        "h_5m": 0.882,
+        "h_15m": 0.925,
+        "h_30m": 0.935,
+        "h_60m": 0.947
+      },
+      "recovery_above_entry_rate": {
+        "h_1m": 0.0925,
+        "h_5m": 0.1325,
+        "h_15m": 0.222,
+        "h_30m": 0.3145,
+        "h_60m": 0.4335
+      }
+    },
+    "MSFT": {
+      "events": 2000,
+      "recovery_above_exit_rate": {
+        "h_1m": 0.76,
+        "h_5m": 0.8765,
+        "h_15m": 0.9215,
+        "h_30m": 0.9365,
+        "h_60m": 0.9515
+      },
+      "recovery_above_entry_rate": {
+        "h_1m": 0.076,
+        "h_5m": 0.1485,
+        "h_15m": 0.27,
+        "h_30m": 0.3885,
+        "h_60m": 0.512
+      }
+    },
+    "NVDA": {
+      "events": 2000,
+      "recovery_above_exit_rate": {
+        "h_1m": 0.7355,
+        "h_5m": 0.8725,
+        "h_15m": 0.9225,
+        "h_30m": 0.946,
+        "h_60m": 0.9605
+      },
+      "recovery_above_entry_rate": {
+        "h_1m": 0.0845,
+        "h_5m": 0.181,
+        "h_15m": 0.3635,
+        "h_30m": 0.4955,
+        "h_60m": 0.6295
+      }
+    }
+  },
+  "cross_sectional_mean_recovery_above_exit_60m": 0.953,
+  "finding": "the -0.5% exit is frequently premature (high post-exit recovery), motivating the adaptive-exit research \u2014 NOT a profitability claim"
+}

@@ -1,0 +1,87 @@
+{
+  "report": "m7_certification_portfolio",
+  "meta": {
+    "source": "m7_certification full run",
+    "as_of_ns": 1795416764928342000,
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ]
+  },
+  "verdict_counts": {
+    "certified": 2,
+    "not_certified": 1
+  },
+  "results": [
+    {
+      "check": "portfolio.native_allocator",
+      "component": "portfolio",
+      "verdict": "certified",
+      "summary": "native risk-based allocator valid=True, deterministic=True, risk-contrib additive(sum=0.176756 vs vol=0.176756)=True, gross<=1=True",
+      "metrics": {
+        "weights": [
+          0.461538,
+          0.307692,
+          0.230769
+        ],
+        "portfolio_variance": 0.031242603381004555,
+        "portfolio_volatility": 0.17675577326074687,
+        "risk_contrib_sum": 0.17675577326074685,
+        "deterministic": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795417112550772000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "portfolio.diversification",
+      "component": "portfolio",
+      "verdict": "certified",
+      "summary": "5 symbols: mean pairwise daily-return correlation 0.36; effective breadth 2.06/5",
+      "metrics": {
+        "symbols": [
+          "AAPL",
+          "MSFT",
+          "NVDA",
+          "SPY",
+          "QQQ"
+        ],
+        "mean_pairwise_corr": 0.3562,
+        "effective_breadth": 2.062,
+        "corr_min": -0.045,
+        "corr_max": 0.927
+      },
+      "sample_size": 144,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "measurement of realized diversification; not an economic-edge claim",
+      "as_of_ns": 1795417134558815000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "portfolio.economics",
+      "component": "portfolio",
+      "verdict": "not_certified",
+      "summary": "no component strategy has positive net expectancy on the sealed holdout; a positive-Sharpe portfolio cannot be constructed from negative-edge components",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "portfolio economic certification is inherited-NOT_CERTIFIED, not fabricated",
+      "as_of_ns": 1795417134558859000,
+      "profitability_claim_allowed": false
+    }
+  ]
+}
