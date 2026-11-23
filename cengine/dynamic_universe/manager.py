@@ -219,6 +219,14 @@ class DynamicUniverseManager:
                 f"active={len(result.active)}/{self._cfg.active_universe_size}"
                 + (" DEGRADED" if result.degraded else "")
             )
+        # Coverage reporting (spec §10): baseline symbols that could not be
+        # evaluated within the configured revisit interval this cycle.
+        if result.stale_baseline:
+            self._log(
+                f"[dynamic-universe] COVERAGE: {len(result.stale_baseline)} baseline "
+                f"symbol(s) past revisit deadline not placed this cycle: "
+                f"{list(result.stale_baseline)}"
+            )
 
         if self._state_path is not None:
             try:
@@ -288,6 +296,11 @@ class DynamicUniverseManager:
                 "last_rotation_s": 0.0,
                 "coverage": "PENDING",
             }
+        coverage = "HEALTHY"
+        if res.degraded:
+            coverage = "DEGRADED"
+        elif res.stale_baseline:
+            coverage = "STALE_BASELINE"
         return {
             "baseline": baseline_n,
             "dynamic_candidates": len(layers.opportunity),
@@ -299,6 +312,9 @@ class DynamicUniverseManager:
             "active_opportunity": len(res.active_opportunity),
             "pending_rotation": len(res.added) + len(res.removed),
             "stale_baseline": len(res.stale_baseline),
+            "stale_baseline_symbols": list(res.stale_baseline),
             "last_rotation_s": self._last_rotation_s,
-            "coverage": "DEGRADED" if res.degraded else "HEALTHY",
+            "next_rotation_s": self._last_rotation_s + self._cfg.refresh_interval_seconds,
+            "generation": self._version,
+            "coverage": coverage,
         }

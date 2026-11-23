@@ -1346,7 +1346,8 @@ class MarketEngine:
                 "reserved": res.reserved, "routed": res.routed,
                 "execution": self._execution_dashboard_stats(symbols, now_ns),
                 "lakehouse": self._lakehouse_dashboard_stats(),
-                "learning": self._learning_dashboard_stats()})
+                "learning": self._learning_dashboard_stats(),
+                "dynamic_universe": self._dynamic_universe_dashboard_stats()})
 
     def _learning_dashboard_stats(self) -> Optional[dict]:
         """Non-blocking learning/GPU stats for the dashboard (M6 §33 / addendum §20), or
@@ -1370,6 +1371,20 @@ class MarketEngine:
                     "gpu_fallbacks": pol.get("fallback_count", 0),
                     "last_cycle": last.get("summary", "idle")}
         except Exception:  # noqa: BLE001 — dashboard stats must never raise
+            return None
+
+    def _dynamic_universe_dashboard_stats(self) -> Optional[dict]:
+        """[DYNAMIC UNIVERSE MANAGER] counters (spec §10), or None when rotation
+        is disabled. Reads the manager owned by the scanner thread; the read is a
+        cached, lock-guarded snapshot and must never raise on the dashboard path."""
+        try:
+            handle = self._scanner_handle
+            scanner = getattr(handle, "scanner", None) if handle is not None else None
+            mgr = getattr(scanner, "_universe_manager", None) if scanner is not None else None
+            if mgr is None:
+                return None
+            return mgr.dashboard_stats()
+        except Exception:  # noqa: BLE001 - telemetry must never break the loop
             return None
 
     def _lakehouse_dashboard_stats(self) -> Optional[dict]:
