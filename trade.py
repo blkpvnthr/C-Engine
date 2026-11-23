@@ -958,6 +958,108 @@ class MarketEngine:
             except Exception as exc:  # noqa: BLE001 — never block startup
                 LOGGER.warning("native full-scale registration skipped: %s", exc)
 
+        # Market regime intelligence + five-family strategy arbitration (milestone):
+        # an ADVISORY layer over the native GPU screen. Every family defaults to
+        # RESEARCH eligibility, so this produces regime assessments, recommendations
+        # and decision evidence but routes NOTHING to execution — the existing order
+        # path and the independent protective exit are untouched. Gated by
+        # CENGINE_REGIME_INTELLIGENCE!=0; fail-safe. Decision evidence reuses the
+        # audit journal.
+        self._regime_pipeline = None
+        if (self._gpu_discovery is not None
+                and os.environ.get("CENGINE_REGIME_INTELLIGENCE", "1") != "0"):
+            try:
+                from cengine.decision_events import DecisionEventSink
+                from cengine.regime_strategy_pipeline import RegimeStrategyPipeline
+
+                opposing = self._exposure_opposing_fn()
+                self._regime_pipeline = RegimeStrategyPipeline(
+                    sink=DecisionEventSink(journal=self.journal),
+                    opposing_fn=opposing,
+                    max_concurrent=int(os.environ.get("CENGINE_MAX_CONCURRENT_ENTRIES", "10")))
+                LOGGER.info("regime intelligence active (advisory; families RESEARCH "
+                            "by default — no auto-execution)")
+            except Exception as exc:  # noqa: BLE001 — advisory layer must never block startup
+                LOGGER.warning("regime intelligence unavailable: %s", exc)
+                self._regime_pipeline = None
+
+    def _exposure_opposing_fn(self):
+        """Pairwise opposing-exposure predicate from the exposure registry: two
+        symbols oppose if they share an underlying exposure group with opposite
+        signed directions (e.g. TQQQ vs SQQQ). Returns a safe no-op if the registry
+        is unavailable."""
+        reg = self._exposure_registry
+        if reg is None:
+            return lambda a, b: False
+
+        def opposing(a: str, b: str) -> bool:
+            ia, ib = reg.get(a), reg.get(b)
+            if ia is None or ib is None:
+                return False
+            if not ia.underlying_exposure_group or not ib.underlying_exposure_group:
+                return False
+            return (ia.underlying_exposure_group == ib.underlying_exposure_group
+                    and ia.exposure_direction != ib.exposure_direction
+                    and "neutral" not in (ia.exposure_direction.value,
+                                          ib.exposure_direction.value))
+        return opposing
+
+    async def _run_regime_intelligence(self, stop: "asyncio.Event") -> None:
+        """Periodic advisory regime + strategy-arbitration pass over the current
+        discovery set (off the hot path). Emits decision evidence and telemetry;
+        routes nothing to execution. Never raises into the loop."""
+        import time as _time
+
+        interval = float(os.environ.get("CENGINE_REGIME_SECONDS", "15"))
+        while not stop.is_set():
+            try:
+                self._regime_intelligence_tick(_time.time_ns())
+            except Exception as exc:  # noqa: BLE001 — advisory; never kill the loop
+                LOGGER.warning("regime intelligence tick failed: %s", exc)
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass
+
+    def _regime_intelligence_tick(self, now_ns: int) -> Optional[dict]:
+        """One advisory pass: compute native screen rows over refs + canonical +
+        positions, run the regime/strategy pipeline, log telemetry. Returns the
+        pipeline result (or None if inactive)."""
+        if self._regime_pipeline is None or self._gpu_discovery is None:
+            return None
+        refs = ["SPY", "QQQ", "DIA", "IWM"]
+        canonical = []
+        if self._canonical_for_adaptive is not None:
+            try:
+                self._canonical_for_adaptive.refresh_from_file()
+                canonical = list(self._canonical_for_adaptive.symbols())
+            except Exception:  # noqa: BLE001
+                canonical = []
+        positions = list(getattr(self.portfolio, "symbols", lambda: [])() or []) \
+            if self.portfolio is not None else []
+        universe = sorted(set(refs) | set(canonical) | set(positions))
+        if not universe:
+            return None
+        from cengine.regime_strategy_pipeline import screen_row_to_features
+        rows = self._gpu_discovery.provider.compute(universe)
+        if not rows:
+            return None
+        ref_features = {s: screen_row_to_features(rows[s], None, now_ns)
+                        for s in refs if s in rows}
+        breadth = self._gpu_discovery.breadth_snapshot()
+        screen_rows = {s: r for s, r in rows.items() if s not in refs}
+        out = self._regime_pipeline.run(
+            screen_rows or rows, now_ns=now_ns, ref_features=ref_features,
+            breadth=breadth)
+        tele = self._regime_pipeline.telemetry()
+        LOGGER.info("regime: broad=%s/%s recs=%d selected=%d research=%d events=%d",
+                    out["broad"].dimensions.direction.value,
+                    out["broad"].dimensions.trend.value,
+                    len(out["recommendations"]),
+                    len(out["arbitration"]["selected"]),
+                    len(out["arbitration"]["research"]), tele["events_emitted"])
+        return out
+
     def _warmup_priority_inputs(self) -> dict:
         """Priority groups for the warm-up scheduler: positions and pending orders
         FIRST (so protected instruments always have history), then references,
@@ -1267,6 +1369,13 @@ class MarketEngine:
                 self._run_continuous_warmup(self._stop), name="historical-warmup"
             )
 
+        # Advisory regime-intelligence loop (DETACHED, stop-driven; emits decision
+        # evidence + telemetry, routes nothing to execution).
+        self._regime_task: Optional[asyncio.Task[None]] = None
+        if self._regime_pipeline is not None:
+            self._regime_task = asyncio.create_task(
+                self._run_regime_intelligence(self._stop), name="regime-intelligence")
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -1324,15 +1433,19 @@ class MarketEngine:
                 if not task.done():
                     task.cancel()
 
-            # Cancel the detached one-shot warm-up task if still running.
+            # Cancel the detached warm-up + regime-intelligence tasks if still running.
             warmup = getattr(self, "_warmup_task", None)
             if warmup is not None and not warmup.done():
                 warmup.cancel()
+            regime = getattr(self, "_regime_task", None)
+            if regime is not None and not regime.done():
+                regime.cancel()
 
             await asyncio.gather(
                 *tasks,
                 stop_task,
                 *( [warmup] if warmup is not None else [] ),
+                *( [regime] if regime is not None else [] ),
                 return_exceptions=True,
             )
 

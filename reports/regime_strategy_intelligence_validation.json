@@ -1,0 +1,147 @@
+{
+  "recorded_utc": "2026-11-23T00:22:05.455058+00:00",
+  "milestone": "Market Regime Intelligence and Adaptive Strategy Architecture",
+  "regime_engine": {
+    "module": "cengine/regime_engine.py",
+    "version": "regime-1.0.0",
+    "levels": [
+      "broad",
+      "benchmark",
+      "sector",
+      "instrument"
+    ],
+    "independent_dimensions": {
+      "direction": [
+        "BULLISH",
+        "BEARISH",
+        "NEUTRAL",
+        "UNCERTAIN"
+      ],
+      "trend": [
+        "PERSISTENT",
+        "RANGE_BOUND",
+        "COMPRESSION",
+        "EXPANSION",
+        "EXHAUSTION",
+        "RECOVERY"
+      ],
+      "volatility": [
+        "LOW",
+        "NORMAL",
+        "ELEVATED",
+        "EXTREME"
+      ],
+      "liquidity": [
+        "NORMAL",
+        "DEGRADED",
+        "INSUFFICIENT"
+      ]
+    },
+    "reuses": [
+      "amps_v4_regime.directional_score",
+      "GPU market_breadth snapshot",
+      "indicators"
+    ],
+    "properties": [
+      "hysteresis + minimum persistence",
+      "timestamp validity/staleness",
+      "transition detection",
+      "confidence is heuristic NOT calibrated probability",
+      "inverse/geared ETF: own direction vs underlying_direction separated"
+    ],
+    "tests": 10
+  },
+  "five_families": {
+    "module": "cengine/strategy_families.py",
+    "families": [
+      "MOMENTUM_CONTINUATION",
+      "VOLATILITY_BREAKOUT",
+      "TREND_PULLBACK",
+      "MEAN_REVERSION",
+      "MULTI_DAY_SWING"
+    ],
+    "mapping": {
+      "MOMENTUM_CONTINUATION": "DualMAStrategy",
+      "VOLATILITY_BREAKOUT": "TurtleStrategy",
+      "TREND_PULLBACK": "DIBBStrategy",
+      "MEAN_REVERSION": "APOMeanReversionStrategy",
+      "MULTI_DAY_SWING": "NEW (research-only)"
+    },
+    "per_family_metadata": [
+      "entry_conditions",
+      "compatible regimes",
+      "required indicators",
+      "holding horizon",
+      "invalidation",
+      "est transaction cost",
+      "liquidity",
+      "exposure requirement",
+      "strategy+config versions",
+      "regression tests",
+      "eligibility state"
+    ],
+    "safety": "all families default RESEARCH; promotion to EXECUTION requires explicit validated opt-in AND regression tests; nothing auto-enables live",
+    "strict_entry_contract": "passes_entry_contract(): DI+>DI- AND (price>VWAP OR >SMA20 OR >BB_mid) AND developing_1m>prev_1m_close (explicit parentheses; mirrors native screen_market)",
+    "tests": 8
+  },
+  "arbitration_and_ranking": {
+    "module": "cengine/strategy_arbitration.py",
+    "contract": "StrategyRecommendation (decision_id..rejection_reason); unknown estimates stay None",
+    "regime_compatibility": "configurable research hypotheses; inverse ETFs NOT auto-prohibited in bearish regimes; uncertain fails closed; never authorizes geared/inverse",
+    "economic_ranking": "expected_net = gross - cost (subtracted once); deterministic research fallback explicitly labeled when calibrated outcomes unavailable",
+    "arbitration_resolves": [
+      "stale",
+      "duplicate",
+      "direction conflict",
+      "opposing exposure",
+      "capital contention",
+      "research never selected"
+    ],
+    "protection_precedence": "protective exits are NOT arbitrated; run on the independent path",
+    "tests": 11
+  },
+  "decision_evidence": {
+    "module": "cengine/decision_events.py",
+    "schema": "decision-events-1.0.0",
+    "nonblocking": "O(1) bounded deque; emit never raises; best-effort journal mirror",
+    "captures": [
+      "regime transitions",
+      "recommendations",
+      "rejected opportunities",
+      "ranking components",
+      "arbitration decisions",
+      "risk approvals/rejections",
+      "order intents",
+      "broker acks",
+      "partial/complete fills",
+      "exit decisions",
+      "realized outcomes"
+    ],
+    "not_built": "ML/RL platform (only the event contract + sink, for later Parquet/DuckDB)",
+    "tests": 5
+  },
+  "operational_integration": {
+    "pipeline": "cengine/regime_strategy_pipeline.py over native GPU screen rows",
+    "engine": "trade.py: advisory _run_regime_intelligence loop (CENGINE_REGIME_INTELLIGENCE), decision sink reuses audit journal, opposing-exposure fn from exposure registry; routes NOTHING to execution (families RESEARCH by default)",
+    "tests": 3
+  },
+  "preserved_architecture": [
+    "single SIP connection",
+    "provider-confirmed subscriptions",
+    "persistent warm-up",
+    "full native registration",
+    "adaptive subscriptions",
+    "momentum-gated promotion",
+    "native Metal indicators",
+    "GPU screening/compaction/ranking/breadth",
+    "canonical UniversePublisher",
+    "exposure registry",
+    "CandidateRouter",
+    "native RiskEngine",
+    "single OrderManager",
+    "independent mandatory -0.5% protective exits"
+  ],
+  "test_suite_total": 489,
+  "status": "IMPLEMENTED + offline-validated (advisory; no auto-execution)",
+  "not_certified": "live-session regime behavior; economic (OOS) validation of any family"
+}
