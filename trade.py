@@ -349,6 +349,24 @@ class DecisionReport:
     conflicted: bool
 
 
+def _dominant_execution_blocker(
+    *, bridge_active: bool, candidates: int, submitted: int
+) -> str:
+    """Classify the dominant blocker on the primary (strategy-bridge) order path.
+
+    Ordered most-fundamental first so the dashboard shows the single thing to fix:
+    no authorization -> no eligible candidates -> candidates present but none routed
+    (entry contract / native risk) -> orders flowing. P0.9.
+    """
+    if not bridge_active:
+        return "no_strategy_execution_authorization"
+    if candidates == 0:
+        return "no_strategy_candidates"
+    if submitted == 0:
+        return "candidates_blocked_by_entry_contract_or_risk"
+    return "orders_flowing"
+
+
 def load_native_adapters(
     module_name: str,
 ) -> tuple[NativeRiskEngine, ExecutionVenue]:
@@ -1347,7 +1365,9 @@ class MarketEngine:
                             if not self._replacement.in_cooldown(s, now_ns))
         if not symbols:
             if self._on_portfolio is not None:
-                self._on_portfolio(state, {"allocation_policy": "warming_up"})
+                self._on_portfolio(state, {
+                    "allocation_policy": "warming_up",
+                    "pipeline": self._pipeline_dashboard_stats()})
             return
         returns_by_symbol = {s: dict(self._portfolio_returns[s]) for s in symbols}
         authorized_fn = (self._exposure_registry.authorize_entry
@@ -1374,6 +1394,7 @@ class MarketEngine:
                 "covariance_source": res.covariance_source,
                 "binding_constraints": binding,
                 "reserved": res.reserved, "routed": res.routed,
+                "pipeline": self._pipeline_dashboard_stats(),
                 "execution": self._execution_dashboard_stats(symbols, now_ns),
                 "lakehouse": self._lakehouse_dashboard_stats(),
                 "learning": self._learning_dashboard_stats()})
@@ -1413,6 +1434,36 @@ class MarketEngine:
                 "quarantined": last.get("quarantined", 0),
                 "buffer": len(buf) if buf is not None else 0,
                 "feed": self._lakehouse.source_feed}
+
+    def _pipeline_dashboard_stats(self) -> dict:
+        """Execution-pipeline funnel + dominant blocker for the dashboard (P0.9).
+
+        Measured values only; never raises. Surfaces the execution environment
+        (authorization), whether the strategy-bridge order path is active, the
+        candidate->submitted funnel, archival coverage gaps, and the single
+        dominant blocker so the operator sees why orders do/do not flow.
+        """
+        try:
+            bridge_active = self._exec_bridge is not None
+            auth = os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH") or "none"
+            h = self.health
+            candidates = h.strategy_candidates
+            submitted = h.order_intents_submitted
+            return {
+                "authorization": auth,
+                "bridge_active": bridge_active,
+                "candidates": candidates,
+                "submitted": submitted,
+                "order_failures": h.order_failures,
+                "archive_dropped": h.archive_persistence_dropped,
+                "blocker": _dominant_execution_blocker(
+                    bridge_active=bridge_active,
+                    candidates=candidates,
+                    submitted=submitted,
+                ),
+            }
+        except Exception:  # noqa: BLE001 — dashboard stats must never raise
+            return {}
 
     def _execution_dashboard_stats(self, symbols: tuple, now_ns: int) -> dict:
         """Non-blocking execution analytics for the dashboard (M4 §22), derived from
@@ -2547,6 +2598,21 @@ class ConsoleDecisionStream:
             f"binding={','.join(extra.get('binding_constraints', [])) or 'none'} "
             f"reserved_n={extra.get('reserved', 0)} routed={extra.get('routed', 0)}",
         )
+        # Execution-pipeline funnel + dominant blocker (P0.9): shown prominently so the
+        # operator sees why orders do/do not flow (authorization, candidate->submitted,
+        # archival coverage gaps). Measured values only.
+        if extra.get("pipeline"):
+            pl = extra["pipeline"]
+            self._emit(
+                "PIPELINE",
+                f"env={pl.get('authorization', 'n/a')} "
+                f"bridge={'ACTIVE' if pl.get('bridge_active') else 'inactive'} "
+                f"candidates={pl.get('candidates', 0)} "
+                f"submitted={pl.get('submitted', 0)} "
+                f"order_failures={pl.get('order_failures', 0)} "
+                f"archive_dropped={pl.get('archive_dropped', 0)} "
+                f">> BLOCKER={pl.get('blocker', 'n/a')}",
+            )
         # Execution analytics (M4 §22): non-blocking; unavailable metrics -> n/a.
         if extra.get("execution") is not None:
             ex = extra["execution"]
