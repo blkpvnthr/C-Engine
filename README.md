@@ -613,7 +613,3 @@ flowchart TD
 ```
 
 *Failure isolation must preserve protection whenever valid valuation and brokerage connectivity permit. No software path guarantees execution during an outage.*
-
-## Credential notice
-
-`.env.example` must contain only empty credential placeholders. Earlier commits reportedly contained an Alpaca paper key/secret and MongoDB Atlas URI. Rotate any previously exposed credentials, even if paper-only. Removing values from the current tree does not remove them from Git history. Any history rewrite or purge requires a separate authorized operational process.
