@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from enum import Enum
+from typing import Iterable
 
 from .config import UniverseRotationConfig
 
@@ -52,6 +53,10 @@ class LifecycleTracker:
 
     def all(self) -> dict[str, CandidateState]:
         return dict(self._states)
+
+    def restore(self, states: "Iterable[CandidateState]") -> None:
+        """Replace the tracked states (used by persistent restart recovery)."""
+        self._states = {s.symbol: s for s in states}
 
     def observe(
         self,
