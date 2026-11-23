@@ -110,6 +110,14 @@ _TRANSFORMS = {
         "model_version": "$.model_version", "to_maturity": "$.to_maturity",
         "from_maturity": "$.from_maturity", "approved": "$.approved",
         "to_reference": "$.to_reference", "reason": "$.reason"}),
+    # dynamic universe management (§9): per-symbol selection decisions
+    "universe_selection": ("universe_selection",
+                           ["universe_promotion", "universe_demotion",
+                            "universe_selection"], {
+        "event_type": "event_type", "symbol_id": "symbol_id",
+        "generation": "$.generation", "is_baseline": "$.is_baseline",
+        "opportunity_score": "$.opportunity_score", "model_version": "$.model_version",
+        "selection_reason": "$.selection_reason", "removal_reason": "$.removal_reason"}),
 }
 
 

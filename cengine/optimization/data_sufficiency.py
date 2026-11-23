@@ -32,6 +32,7 @@ _IMPORTANCE = {
     "execution_quality": 0.7,
     "policy_bandit": 0.9,
     "offline_rl_execution": 0.9,
+    "universe_selection": 0.85,
 }
 
 # where each task's missing evidence could be recovered from, if at all.
@@ -43,6 +44,7 @@ _RECOVERABLE = {
     "execution_quality": ("genuine_order_fill_events", False),
     "policy_bandit": ("logged_policy_actions_with_rewards", False),
     "offline_rl_execution": ("logged_sequential_transitions", False),
+    "universe_selection": ("logged_universe_selections_with_outcomes", False),
 }
 
 _TRAINABLE = {EligibilityState.TRAINING_ELIGIBLE.value,
