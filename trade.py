@@ -107,7 +107,7 @@ from market_data.alpaca_stream import (
     TradeEvent,
 )
 from market_data.feed import resolve_feed
-from market_data.market_data_store import DailyHDF5Writer
+from market_data.market_data_store import DailyHDF5Writer, MarketDataStoreError
 from order_manager import (
     TERMINAL_STATUSES,
     ExecutionUpdate,
@@ -332,6 +332,10 @@ class EngineHealth:
     conflicting_batches: int = 0
     order_intents_submitted: int = 0
     order_failures: int = 0
+    # P0.1: analytical-persistence coverage gaps. Incremented when the HDF5
+    # archive sheds a raw observation under backpressure/failure so the market
+    # feed and live path stay alive. Exposed (not silent) for the dashboard.
+    archive_persistence_dropped: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -1902,7 +1906,27 @@ class MarketEngine:
         event: MarketEvent,
     ) -> None:
         # Persistence and every analytics consumer have independent streams.
-        self.archive.submit(event)
+        # The HDF5 archive is an ANALYTICAL sink (NOT the financial audit journal),
+        # and its bounded queue can saturate behind slow writes at live SIP tick
+        # rates. Archival backpressure must never propagate into the market-data
+        # dispatch callback — doing so escapes into AlpacaMarketDataStream.run_forever's
+        # broad reconnect handler and needlessly disconnects the feed (the observed
+        # `attempt=N` loop). Shed the raw observation with explicit coverage-gap
+        # accounting (NOT a silent drop) and keep the critical live path alive. The
+        # loss-intolerant financial audit journal (bars/orders/executions) is a
+        # separate sink below and is unaffected. P0.1.
+        try:
+            self.archive.submit(event)
+        except MarketDataStoreError:
+            self.health.archive_persistence_dropped += 1
+            dropped = self.health.archive_persistence_dropped
+            if dropped == 1 or dropped % 1000 == 0:
+                LOGGER.warning(
+                    "archival persistence degraded: dropped=%d last_event=%s; "
+                    "market feed and live path preserved (coverage gap recorded)",
+                    dropped,
+                    type(event).__name__,
+                )
         # The market-data feed (IEX by default, or SIP) multiplexes independent
         # channels; the gate enforces monotonicity per (symbol, channel), never
         # across channels (quotes and trades interleave with non-monotonic
