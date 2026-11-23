@@ -115,6 +115,19 @@ def test_persistence_queue_full_does_not_propagate_and_live_path_continues() -> 
     assert engine.health.archive_persistence_dropped == 1
 
 
+def test_disabled_archive_is_skipped_without_crashing() -> None:
+    # When the redundant HDF5 archive is gated off (self.archive is None), ingestion
+    # must proceed normally: no submit attempt, no crash, no false coverage-gap count.
+    engine = _engine_with_archive(None)
+    quote = _quote(3_000)
+
+    asyncio.run(engine._publish_market_event(quote))
+
+    assert engine.market_gate.observed == [("QQQ", 3_000, "quote")]
+    assert engine.event_bus.published == [quote]
+    assert engine.health.archive_persistence_dropped == 0  # nothing attempted -> no drop
+
+
 def test_generic_archive_failure_is_nonfatal_to_feed() -> None:
     archive = _RaisingArchive(MarketDataStoreError("HDF5 writer failed: disk full"))
     engine = _engine_with_archive(archive)

@@ -89,7 +89,7 @@ from cengine.execution_policy import ConfiguredExecutionPolicy, ExecutionPolicy
 from cengine.integrity import verify_source_integrity
 from cengine.journal import AuditJournal
 from cengine.metrics import PortfolioMetrics, PortfolioMetricsCollector
-from cengine.nosql_journal import MongoDailyJournalStore
+from cengine.parquet_journal import ParquetJournalStore
 from cengine.portfolio import AccountState, PositionBook
 from cengine.safety import (
     MarketGateConfig,
@@ -300,10 +300,10 @@ class EngineConfig:
             self.session_close_minute,
             self.session_weekdays,
         )
-        if not self.mongodb_uri.strip() or not self.mongodb_database.strip():
-            raise EngineConfigurationError("MongoDB journal configuration is required")
-        if self.mongodb_timeout_ms <= 0:
-            raise EngineConfigurationError("MongoDB timeout must be positive")
+        # The audit journal now uses a local Parquet replica (cengine.parquet_journal),
+        # not MongoDB. The mongodb_* fields remain for backward-compatible env/args
+        # parsing but are no longer required or used (Mongo blocked engine startup on a
+        # synchronous w=majority write against a paused Atlas primary).
 
         # Strategy constructors perform the detailed mathematical validation.
         StrategySetConfig(
@@ -577,13 +577,14 @@ class MarketEngine:
         self._on_portfolio = on_portfolio
         self._last_portfolio_state = None
         self.state = EngineStateMachine()
-        self.nosql_journal = MongoDailyJournalStore(
-            config.mongodb_uri,
-            config.mongodb_database,
-            config.session_timezone,
-            config.mongodb_timeout_ms,
-        )
-        self.journal = AuditJournal(config.journal_path, sinks=(self.nosql_journal,))
+        # Local Parquet audit-journal replica (replaces the MongoDB sink, which blocked
+        # startup on a synchronous w=majority write against a paused Atlas primary). The
+        # append-only, checksummed JSONL file below remains the authoritative durable
+        # record; this is the DuckDB-queryable replica and never blocks/raises into the
+        # engine (reuses the lakehouse ParquetWriter: atomic, idempotent, non-fatal).
+        from cengine.lakehouse.config import LakehouseConfig
+        self.journal_replica = ParquetJournalStore(LakehouseConfig.from_env())
+        self.journal = AuditJournal(config.journal_path, sinks=(self.journal_replica,))
         self.market_gate = MarketSafetyGate(
             MarketGateConfig(config.max_feed_age_ns, config.max_bar_gap_ns)
         )
@@ -656,10 +657,20 @@ class MarketEngine:
         )
         self.strategies: StrategyCoordinator = build_strategy_coordinator(strategy_config)
 
-        self.archive = DailyHDF5Writer(
-            root=config.market_data_root,
-            provider=config.archive_provider_label,
-            feed=config.alpaca_feed,
+        # The HDF5 tick archive is an OPTIONAL analytical sink that is redundant with
+        # the Parquet/DuckDB lakehouse bronze tap (same quotes/trades/bars). It cannot
+        # keep up with live SIP tick rates (one-row-at-a-time compressed writes) and
+        # shed ~250k observations in 90s in testing, and its daily file can get locked
+        # by an uncleanly-terminated prior run. It is therefore OFF by default; set
+        # CENGINE_HDF5_ARCHIVE=1 to re-enable. Historical .h5 data is never deleted.
+        self.archive = (
+            DailyHDF5Writer(
+                root=config.market_data_root,
+                provider=config.archive_provider_label,
+                feed=config.alpaca_feed,
+            )
+            if _env_bool("CENGINE_HDF5_ARCHIVE", False)
+            else None
         )
         self.event_bus: MarketEventBus[MarketEvent] = MarketEventBus()
         self.strategy_events = self.event_bus.subscribe("strategies")
@@ -1746,7 +1757,8 @@ class MarketEngine:
             self.kill_switch(f"startup reconciliation failed: {exc}")
             raise
         self.state.transition(EngineState.READY, "broker state agrees")
-        self.archive.start()
+        if self.archive is not None:
+            self.archive.start()
         self.state.transition(EngineState.RUNNING, "all startup gates passed")
 
         # Start the in-process scanner (own thread) fed by the single pipeline.
@@ -1898,7 +1910,8 @@ class MarketEngine:
                 return_exceptions=True,
             )
 
-            self.archive.close(drain=True)
+            if self.archive is not None:
+                self.archive.close(drain=True)
             self.journal.close()
 
             # Final out-of-band lakehouse flush so the session's last buffered
@@ -1992,18 +2005,19 @@ class MarketEngine:
         # accounting (NOT a silent drop) and keep the critical live path alive. The
         # loss-intolerant financial audit journal (bars/orders/executions) is a
         # separate sink below and is unaffected. P0.1.
-        try:
-            self.archive.submit(event)
-        except MarketDataStoreError:
-            self.health.archive_persistence_dropped += 1
-            dropped = self.health.archive_persistence_dropped
-            if dropped == 1 or dropped % 1000 == 0:
-                LOGGER.warning(
-                    "archival persistence degraded: dropped=%d last_event=%s; "
-                    "market feed and live path preserved (coverage gap recorded)",
-                    dropped,
-                    type(event).__name__,
-                )
+        if self.archive is not None:
+            try:
+                self.archive.submit(event)
+            except MarketDataStoreError:
+                self.health.archive_persistence_dropped += 1
+                dropped = self.health.archive_persistence_dropped
+                if dropped == 1 or dropped % 1000 == 0:
+                    LOGGER.warning(
+                        "archival persistence degraded: dropped=%d last_event=%s; "
+                        "market feed and live path preserved (coverage gap recorded)",
+                        dropped,
+                        type(event).__name__,
+                    )
         # The market-data feed (IEX by default, or SIP) multiplexes independent
         # channels; the gate enforces monotonicity per (symbol, channel), never
         # across channels (quotes and trades interleave with non-monotonic
@@ -3034,11 +3048,9 @@ def _engine_composition_root() -> None:
             + ". Copy .env.example to .env and fill it, or export them. "
             "(APCA_API_KEY_ID / APCA_API_SECRET_KEY are accepted equivalently.)"
         )
-    if not config.mongodb_uri.strip():
-        raise EngineConfigurationError(
-            "MongoDB journaling is required: set CENGINE_MONGODB_URI, or provide "
-            "MONGODB_URI via atlas-credentials.env."
-        )
+    # MongoDB journaling requirement removed: the engine uses a local Parquet journal
+    # replica (cengine.parquet_journal) under the lakehouse root. No network journal
+    # dependency gates startup.
 
     # Validate the native authority boundary and obtain authoritative state.
     load_native_adapters(config.native_adapter_module)
