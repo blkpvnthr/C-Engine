@@ -15,3 +15,5 @@ Gap-analyzed 4 subsystems (80% dynamic-universe pre-exists), designed baseline-a
 P0 accounting audit committed: corrected M7's 97% DD compound artifact → 80.3% real capital-constrained portfolio DD; failure_attribution.py ID'd entry-quality root cause (46% stop-out rate, MAE −0.69% > MFE +0.58%); began §5 entry-qual ablation (features.py + entry_quality.py harness).
 ## 02:45 | feature/dynamic-universe-rotation
 Impl Decision Core: baseline registry, 4-layer model, candidate lifecycle, priority scheduler; 26 tests pass; branched m7-tip; next: manager+integration plan.
+## 10:30 | feature/m8-autonomous-alpha-discovery
+M8 P0–P1 committed: capital-constrained portfolio replay (corrects DD to 80.3%), failure attribution (MAE>MFE, entry-quality root), entry/multi-timeframe/regime filters tested (all preserve negative expectancy); 7 modules + 10 tests.

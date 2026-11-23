@@ -1,0 +1,113 @@
+{
+  "version": "regime-conditioned-research-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "regime_proxy": "direction(trend_persist) x volatility(atr_frac terciles); MarketRegimeEngine is the production authority (streaming)",
+  "volatility_terciles": {
+    "low<=": 0.00036,
+    "high>=": 0.00075
+  },
+  "per_regime": {
+    "down_highvol": {
+      "train_n": 967,
+      "val_n": 322,
+      "train_expectancy": -0.000782,
+      "val_expectancy": -0.00035,
+      "train_tradeable": false
+    },
+    "down_lowvol": {
+      "train_n": 31,
+      "val_n": 10,
+      "train_expectancy": 7.1e-05,
+      "val_expectancy": -0.000756,
+      "train_tradeable": false
+    },
+    "down_midvol": {
+      "train_n": 234,
+      "val_n": 83,
+      "train_expectancy": 0.000394,
+      "val_expectancy": -0.000554,
+      "train_tradeable": true
+    },
+    "range_highvol": {
+      "train_n": 1750,
+      "val_n": 670,
+      "train_expectancy": -0.000962,
+      "val_expectancy": -0.000761,
+      "train_tradeable": false
+    },
+    "range_lowvol": {
+      "train_n": 677,
+      "val_n": 425,
+      "train_expectancy": -0.001014,
+      "val_expectancy": -0.001044,
+      "train_tradeable": false
+    },
+    "range_midvol": {
+      "train_n": 1786,
+      "val_n": 1005,
+      "train_expectancy": -0.000843,
+      "val_expectancy": -0.001151,
+      "train_tradeable": false
+    },
+    "unknown": {
+      "train_n": 2,
+      "val_n": 0,
+      "train_expectancy": -0.0054,
+      "val_expectancy": null,
+      "train_tradeable": false
+    },
+    "up_highvol": {
+      "train_n": 3161,
+      "val_n": 1079,
+      "train_expectancy": -0.001239,
+      "val_expectancy": -0.001506,
+      "train_tradeable": false
+    },
+    "up_lowvol": {
+      "train_n": 380,
+      "val_n": 207,
+      "train_expectancy": -0.001637,
+      "val_expectancy": -0.001495,
+      "train_tradeable": false
+    },
+    "up_midvol": {
+      "train_n": 1512,
+      "val_n": 699,
+      "train_expectancy": -0.00121,
+      "val_expectancy": -0.001434,
+      "train_tradeable": false
+    }
+  },
+  "tradeable_regimes_by_train": [
+    "down_midvol"
+  ],
+  "baseline_val_expectancy": -0.001159,
+  "abstention_policy_val_expectancy": -0.000554,
+  "abstention_policy_val_sample": 83,
+  "abstention_policy_positive": false,
+  "per_symbol": {
+    "AAPL": {
+      "available": true,
+      "n": 3000
+    },
+    "MSFT": {
+      "available": true,
+      "n": 3000
+    },
+    "NVDA": {
+      "available": true,
+      "n": 3000
+    },
+    "SPY": {
+      "available": true,
+      "n": 3000
+    },
+    "QQQ": {
+      "available": true,
+      "n": 3000
+    }
+  },
+  "conclusion": "Regime abstention (trade only ['down_midvol']) improves on baseline -0.00116 but stays non-positive on VALIDATION (-0.00055); regime conditioning does not rescue the entry. Negative result preserved.",
+  "note": "regime proxy on genuine bars; abstention chosen on TRAIN, measured once on VAL; simulated, not live, no profitability claim"
+}

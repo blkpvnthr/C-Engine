@@ -1,0 +1,182 @@
+{
+  "version": "entry-quality-optimization-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "n_train": 10500,
+  "n_val": 4500,
+  "baseline_train_expectancy": -0.00104,
+  "baseline_val_expectancy": -0.001159,
+  "single_filter_ablation": {
+    "mom5": {
+      "status": "ok",
+      "threshold": 0.0015019361086692218,
+      "direction": "<=",
+      "train_expectancy": -0.0007848609464582983,
+      "train_keep_fraction": 0.5,
+      "val_expectancy": -0.00118,
+      "val_keep_fraction": 0.5731,
+      "val_improvement_vs_base": -2.1e-05,
+      "val_positive": false
+    },
+    "mom_accel": {
+      "status": "ok",
+      "threshold": 0.00033550497365126837,
+      "direction": "<=",
+      "train_expectancy": -0.0007831104574049119,
+      "train_keep_fraction": 0.2,
+      "val_expectancy": -0.001227,
+      "val_keep_fraction": 0.1764,
+      "val_improvement_vs_base": -6.8e-05,
+      "val_positive": false
+    },
+    "rel_volume": {
+      "status": "ok",
+      "threshold": 0.8989905772967801,
+      "direction": ">=",
+      "train_expectancy": -0.000895306606380458,
+      "train_keep_fraction": 0.6,
+      "val_expectancy": -0.001266,
+      "val_keep_fraction": 0.6007,
+      "val_improvement_vs_base": -0.000107,
+      "val_positive": false
+    },
+    "disp_sma20": {
+      "status": "ok",
+      "threshold": 0.0007517511721729419,
+      "direction": "<=",
+      "train_expectancy": -0.0008598848984233107,
+      "train_keep_fraction": 0.2,
+      "val_expectancy": -0.001014,
+      "val_keep_fraction": 0.2296,
+      "val_improvement_vs_base": 0.000144,
+      "val_positive": false
+    },
+    "disp_atr": {
+      "status": "ok",
+      "threshold": 1.6484194870065827,
+      "direction": "<=",
+      "train_expectancy": -0.0008840661459262344,
+      "train_keep_fraction": 0.4,
+      "val_expectancy": -0.001099,
+      "val_keep_fraction": 0.3933,
+      "val_improvement_vs_base": 5.9e-05,
+      "val_positive": false
+    },
+    "bb_width": {
+      "status": "ok",
+      "threshold": 0.0013077206186865066,
+      "direction": "<=",
+      "train_expectancy": -0.0008519836769924345,
+      "train_keep_fraction": 0.3,
+      "val_expectancy": -0.001144,
+      "val_keep_fraction": 0.3982,
+      "val_improvement_vs_base": 1.5e-05,
+      "val_positive": false
+    },
+    "htf_trend_15": {
+      "status": "ok",
+      "threshold": -1.0,
+      "direction": ">=",
+      "train_expectancy": -0.0010398113597392853,
+      "train_keep_fraction": 1.0,
+      "val_expectancy": -0.001159,
+      "val_keep_fraction": 1.0,
+      "val_improvement_vs_base": 0.0,
+      "val_positive": false
+    },
+    "htf_trend_60": {
+      "status": "ok",
+      "threshold": -1.0,
+      "direction": "<=",
+      "train_expectancy": -0.000702349313042373,
+      "train_keep_fraction": 0.3152,
+      "val_expectancy": -0.000809,
+      "val_keep_fraction": 0.3073,
+      "val_improvement_vs_base": 0.000349,
+      "val_positive": false
+    },
+    "trend_persist": {
+      "status": "ok",
+      "threshold": 0.00033660482237167375,
+      "direction": "<=",
+      "train_expectancy": -0.0006724786971263124,
+      "train_keep_fraction": 0.3001,
+      "val_expectancy": -0.00081,
+      "val_keep_fraction": 0.3051,
+      "val_improvement_vs_base": 0.000348,
+      "val_positive": false
+    },
+    "tod_bucket": {
+      "status": "ok",
+      "threshold": 1.0,
+      "direction": ">=",
+      "train_expectancy": -0.0008427984247723237,
+      "train_keep_fraction": 0.5996,
+      "val_expectancy": -0.000979,
+      "val_keep_fraction": 0.5787,
+      "val_improvement_vs_base": 0.000179,
+      "val_positive": false
+    },
+    "dir_separation": {
+      "status": "ok",
+      "threshold": 0.042354125886210056,
+      "direction": "<=",
+      "train_expectancy": -0.0008742757149381387,
+      "train_keep_fraction": 0.2,
+      "val_expectancy": -0.000855,
+      "val_keep_fraction": 0.1907,
+      "val_improvement_vs_base": 0.000304,
+      "val_positive": false
+    }
+  },
+  "filters_with_positive_val_expectancy": [],
+  "best_single_filter_val_expectancy": -0.000809,
+  "combination": {
+    "selected": [
+      "trend_persist",
+      "mom_accel",
+      "rel_volume",
+      "htf_trend_60"
+    ],
+    "train_expectancy": 9.1e-05,
+    "val": {
+      "status": "insufficient_val",
+      "kept": 65
+    }
+  },
+  "multiple_testing_caveat": "11 filters x 8 thresholds x 2 directions were scanned on TRAIN; the best VAL figure is selection-biased and is development evidence only \u2014 NOT an independent certification.",
+  "per_symbol": {
+    "AAPL": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "MSFT": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "NVDA": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "SPY": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "QQQ": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    }
+  },
+  "conclusion": "No entry filter produced positive out-of-sample net expectancy (baseline -0.00116); entry-quality filtering does not rescue the momentum entry on this universe. Negative result preserved.",
+  "note": "historical-replay on genuine bars; simulated, not live; no profitability claim"
+}
