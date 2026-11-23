@@ -1,0 +1,22 @@
+{
+  "report": "optimization_oos_validation",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "scope_honesty": "chronological purged/embargoed split; holdout reserved for M7.",
+  "train": [
+    1577836800000000000,
+    1708268364000000000
+  ],
+  "validation": [
+    1708527564000000000,
+    1751745552000000000
+  ],
+  "holdout_RESERVED": [
+    1752004752000000000,
+    1795222740000000000
+  ],
+  "embargo_days": 3,
+  "version": "oos-validation-1.0.0",
+  "note": "holdout is reserved for Milestone 7; optimizer uses train+validation only"
+}

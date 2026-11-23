@@ -1,0 +1,66 @@
+{
+  "report": "optimization_autonomous_cycle",
+  "milestone": "M6B",
+  "branch": "feature/6b-autonomous-performance-optimization",
+  "generated": "2026-11-23",
+  "scope_honesty": "repeated autonomous OOS cycles on genuine 1m data; shadow-eligible only (M7 certifies); incumbent retained when none qualifies; research-only exit policies deferred.",
+  "oos_windows": {
+    "train": [
+      1577836800000000000,
+      1708268364000000000
+    ],
+    "validation": [
+      1708527564000000000,
+      1751745552000000000
+    ],
+    "holdout_RESERVED": [
+      1752004752000000000,
+      1795222740000000000
+    ],
+    "embargo_days": 3,
+    "version": "oos-validation-1.0.0",
+    "note": "holdout is reserved for Milestone 7; optimizer uses train+validation only"
+  },
+  "cycle1_outcomes": {
+    "accepted": 0,
+    "rejected": 4,
+    "deferred": 5,
+    "errors": 0
+  },
+  "cycle2_outcomes": {
+    "accepted": 0,
+    "rejected": 2,
+    "deferred": 7,
+    "errors": 0
+  },
+  "cycle1_rejected_examples": [
+    {
+      "policy": "tightening_only",
+      "rec": "reject"
+    },
+    {
+      "policy": "regime",
+      "rec": "reject"
+    },
+    {
+      "policy": "regime",
+      "rec": "reject"
+    },
+    {
+      "policy": "atr",
+      "rec": "reject"
+    }
+  ],
+  "memory_effectiveness": {
+    "experiments_attempted": 6,
+    "experiments_completed": 6,
+    "improvements_identified": 0,
+    "improvements_retained": 0,
+    "compute_seconds_total": 24.58,
+    "compute_per_improvement_s": null,
+    "duplicate_configs_in_memory": 0,
+    "version": "optimization-memory-1.0.0"
+  },
+  "boundary": "candidates are shadow-eligible only; no live activation, no risk expansion, no production-exit relaxation (Milestone 7 certifies)",
+  "finding": "the loop runs repeatedly, evaluates exit configs OOS vs the -0.5% incumbent, rejects those that don't beat it under risk gates, defers research-only policies, and memory (dedup+TPE) informs later cycles \u2014 incumbent retained (honest)"
+}
