@@ -1,0 +1,39 @@
+{
+  "version": "continuous-research-validation-1.0.0",
+  "alpha_service_priority": 9,
+  "gpu_admission": {
+    "overnight_lowpressure": {
+      "admit": true,
+      "reason": "off_session_or_non_research"
+    },
+    "overnight_highpressure": {
+      "admit": false,
+      "reason": "gpu_pressure 0.95 >= 0.85"
+    },
+    "in_session": {
+      "admit": true,
+      "reason": "bounded_research_in_session"
+    },
+    "protection_never_gated": {
+      "admit": true,
+      "reason": "protection_never_gated"
+    }
+  },
+  "triggers": [
+    "research_interval_elapsed",
+    "new_historical_data",
+    "data_sufficiency_satisfied",
+    "regime_distribution_change",
+    "model_deterioration",
+    "paper_positions_close"
+  ],
+  "runs_in_states": [
+    "OVERNIGHT_RESEARCH",
+    "WEEKEND_RESEARCH",
+    "HOLIDAY_RESEARCH",
+    "POST_SESSION_PROCESSING"
+  ],
+  "persists_to_optimization_memory": true,
+  "shadow_only_no_live_activation": true,
+  "integrated_into_runtime": true
+}

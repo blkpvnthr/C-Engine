@@ -1,0 +1,86 @@
+{
+  "version": "incumbent-failure-attribution-1.0.0",
+  "data_label": "historical_replay",
+  "per_symbol": {
+    "AAPL": {
+      "n_trades": 3000,
+      "stop_out_rate": 0.4557,
+      "time_stop_rate": 0.5443,
+      "mean_entry_bar_vol": 0.00074,
+      "median_entry_bar_vol": 0.00059,
+      "frac_entry_vol_ge_stop": 0.001,
+      "mean_max_adverse_excursion": -0.00658,
+      "mean_max_favorable_excursion": 0.00554,
+      "net_expectancy": -0.001114
+    },
+    "MSFT": {
+      "n_trades": 3000,
+      "stop_out_rate": 0.4877,
+      "time_stop_rate": 0.5123,
+      "mean_entry_bar_vol": 0.00078,
+      "median_entry_bar_vol": 0.00061,
+      "frac_entry_vol_ge_stop": 0.0033,
+      "mean_max_adverse_excursion": -0.00684,
+      "mean_max_favorable_excursion": 0.00568,
+      "net_expectancy": -0.001185
+    },
+    "NVDA": {
+      "n_trades": 3000,
+      "stop_out_rate": 0.6,
+      "time_stop_rate": 0.4,
+      "mean_entry_bar_vol": 0.00109,
+      "median_entry_bar_vol": 0.00085,
+      "frac_entry_vol_ge_stop": 0.005,
+      "mean_max_adverse_excursion": -0.01015,
+      "mean_max_favorable_excursion": 0.00912,
+      "net_expectancy": -0.001038
+    },
+    "SPY": {
+      "n_trades": 3000,
+      "stop_out_rate": 0.3507,
+      "time_stop_rate": 0.6493,
+      "mean_entry_bar_vol": 0.00056,
+      "median_entry_bar_vol": 0.00043,
+      "frac_entry_vol_ge_stop": 0.0013,
+      "mean_max_adverse_excursion": -0.00526,
+      "mean_max_favorable_excursion": 0.00421,
+      "net_expectancy": -0.001032
+    },
+    "QQQ": {
+      "n_trades": 3000,
+      "stop_out_rate": 0.3897,
+      "time_stop_rate": 0.6103,
+      "mean_entry_bar_vol": 0.00061,
+      "median_entry_bar_vol": 0.00049,
+      "frac_entry_vol_ge_stop": 0.0013,
+      "mean_max_adverse_excursion": -0.00565,
+      "mean_max_favorable_excursion": 0.00453,
+      "net_expectancy": -0.001007
+    }
+  },
+  "aggregate": {
+    "total_trades": 15000,
+    "weighted_stop_out_rate": 0.4568,
+    "weighted_frac_entry_vol_ge_stop": 0.0024,
+    "weighted_mean_adverse_excursion": -0.0069,
+    "weighted_mean_favorable_excursion": 0.00582
+  },
+  "findings": [
+    {
+      "finding": "high_protective_stop_frequency",
+      "evidence": "weighted stop-out rate 45.7% of trades are killed by the \u22120.5% stop",
+      "hypothesis": "require higher-timeframe trend confirmation and/or greater momentum separation at entry to reduce the share of trades that stop out"
+    },
+    {
+      "finding": "stop_inside_normal_adverse_excursion",
+      "evidence": "mean max adverse excursion -0.69% exceeds the \u22120.5% stop; mean max favorable excursion is only 0.58% \u2014 a near-symmetric swing against a tight stop",
+      "hypothesis": "entries are taken into normal two-sided intrabar swings wider than the stop; selectivity (seller-exhaustion / displacement-from-VWAP / regime) that raises MFE relative to MAE should improve net expectancy"
+    },
+    {
+      "finding": "adverse_exceeds_favorable_excursion",
+      "evidence": "adverse excursion -0.69% is larger in magnitude than favorable 0.58% \u2014 the entry edge is negative before the stop even acts",
+      "hypothesis": "the momentum entry has no directional edge over the hold window; entry-quality filters (not exit tuning) are the lever"
+    }
+  ],
+  "note": "measured on genuine 1m bars (simulated fills); drives governed hypothesis generation \u2014 not a profitability claim"
+}

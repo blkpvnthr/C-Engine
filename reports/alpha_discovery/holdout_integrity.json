@@ -1,0 +1,55 @@
+{
+  "m7_canonical_holdout": {
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ],
+    "timeframe": "1Min",
+    "status": "consumed",
+    "reused_as_new_holdout": false
+  },
+  "m8_development_symbols": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "SPY",
+    "QQQ"
+  ],
+  "m8_development_timeframe": "1Min",
+  "fresh_cohort_symbols": [
+    "AMD",
+    "AMZN",
+    "DIA",
+    "DOG",
+    "GLD",
+    "GOOGL",
+    "IWM",
+    "META",
+    "PLTR",
+    "PSQ",
+    "SDS",
+    "SH",
+    "SMH",
+    "SOXL",
+    "SOXS",
+    "SOXX",
+    "SQQQ",
+    "TLT",
+    "TQQQ",
+    "TSLA",
+    "UPRO",
+    "XLE",
+    "XLF",
+    "XLK",
+    "XLP",
+    "XLV"
+  ],
+  "fresh_cohort_timeframe": "5Min",
+  "fresh_cohort_untouched_by_development": true,
+  "fresh_cohort_size": 26,
+  "lakehouse_available": true,
+  "note": "fresh cohort shares no symbol with the 1m development/holdout universe; it is reserved and only a single pre-registered incumbent test is run on it"
+}
