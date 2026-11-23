@@ -125,3 +125,19 @@ def test_insufficient_data_defers_not_fabricates(tmp_path, monkeypatch):
     report = ctrl.assess()
     assert "universe_selection" in report["eligibility"]
     assert "universe_selection" not in report["experiment_eligible_tasks"]
+
+
+def test_cycle_defers_and_records_collection_requirement(tmp_path, monkeypatch):
+    monkeypatch.setenv("CENGINE_LAKEHOUSE_ROOT", str(tmp_path / "lake"))
+    from cengine.learning.universe_selection.orchestration import (
+        run_universe_selection_cycle,
+    )
+    from cengine.optimization.memory import OptimizationMemory
+
+    out = run_universe_selection_cycle(now_ns=123)
+    assert out["status"] == "deferred"
+    assert out["collection_required"] is True
+    # the deferral is recorded (not a fabricated training result)
+    rows = OptimizationMemory().all()
+    assert any(r.get("decision") == "rejected"
+               and r.get("search_space") == "universe_selection" for r in rows)
