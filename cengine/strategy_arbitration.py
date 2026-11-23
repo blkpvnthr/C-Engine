@@ -52,6 +52,10 @@ class StrategyRecommendation:
     confidence: Optional[float] = None          # heuristic [0,1], NOT calibrated
     eligibility: EligibilityState = EligibilityState.RESEARCH
     rejection_reason: Optional[str] = None
+    # True iff ALL strategy/entry/regime CONDITIONS passed, independent of the
+    # family's advisory eligibility. The execution bridge gates on this + the
+    # family's maturity/authorization; it is NOT a routing authorization by itself.
+    conditions_passed: bool = False
     # auxiliary (not part of the minimal contract but useful downstream)
     underlying_exposure_group: Optional[str] = None
     rank_score: Optional[float] = None
@@ -121,6 +125,10 @@ def _mk(symbol, spec: StrategyFamilySpec, regime: RegimeAssessment, now_ns: int,
 
 def _finalize(rec: StrategyRecommendation, spec: StrategyFamilySpec,
               passed: bool, reason: str) -> StrategyRecommendation:
+    # Record whether the strategy/entry/regime conditions themselves passed,
+    # independent of the family's advisory eligibility. The execution bridge uses
+    # this with the family's maturity + the run authorization.
+    rec.conditions_passed = bool(passed)
     if not passed:
         rec.eligibility = EligibilityState.RESEARCH
         rec.rejection_reason = reason
