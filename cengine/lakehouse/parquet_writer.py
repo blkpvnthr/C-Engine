@@ -125,7 +125,15 @@ class ParquetWriter:
         results = []
         for key, group in groups.items():
             partition = dict(key)
-            table = pa.Table.from_pylist(group)
+            try:
+                table = pa.Table.from_pylist(group)
+            except Exception as exc:  # noqa: BLE001 — a malformed group must never raise
+                # Heterogeneous/unserializable rows are quarantined, not propagated, so
+                # the nonblocking analytical path can never crash a caller.
+                self.quarantine(dataset, group, f"arrow_build:{type(exc).__name__}")
+                results.append(WriteResult(False, None, 0, None,
+                                           f"arrow_build:{type(exc).__name__}"))
+                continue
             results.append(self.write(layer, dataset, table, partition=partition))
         return results
 
