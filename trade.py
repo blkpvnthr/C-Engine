@@ -970,6 +970,9 @@ class MarketEngine:
         # CENGINE_REGIME_INTELLIGENCE!=0; fail-safe. Decision evidence reuses the
         # audit journal.
         self._regime_pipeline = None
+        # Durable handle to the decision-event sink so the lakehouse analytics layer
+        # can drain it out-of-band (never on the protective-exit/order path).
+        self._decision_sink = None
         if (self._gpu_discovery is not None
                 and os.environ.get("CENGINE_REGIME_INTELLIGENCE", "1") != "0"):
             try:
@@ -977,8 +980,9 @@ class MarketEngine:
                 from cengine.regime_strategy_pipeline import RegimeStrategyPipeline
 
                 opposing = self._exposure_opposing_fn()
+                self._decision_sink = DecisionEventSink(journal=self.journal)
                 self._regime_pipeline = RegimeStrategyPipeline(
-                    sink=DecisionEventSink(journal=self.journal),
+                    sink=self._decision_sink,
                     opposing_fn=opposing,
                     max_concurrent=int(os.environ.get("CENGINE_MAX_CONCURRENT_ENTRIES", "10")))
                 LOGGER.info("regime intelligence active (advisory; families RESEARCH "
@@ -986,6 +990,36 @@ class MarketEngine:
             except Exception as exc:  # noqa: BLE001 — advisory layer must never block startup
                 LOGGER.warning("regime intelligence unavailable: %s", exc)
                 self._regime_pipeline = None
+                self._decision_sink = None
+
+        # Local lakehouse analytics (M5): an ANALYTICAL-only, nonblocking, bounded,
+        # loss-accounted capture of decision events + raw market observations into a
+        # local Parquet/DuckDB lakehouse for future supervised/RL learning. It NEVER
+        # sits on the order path, the native RiskEngine, broker reconciliation, or the
+        # mandatory protective exit. Gated by CENGINE_LAKEHOUSE (default on); any
+        # failure degrades to disabled without affecting trading. The authoritative
+        # financial journal (self.journal) remains separate and unaffected.
+        self._lakehouse = None
+        self._lakehouse_market_buf: Optional[deque] = None
+        self._lakehouse_market_dropped = 0
+        self._lakehouse_last = {}
+        if os.environ.get("CENGINE_LAKEHOUSE", "1") != "0":
+            try:
+                from cengine.lakehouse.bronze import AnalyticalIngestionSink
+                from cengine.lakehouse.config import LakehouseConfig
+
+                feed = str(getattr(self.stream, "feed", None) or "internal")
+                self._lakehouse = AnalyticalIngestionSink(
+                    LakehouseConfig.from_env(),
+                    session_id=getattr(self, "session_id", None),
+                    source_feed=feed)
+                self._lakehouse_market_buf = deque(
+                    maxlen=int(os.environ.get("CENGINE_LAKEHOUSE_MARKET_BUF", "200000")))
+                LOGGER.info("local lakehouse analytics active (feed=%s; analytical "
+                            "only — never on the order/protection path)", feed)
+            except Exception as exc:  # noqa: BLE001 — analytics must never block startup
+                LOGGER.warning("local lakehouse analytics unavailable: %s", exc)
+                self._lakehouse = None
 
         # Optional execution bridge (directive §3/§17): connects authorized
         # recommendations to the EXISTING CandidateRouter. Default authorization is
@@ -1290,7 +1324,20 @@ class MarketEngine:
                 "covariance_source": res.covariance_source,
                 "binding_constraints": binding,
                 "reserved": res.reserved, "routed": res.routed,
-                "execution": self._execution_dashboard_stats(symbols, now_ns)})
+                "execution": self._execution_dashboard_stats(symbols, now_ns),
+                "lakehouse": self._lakehouse_dashboard_stats()})
+
+    def _lakehouse_dashboard_stats(self) -> Optional[dict]:
+        """Non-blocking lakehouse capture stats for the dashboard (M5 §31), or None when
+        analytics are disabled. Read-only snapshot of the last flush + live buffer."""
+        if self._lakehouse is None:
+            return None
+        buf = self._lakehouse_market_buf
+        last = self._lakehouse_last or {}
+        return {"written": last.get("written", 0), "dropped": last.get("dropped", 0),
+                "quarantined": last.get("quarantined", 0),
+                "buffer": len(buf) if buf is not None else 0,
+                "feed": self._lakehouse.source_feed}
 
     def _execution_dashboard_stats(self, symbols: tuple, now_ns: int) -> dict:
         """Non-blocking execution analytics for the dashboard (M4 §22), derived from
@@ -1627,6 +1674,14 @@ class MarketEngine:
             self._regime_task = asyncio.create_task(
                 self._run_regime_intelligence(self._stop), name="regime-intelligence")
 
+        # Local lakehouse drain loop (DETACHED, stop-driven; analytical only). Flushes
+        # buffered observations + decision events to bronze Parquet out of band. Never
+        # in the FIRST_COMPLETED set, so it cannot trigger or block engine shutdown.
+        self._lakehouse_task: Optional[asyncio.Task[None]] = None
+        if self._lakehouse is not None:
+            self._lakehouse_task = asyncio.create_task(
+                self._run_lakehouse_drain(self._stop), name="lakehouse-drain")
+
         factor_task: Optional[asyncio.Task[None]] = None
         if self.factor_source is not None:
             factor_task = asyncio.create_task(
@@ -1691,17 +1746,26 @@ class MarketEngine:
             regime = getattr(self, "_regime_task", None)
             if regime is not None and not regime.done():
                 regime.cancel()
+            lakehouse_task = getattr(self, "_lakehouse_task", None)
+            if lakehouse_task is not None and not lakehouse_task.done():
+                lakehouse_task.cancel()
 
             await asyncio.gather(
                 *tasks,
                 stop_task,
                 *( [warmup] if warmup is not None else [] ),
                 *( [regime] if regime is not None else [] ),
+                *( [lakehouse_task] if lakehouse_task is not None else [] ),
                 return_exceptions=True,
             )
 
             self.archive.close(drain=True)
             self.journal.close()
+
+            # Final out-of-band lakehouse flush so the session's last buffered
+            # observations + decision events are captured. Analytical only — after the
+            # authoritative journal is already durably closed above.
+            await self._flush_lakehouse()
 
     async def stop(self) -> None:
         if self._stop.is_set():
@@ -1821,6 +1885,20 @@ class MarketEngine:
                     self._microstructure.on_trade_event(event)
             except Exception:  # noqa: BLE001 — analytics must never block ingestion
                 pass
+        # Local lakehouse bronze tap (M5): buffer raw observations for out-of-band
+        # analytical capture. Bounded + drop-oldest (loss-accounted) + never raises —
+        # identical nonblocking discipline to the microstructure tap above. The actual
+        # Parquet write happens on the detached drain task, never here on the hot path.
+        if self._lakehouse_market_buf is not None:
+            try:
+                row = self._market_bronze_row(event, channel)
+                if row is not None:
+                    buf = self._lakehouse_market_buf
+                    if len(buf) >= buf.maxlen:        # bounded: account the drop-oldest loss
+                        self._lakehouse_market_dropped += 1
+                    buf.append(row)
+            except Exception:  # noqa: BLE001 — analytics must never block ingestion
+                pass
         # Phase B.5 — feed native GPU discovery (bars -> 5m aggregation; trades ->
         # developing price). on_market_event never raises; bars/trades only.
         if self._gpu_discovery is not None and channel in ("bar", "trade"):
@@ -1837,6 +1915,93 @@ class MarketEngine:
             if obs is not None:
                 self._adaptive_controller.on_observation(
                     obs, event.symbol, time.monotonic())
+
+    def _market_bronze_row(self, event: MarketEvent, channel: str):
+        """Build a (bronze_dataset, row) pair for a raw market observation, or None for
+        event types the lakehouse does not capture (index factors). Prices stay in the
+        native 10000-tick scale; availability time = receipt time (point-in-time)."""
+        ts = int(getattr(event, "timestamp_ns", 0))
+        recv = int(getattr(event, "received_ns", ts) or ts)
+        feed = self._lakehouse.source_feed if self._lakehouse is not None else "internal"
+        base = {"symbol_id": event.symbol, "event_timestamp_ns": ts,
+                "receipt_timestamp_ns": recv, "availability_timestamp_ns": max(ts, recv),
+                "source_feed": feed, "sequence": int(getattr(event, "sequence", 0) or 0),
+                "price_scale": 10_000}
+        if channel == "bar":
+            base.update({"bar_open_ticks": event.open_ticks, "bar_high_ticks": event.high_ticks,
+                         "bar_low_ticks": event.low_ticks, "bar_close_ticks": event.close_ticks,
+                         "volume": event.volume, "trade_count": event.trade_count,
+                         "vwap_ticks": event.vwap_ticks})
+            return ("market_bars", base)
+        if channel == "quote":
+            base.update({"bid_price_ticks": event.bid_price_ticks, "bid_size": event.bid_size,
+                         "ask_price_ticks": event.ask_price_ticks, "ask_size": event.ask_size,
+                         "bid_exchange": event.bid_exchange, "ask_exchange": event.ask_exchange,
+                         "tape": event.tape})
+            return ("market_quotes", base)
+        if channel == "trade":
+            base.update({"trade_price_ticks": event.price_ticks, "trade_size": event.size,
+                         "exchange": event.exchange,
+                         "trade_id": int(getattr(event, "trade_id", 0) or 0),
+                         "tape": event.tape})
+            return ("market_trades", base)
+        return None
+
+    def _flush_lakehouse_sync(self) -> None:
+        """Write buffered market observations + drained decision events to bronze.
+        Runs in a thread executor so Parquet IO never blocks the event loop. Any
+        failure only disables capture; trading is untouched."""
+        if self._lakehouse is None:
+            return
+        buf = self._lakehouse_market_buf
+        market_written = 0
+        if buf:
+            groups: dict[str, list] = {}
+            for _ in range(len(buf)):
+                try:
+                    dataset, row = buf.popleft()   # deque popleft is atomic in CPython
+                except IndexError:
+                    break
+                groups.setdefault(dataset, []).append(row)
+            for dataset, rows in groups.items():
+                try:
+                    self._lakehouse.ingest_market_rows(dataset, rows)
+                    market_written += len(rows)
+                except Exception:  # noqa: BLE001 — never propagate analytics failures
+                    self._lakehouse_market_dropped += len(rows)
+        if self._decision_sink is not None:
+            try:
+                self._lakehouse.drain_decision_sink(self._decision_sink)
+            except Exception:  # noqa: BLE001
+                pass
+        st = self._lakehouse.stats
+        self._lakehouse_last = {
+            "written": st.written, "dropped": st.dropped + self._lakehouse_market_dropped,
+            "quarantined": st.quarantined, "market_flushed": market_written,
+            "buffer": len(buf) if buf is not None else 0}
+
+    async def _flush_lakehouse(self) -> None:
+        if self._lakehouse is None:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, self._flush_lakehouse_sync)
+        except Exception:  # noqa: BLE001 — analytics must never block the engine
+            pass
+
+    async def _run_lakehouse_drain(self, stop: asyncio.Event) -> None:
+        """Detached, stop-driven loop that periodically flushes the lakehouse buffers
+        OUT OF BAND. It is never in the FIRST_COMPLETED wait set and never touches the
+        order path, reconciliation, or the mandatory protective exit."""
+        interval = float(os.environ.get("CENGINE_LAKEHOUSE_DRAIN_S", "30"))
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=interval)
+            except asyncio.TimeoutError:
+                pass
+            except asyncio.CancelledError:
+                break
+            await self._flush_lakehouse()
 
     async def _consume_market_events(self) -> None:
         while not self._stop.is_set():
@@ -2250,6 +2415,17 @@ class ConsoleDecisionStream:
                 f"rejected={ex.get('rejected', 0)} "
                 f"microstructure={ex.get('microstructure', 'n/a')} "
                 f"recon={ex.get('reconciliation', 'n/a')}",
+            )
+        # Lakehouse capture panel (M5 §31): analytical-only; shown when active.
+        if extra.get("lakehouse") is not None:
+            lh = extra["lakehouse"]
+            self._emit(
+                "LAKEHOUSE",
+                f"feed={lh.get('feed', 'n/a')} "
+                f"written={lh.get('written', 0)} "
+                f"buffer={lh.get('buffer', 0)} "
+                f"dropped={lh.get('dropped', 0)} "
+                f"quarantined={lh.get('quarantined', 0)}",
             )
 
 
