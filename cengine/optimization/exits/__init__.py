@@ -25,6 +25,7 @@ from cengine.optimization.exits.experiment_matrix import (
     ExitMatrixResult,
     run_exit_matrix,
 )
+from cengine.optimization.exits.runner import make_exit_runner
 from cengine.optimization.exits.state_machine import (
     EXIT_STATE_MACHINE_VERSION,
     ExitState,
@@ -39,6 +40,7 @@ __all__ = [
     "CounterfactualReport",
     "ExitMatrixResult",
     "analyze_counterfactual_exits",
+    "make_exit_runner",
     "run_exit_matrix",
     "PRODUCTION_EXIT_PCT",
     "AdaptiveExitConfig",

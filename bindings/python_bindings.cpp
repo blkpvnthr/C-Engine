@@ -3,6 +3,7 @@
 #include "opportunity_discovery/discovery_engine.hpp"
 #include "orderbook/orderbook.hpp"
 #include "risk/risk_engine.hpp"
+#include "risk/protective_exit_candidate.hpp"
 
 namespace py = pybind11;
 using namespace trading;
@@ -58,6 +59,20 @@ PYBIND11_MODULE(_cengine_native, m) {
         .def("activate_kill_switch", &RiskEngine::activate_kill_switch)
         .def("deactivate_kill_switch", &RiskEngine::deactivate_kill_switch)
         .def_property_readonly("kill_switch_active", &RiskEngine::kill_switch_active);
+    // Candidate native emergency protective exit (Milestone 6B §14.7) — INACTIVE: a pure,
+    // crash-independent trigger not wired into evaluate(); certified/activated only in M7.
+    py::class_<risk::EmergencyExitDecision>(m, "EmergencyExitDecision")
+        .def_readonly("triggered", &risk::EmergencyExitDecision::triggered)
+        .def_readonly("unrealized_return", &risk::EmergencyExitDecision::unrealized_return)
+        .def_readonly("threshold", &risk::EmergencyExitDecision::threshold)
+        .def_readonly("overrides_tighter_stop", &risk::EmergencyExitDecision::overrides_tighter_stop);
+    m.def("evaluate_emergency_exit", &risk::evaluate_emergency_exit,
+          py::arg("unrealized_return"),
+          py::arg("emergency_threshold") = risk::kCandidateEmergencyThreshold,
+          "Candidate native emergency exit (inactive; -3% default). Pure + crash-independent.");
+    m.def("clamp_emergency_threshold", &risk::clamp_emergency_threshold,
+          py::arg("proposed"), py::arg("current"),
+          "Never loosen the emergency threshold: returns the more-protective of the two.");
     py::class_<Execution>(m, "Execution").def_readonly("execution_id", &Execution::execution_id)
         .def_readonly("maker_id", &Execution::maker_id).def_readonly("taker_id", &Execution::taker_id)
         .def_readonly("symbol", &Execution::symbol).def_readonly("quantity", &Execution::quantity)
