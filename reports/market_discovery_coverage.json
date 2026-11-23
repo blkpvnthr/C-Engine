@@ -1,30 +1,46 @@
 {
-  "recorded_utc": "2026-11-22T22:14:57.857226+00:00",
+  "recorded_utc": "2026-11-22T23:36:46.302923+00:00",
   "membership_version": 1,
   "degraded": false,
   "sources": {
     "universe": "alpaca_assets",
-    "sp500": "not_configured",
-    "djia": "not_configured",
+    "sp500": {
+      "source": "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
+      "retrieved_at": "2026-11-22T23:36:23.666879+00:00",
+      "as_of": "2026-11-22",
+      "count": "503",
+      "status": "configured",
+      "path": "data/sp500.txt",
+      "effective_members": 503
+    },
+    "djia": {
+      "source": "https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average",
+      "retrieved_at": "2026-11-22T23:36:23.666879+00:00",
+      "as_of": "2026-07-31",
+      "count": "30",
+      "status": "configured",
+      "path": "data/djia.txt",
+      "effective_members": 30
+    },
     "configured": "universe.txt"
   },
   "index_sources_configured": {
-    "sp500": false,
-    "djia": false
+    "sp500": true,
+    "djia": true
   },
   "coverage_denominators": {
-    "MASTER_MEMBERSHIP": 5651,
+    "MASTER_MEMBERSHIP": 5994,
     "PROVIDER_SUPPORTED": 14426,
     "TRADABLE": 13509,
     "FRACTIONABLE": 7921
   },
   "group_counts": {
     "nasdaq_member": 5600,
-    "sp500_member": 0,
-    "djia_member": 0,
+    "sp500_member": 503,
+    "djia_member": 30,
     "configured_member": 57,
-    "master_universe_deduplicated": 5651,
-    "master_tradable": 5615
+    "master_universe_deduplicated": 5994,
+    "master_tradable": 5958
   },
   "changes": {
     "added": [],

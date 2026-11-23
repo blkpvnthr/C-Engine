@@ -38,15 +38,31 @@ class Channel(str, Enum):
 
 
 class SubState(str, Enum):
+    """Authoritative per-(symbol, channel) subscription lifecycle.
+
+    The provider-driven progression is::
+
+        DESIRED -> REQUESTED -> PROVIDER_CONFIRMED -> WARMING_UP -> FRESH -> STALE
+
+    A channel is NEVER advanced past REQUESTED merely because a WebSocket send
+    succeeded: ``PROVIDER_CONFIRMED`` requires a genuine Alpaca ``subscription``
+    frame listing the symbol on that channel (see ``reconcile_confirmation``).
+    ``WARMING_UP`` is the first observed tick after confirmation; ``FRESH`` is
+    sustained flow; ``STALE`` is silence past the stale window. On reconnection a
+    confirmed/fresh channel drops to ``RECOVERING`` until the provider re-confirms.
+    """
+
     UNREQUESTED = "unrequested"
-    REQUESTED = "requested"
-    ACKNOWLEDGED = "acknowledged"
-    WARMING_UP = "warming_up"
-    FRESH = "fresh"
-    STALE = "stale"
+    DESIRED = "desired"                 # in target, subscribe frame not yet sent
+    REQUESTED = "requested"             # subscribe frame sent; awaiting provider ack
+    PROVIDER_CONFIRMED = "provider_confirmed"  # genuine provider subscription frame
+    ACKNOWLEDGED = "acknowledged"       # legacy alias; retained for compatibility
+    WARMING_UP = "warming_up"           # confirmed + first observation seen
+    FRESH = "fresh"                     # confirmed + sustained observations
+    STALE = "stale"                     # was fresh, silent past the stale window
     DEMOTION_PENDING = "demotion_pending"
     UNSUBSCRIBE_REQUESTED = "unsubscribe_requested"
-    RECOVERING = "recovering"
+    RECOVERING = "recovering"           # reconnect: awaiting re-confirmation
     FAILED = "failed"
 
 
@@ -66,6 +82,7 @@ class _Sub:
     state: SubState = SubState.UNREQUESTED
     generation: int = 0
     requested_at: float = 0.0
+    provider_confirmed_at: float = 0.0   # genuine provider ack (not send success)
     confirmed_at: float = 0.0
     first_obs_at: float = 0.0
     last_obs_at: float = 0.0
@@ -195,26 +212,96 @@ class AdaptiveSubscriptionManager:
             for s in plan.to_unsubscribe.get(ch.value, []):
                 sub = self._subs.get((ch, s))
                 if sub is not None:
-                    sub.state = SubState.UNREQUESTED
+                    # Unsubscribe frame sent; finalized to UNREQUESTED only when the
+                    # provider confirms the reduced membership (reconcile_confirmation).
+                    sub.state = SubState.UNSUBSCRIBE_REQUESTED
                     sub.demoted_at = now
             self._current[ch] = set(plan.target.get(ch.value, []))
 
     def on_ack(self, channel: Channel, symbols, now: float = 0.0) -> None:
+        """Mark specific symbols provider-confirmed on a channel (REQUESTED or
+        RECOVERING -> PROVIDER_CONFIRMED). This is driven by a GENUINE provider
+        subscription frame, never by a successful send. Duplicate acks are
+        idempotent. If an observation already arrived while REQUESTED (an
+        observation racing ahead of the ack), the symbol advances straight to
+        WARMING_UP on confirmation so no real tick is lost."""
         for s in symbols or []:
             sub = self._subs.get((channel, str(s).upper().strip()))
-            if sub is not None and sub.state in (SubState.REQUESTED,
-                                                 SubState.RECOVERING):
-                sub.state = SubState.WARMING_UP
+            if sub is None:
+                continue
+            if sub.state in (SubState.REQUESTED, SubState.RECOVERING,
+                             SubState.DESIRED):
+                sub.state = SubState.PROVIDER_CONFIRMED
+                sub.provider_confirmed_at = now
                 sub.confirmed_at = now
+                if sub.last_obs_at > 0.0:  # observation arrived before the ack
+                    sub.state = SubState.WARMING_UP
+
+    def reconcile_confirmation(self, channel: Channel, confirmed, now: float = 0.0,
+                               *, generation: int | None = None) -> dict:
+        """Reconcile the AUTHORITATIVE provider-confirmed membership for a channel
+        against desired membership from a real Alpaca ``subscription`` frame.
+
+        Alpaca reports the FULL current per-channel subscription (not a delta), so:
+          * symbols present + REQUESTED/RECOVERING/DESIRED -> PROVIDER_CONFIRMED
+            (partial acks advance only what the provider actually listed);
+          * symbols absent that we had asked to drop (UNSUBSCRIBE_REQUESTED) or no
+            longer desire -> UNREQUESTED (unsubscription confirmed);
+          * duplicate frames are idempotent.
+        Returns a small reconciliation summary for telemetry/evidence."""
+        conf = {str(s).upper().strip() for s in (confirmed or []) if str(s).strip()}
+        newly = 0
+        self.on_ack(channel, conf, now)
+        for s in conf:
+            sub = self._subs.get((channel, s))
+            if sub is not None and sub.provider_confirmed_at == now:
+                newly += 1
+        unsubscribed = 0
+        for (ch, s), sub in self._subs.items():
+            if ch != channel or s in conf:
+                continue
+            if sub.state in (SubState.UNSUBSCRIBE_REQUESTED,) or s not in self._current[channel]:
+                if sub.state not in (SubState.UNREQUESTED,):
+                    sub.state = SubState.UNREQUESTED
+                    sub.demoted_at = now
+                    unsubscribed += 1
+        return {"channel": channel.value, "confirmed": len(conf),
+                "newly_confirmed": newly, "unsubscribed": unsubscribed,
+                "generation": generation}
+
+    def mark_recovering(self, now: float = 0.0) -> int:
+        """On connection loss / reconnection, any confirmed-or-fresh channel must be
+        re-confirmed by the provider on the new socket. Drop them to RECOVERING so
+        a stale send-success can never be mistaken for a live subscription."""
+        n = 0
+        recover = (SubState.PROVIDER_CONFIRMED, SubState.WARMING_UP,
+                   SubState.FRESH, SubState.STALE)
+        for sub in self._subs.values():
+            if sub.state in recover:
+                sub.state = SubState.RECOVERING
+                sub.provider_confirmed_at = 0.0
+                sub.last_obs_at = 0.0
+                n += 1
+        return n
 
     def on_observation(self, channel: Channel, symbol: str, now: float = 0.0) -> None:
+        """Advance a confirmed subscription on a real observed tick:
+        PROVIDER_CONFIRMED -> WARMING_UP (first tick) -> FRESH (sustained);
+        STALE -> FRESH on recovery. An observation that races ahead of the provider
+        ack (state REQUESTED/RECOVERING) is recorded but does NOT confirm the
+        subscription — confirmation still requires a genuine provider frame."""
         sub = self._subs.get((channel, str(symbol).upper().strip()))
         if sub is None:
             return
         if sub.first_obs_at == 0.0:
             sub.first_obs_at = now
         sub.last_obs_at = now
-        sub.state = SubState.FRESH
+        if sub.state in (SubState.REQUESTED, SubState.RECOVERING, SubState.DESIRED):
+            return  # early observation buffered; await provider confirmation
+        if sub.state == SubState.PROVIDER_CONFIRMED:
+            sub.state = SubState.WARMING_UP
+        elif sub.state in (SubState.WARMING_UP, SubState.STALE, SubState.FRESH):
+            sub.state = SubState.FRESH
 
     def mark_stale(self, now: float) -> int:
         n = 0
@@ -227,9 +314,26 @@ class AdaptiveSubscriptionManager:
 
     # -- introspection -------------------------------------------------------
     def confirmed(self, channel: Channel) -> set:
+        """Symbols the provider has genuinely confirmed on a channel (confirmed,
+        warming up, fresh, or stale — i.e. past a real provider ack)."""
         return {s for (ch, s), sub in self._subs.items()
-                if ch == channel and sub.state in (SubState.WARMING_UP,
+                if ch == channel and sub.state in (SubState.PROVIDER_CONFIRMED,
+                                                    SubState.WARMING_UP,
                                                     SubState.FRESH, SubState.STALE)}
+
+    def fresh(self, channel: Channel) -> set:
+        """Symbols with sustained fresh observations on a channel (FRESH only)."""
+        return {s for (ch, s), sub in self._subs.items()
+                if ch == channel and sub.state == SubState.FRESH}
+
+    def flowing(self, channel: Channel) -> set:
+        """Symbols receiving observations on a channel (WARMING_UP or FRESH)."""
+        return {s for (ch, s), sub in self._subs.items()
+                if ch == channel and sub.state in (SubState.WARMING_UP, SubState.FRESH)}
+
+    def state_of(self, channel: Channel, symbol: str) -> SubState:
+        sub = self._subs.get((channel, str(symbol).upper().strip()))
+        return sub.state if sub is not None else SubState.UNREQUESTED
 
     def telemetry(self, now: float = 0.0) -> dict:
         out = {"caps": {c.value: self.caps.get(c) for c in Channel},

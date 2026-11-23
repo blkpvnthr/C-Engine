@@ -1,0 +1,26 @@
+{
+  "acceptance_item": "7 - financial invariants / independent protective exit",
+  "invariant": "unrealized_return < -0.005 triggers a mandatory protective exit",
+  "independence": [
+    "historical warm-up",
+    "discovery membership",
+    "subscription promotion",
+    "GPU availability",
+    "strategy qualification",
+    "portfolio optimization",
+    "elective trading eligibility"
+  ],
+  "mechanism": "trade.py routes the protective exit path from authoritative native market state directly into the RiskEngine/OrderManager, bypassing elective discovery/intelligence/optimization. Exits are never gated by the exposure authorizer.",
+  "singletons_preserved": [
+    "one SIP connection",
+    "one UniversePublisher",
+    "one execution authority",
+    "one OrderManager"
+  ],
+  "offline_verification": {
+    "tests/test_protective_exit.py": 14
+  },
+  "no_live_orders_during_testing": true,
+  "status": "PRESERVED + offline-verified",
+  "recorded_utc": "2026-11-22T23:48:23.994497+00:00"
+}

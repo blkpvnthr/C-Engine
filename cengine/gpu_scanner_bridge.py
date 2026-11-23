@@ -189,6 +189,35 @@ class EngineGpuDiscovery:
                 "above_vwap": b.above_vwap, "below_vwap": b.below_vwap,
                 "data_invalid": b.data_invalid}
 
+    def momentum_confirmed(self, symbols) -> set:
+        """Return the subset of `symbols` whose GPU structural screen shows
+        PRELIMINARY momentum + direction confirmation (directive item 3), the gate
+        between a trade subscription and a quote subscription:
+
+          * valid Wilder DMI,
+          * DI+ (5m) > DI- (5m)        — directional,
+          * developing 1-minute momentum > 0 (price above previous 1m close).
+
+        This REUSES the native screen outputs; it is weaker than the strict final
+        entry contract (which also requires a valid VWAP/SMA/BB reference, liquidity,
+        and strategy/exposure/risk authorization) — those remain enforced downstream
+        before any order. It is advisory: it never authorizes execution."""
+        syms = [str(s).upper().strip() for s in symbols if str(s).strip()]
+        if not syms:
+            return set()
+        try:
+            rows = self.provider.compute(syms)
+        except Exception:  # noqa: BLE001 — promotion gating must not break the loop
+            return set()
+        out: set = set()
+        for s, r in rows.items():
+            if not (r.tech_valid & native.TECH_DMI):
+                continue
+            mom = r.momentum_1m_pct
+            if r.di_plus > r.di_minus and mom == mom and mom > 0.0:
+                out.add(s)
+        return out
+
     def rank_fn(self):
         """A drop-in replacement for market_scan.ranking.rank that computes the
         composite score on the GPU (CPU fallback)."""

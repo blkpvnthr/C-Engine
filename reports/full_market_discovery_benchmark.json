@@ -1,0 +1,101 @@
+{
+  "recorded_utc": "2026-11-22T23:47:47.552057+00:00",
+  "measurement_type": "SYNTHETIC in-process throughput/latency on real hardware (Apple Metal). NOT a live-streaming measurement.",
+  "device_backend": "metal",
+  "full_tradable_master": 5958,
+  "levels": [
+    {
+      "symbols": 500,
+      "backend": "metal",
+      "registered": 500,
+      "register_s": 0.0002,
+      "bars_ingested": 36000,
+      "ingest_s": 0.0428,
+      "ingest_bars_per_s": 840236,
+      "gpu_screen_s": 0.0274,
+      "gpu_screen_per_symbol_us": 54.87,
+      "gpu_breadth_compaction_s": 0.0062,
+      "rows_computed": 500,
+      "entry_qualified": 0,
+      "rss_mb_after": 63.2
+    },
+    {
+      "symbols": 1000,
+      "backend": "metal",
+      "registered": 1000,
+      "register_s": 0.0004,
+      "bars_ingested": 72000,
+      "ingest_s": 0.0827,
+      "ingest_bars_per_s": 871090,
+      "gpu_screen_s": 0.0229,
+      "gpu_screen_per_symbol_us": 22.95,
+      "gpu_breadth_compaction_s": 0.0151,
+      "rows_computed": 1000,
+      "entry_qualified": 0,
+      "rss_mb_after": 76.7
+    },
+    {
+      "symbols": 2000,
+      "backend": "metal",
+      "registered": 2000,
+      "register_s": 0.0012,
+      "bars_ingested": 144000,
+      "ingest_s": 0.1645,
+      "ingest_bars_per_s": 875488,
+      "gpu_screen_s": 0.03,
+      "gpu_screen_per_symbol_us": 15.02,
+      "gpu_breadth_compaction_s": 0.0201,
+      "rows_computed": 2000,
+      "entry_qualified": 0,
+      "rss_mb_after": 102.5
+    },
+    {
+      "symbols": 4096,
+      "backend": "metal",
+      "registered": 4096,
+      "register_s": 0.0019,
+      "bars_ingested": 294912,
+      "ingest_s": 0.3193,
+      "ingest_bars_per_s": 923544,
+      "gpu_screen_s": 0.0608,
+      "gpu_screen_per_symbol_us": 14.85,
+      "gpu_breadth_compaction_s": 0.0408,
+      "rows_computed": 4096,
+      "entry_qualified": 0,
+      "rss_mb_after": 146.8
+    },
+    {
+      "symbols": 5958,
+      "backend": "metal",
+      "registered": 5958,
+      "register_s": 0.0026,
+      "bars_ingested": 428976,
+      "ingest_s": 0.4701,
+      "ingest_bars_per_s": 912526,
+      "gpu_screen_s": 0.094,
+      "gpu_screen_per_symbol_us": 15.77,
+      "gpu_breadth_compaction_s": 0.0569,
+      "rows_computed": 5958,
+      "entry_qualified": 0,
+      "rss_mb_after": 204.1
+    }
+  ],
+  "offline_sustainability": {
+    "full_bar_coverage_sustainable_offline": true,
+    "basis": "GPU screen + breadth/compaction dispatch over FULL set < 1.0s rank cadence; bounded RSS.",
+    "recommended_default_bar_cap": 8192,
+    "rotation": "AdaptiveSubscriptionManager rotates elective bar coverage deterministically (per-channel _rotation cursor) when demand exceeds the bar cap; protected instruments are never rotated out."
+  },
+  "session_gated_not_measured": [
+    "provider subscription confirmation latency (needs live SIP session)",
+    "live observation coverage / freshness under streaming load",
+    "event-loop ingestion throughput at live SIP message rates",
+    "mandatory protective-exit latency under full-market streaming load",
+    "dropped/delayed observation counts under load"
+  ],
+  "invariants": [
+    "one SIP connection; trades/quotes stay adaptively allocated by relevance",
+    "rotation is deterministic and explicitly reported \u2014 NOT equivalent to continuous full-market streaming",
+    "mandatory -0.5% protective exit independent of coverage breadth"
+  ]
+}

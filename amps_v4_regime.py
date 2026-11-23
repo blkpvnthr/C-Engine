@@ -17,7 +17,6 @@ Reuses the feature rows produced by amps_v2_backtest.compute_features (pdi/mdi/a
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
 
 # ---------------------------------------------------------------- instrument registry (sec 3)
 # dir: "bull" (long underlying) | "bear" (inverse). lev: signed leverage. SMH proxies the
@@ -81,7 +80,9 @@ def _clamp100(x: float) -> float:
 def directional_score(row: dict, cfg: RegimeConfig, cross_index_agree: float = 0.0) -> float:
     """Directional score in [-100, +100] for one reference instrument from a feature row.
     ADX only scales the DI-direction strength (it does NOT set direction itself)."""
-    pdi = row.get("pdi"); mdi = row.get("mdi"); adx = row.get("adx")
+    pdi = row.get("pdi")
+    mdi = row.get("mdi")
+    adx = row.get("adx")
     if pdi is None or mdi is None or pdi != pdi or mdi != mdi:
         return float("nan")
     vwap_dist = row.get("vwap_dist", 0.0) or 0.0
@@ -97,7 +98,8 @@ def directional_score(row: dict, cfg: RegimeConfig, cross_index_agree: float = 0
     mom = max(-1.0, min(1.0, short_mom / (abs(short_mom) + 1e-9))) if short_mom else 0.0
     vslope = 1.0 if vwap_slope > 0 else (-1.0 if vwap_slope < 0 else 0.0)
     bb_align = 1.0 if bb_dist > 0 else (-1.0 if bb_dist < 0 else 0.0)
-    score = 100.0 * (w["vwap_pos"] * vwap_pos + w["di_sep"] * di_dir + w["adx_strength"] * adx_strength
+    score = 100.0 * (w["vwap_pos"] * vwap_pos + w["di_sep"] * di_dir
+                     + w["adx_strength"] * adx_strength
                      + w["short_mom"] * mom + w["vwap_slope"] * vslope + w["bb_align"] * bb_align
                      + w["cross_index"] * max(-1.0, min(1.0, cross_index_agree)))
     return _clamp100(score)
@@ -107,7 +109,8 @@ def classify_regime(score: float, realized_vol: float, cfg: RegimeConfig,
                     disagreement: float = 0.0) -> str:
     if score != score:
         return UNCERTAIN
-    if realized_vol is not None and realized_vol == realized_vol and realized_vol > cfg.high_vol_realized:
+    if (realized_vol is not None and realized_vol == realized_vol
+            and realized_vol > cfg.high_vol_realized):
         return HIGH_VOLATILITY
     if score >= cfg.confirmed_thresh:
         return CONFIRMED_BULLISH
@@ -135,10 +138,12 @@ def market_regime(ref_rows: dict[str, dict], cfg: RegimeConfig) -> tuple[str, fl
         return UNCERTAIN, float("nan"), 0.0
     prim = [scores[r] for r in ("SPY", "QQQ") if r in scores]
     conf_sources = list(scores.values())
-    blended = (0.7 * (sum(prim) / len(prim)) + 0.3 * (sum(conf_sources) / len(conf_sources))) if prim else (sum(conf_sources) / len(conf_sources))
+    blended = (0.7 * (sum(prim) / len(prim)) + 0.3 * (sum(conf_sources) / \
+               len(conf_sources))) if prim else (sum(conf_sources) / len(conf_sources))
     signs = [1 if s > 0 else -1 for s in conf_sources]
     agree = abs(sum(signs)) / len(signs) if signs else 0.0  # 1.0 = all agree
-    rv = max((ref_rows.get(r, {}).get("realized_vol", 0.0) or 0.0) for r in scores) if scores else 0.0
+    rv = max((ref_rows.get(r, {}).get("realized_vol", 0.0) or 0.0)
+             for r in scores) if scores else 0.0
     label = classify_regime(blended, rv, cfg, disagreement=1.0 - agree)
     return label, round(blended, 2), round(agree, 3)
 
@@ -153,15 +158,19 @@ class RegimeState:
 
     def update(self, new_label: str, cfg: RegimeConfig) -> str:
         if new_label == self.active_label:
-            self.candidate_label = new_label; self.candidate_count = 0
+            self.candidate_label = new_label
+            self.candidate_count = 0
             self.bars_in_active += 1
             return self.active_label
         if new_label == self.candidate_label:
             self.candidate_count += 1
         else:
-            self.candidate_label = new_label; self.candidate_count = 1
+            self.candidate_label = new_label
+            self.candidate_count = 1
         if self.candidate_count >= cfg.min_confirm_bars:
-            self.active_label = new_label; self.candidate_count = 0; self.bars_in_active = 1
+            self.active_label = new_label
+            self.candidate_count = 0
+            self.bars_in_active = 1
         return self.active_label
 
 

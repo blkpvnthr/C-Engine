@@ -1,0 +1,36 @@
+# DJIA constituents — verifiable source, NEVER fabricated.
+# source: https://en.wikipedia.org/wiki/Dow_Jones_Industrial_Average
+# retrieved_at: 2026-11-22T23:36:23.666879+00:00
+# as_of: 2026-07-31
+# count: 30
+
+AAPL
+AMGN
+AMZN
+AXP
+BA
+CAT
+CRM
+CSCO
+CVX
+DIS
+GOOGL
+GS
+HD
+HON
+IBM
+JNJ
+JPM
+KO
+MCD
+MMM
+MRK
+MSFT
+NKE
+NVDA
+PG
+SHW
+TRV
+UNH
+V
+WMT

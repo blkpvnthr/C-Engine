@@ -126,7 +126,10 @@ def default_normalize(symbol: str) -> str:
 EQUITY_SECTOR_MAP: dict[str, str] = {}
 
 
-def register_equity_sectors(mapping: dict[str, str], normalize: Callable[[str], str] = default_normalize) -> None:
+def register_equity_sectors(
+    mapping: dict[str, str],
+    normalize: Callable[[str], str] = default_normalize,
+) -> None:
     """Populate (or update) the equity sector map used by classify_symbol()
     for exposure-group assignment. Call with {} to clear."""
     EQUITY_SECTOR_MAP.clear()
@@ -139,7 +142,8 @@ def classify_symbol(symbol: str) -> SymbolInfo:
         return info
     sector = EQUITY_SECTOR_MAP.get(symbol)
     if sector:
-        return SymbolInfo(symbol, InstrumentType.EQUITY, exposure_group=f"sector:{sector}", leverage=1.0)
+        return SymbolInfo(symbol, InstrumentType.EQUITY,
+                          exposure_group=f"sector:{sector}", leverage=1.0)
     return SymbolInfo(symbol, InstrumentType.EQUITY, exposure_group=symbol, leverage=1.0)
 
 

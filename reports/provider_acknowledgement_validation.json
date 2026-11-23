@@ -1,0 +1,28 @@
+{
+  "acceptance_item": "2 - authoritative provider acknowledgements",
+  "lifecycle": "DESIRED -> REQUESTED -> PROVIDER_CONFIRMED -> WARMING_UP -> FRESH -> STALE",
+  "optimistic_ack_eliminated": true,
+  "mechanism": {
+    "stream": "market_data/alpaca_stream.py: parses genuine Alpaca `subscription` frames (full authoritative per-channel membership) in BOTH the initial subscribe ack loop and the live consume loop; fires on_subscription; tracks confirmed_channels + a per-connection subscription_generation.",
+    "manager": "market_scan/adaptive_subscriptions.py: reconcile_confirmation() advances REQUESTED/RECOVERING -> PROVIDER_CONFIRMED only from a real frame; handles partial/duplicate acks, unsubscription confirmation; mark_recovering() on reconnect voids prior confirmation; observations racing ahead of the ack are buffered, never treated as confirmation.",
+    "controller": "cengine/adaptive_subscription_controller.py: apply() commits REQUESTED and sends frames but NEVER confirms on send; on_provider_confirmation() and on_reconnect() drive the real transitions.",
+    "engine": "trade.py: on_subscription -> _on_subscription_confirmed -> controller; stream reconnect (_stream_state_changed) -> controller.on_reconnect."
+  },
+  "handled_cases": [
+    "partial acknowledgement",
+    "duplicate acknowledgement",
+    "subscription rejection (stream error path)",
+    "missing acknowledgement (stays REQUESTED, never confirmed)",
+    "unsubscription confirmation",
+    "connection loss / reconnection -> RECOVERING",
+    "subscription generation changes",
+    "observations arriving before acknowledgement"
+  ],
+  "offline_verification": {
+    "tests/test_adaptive_subscriptions.py": 14,
+    "tests/test_adaptive_subscription_live.py": 14
+  },
+  "status": "IMPLEMENTED + offline-verified (simulated provider messages)",
+  "session_gated": "latency/coverage with genuine live SIP subscription frames",
+  "recorded_utc": "2026-11-22T23:48:23.992846+00:00"
+}

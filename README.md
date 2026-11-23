@@ -11,11 +11,15 @@ The architecture uses Apple Metal as the primary broad-market numerical compute 
 - **8 Metal shader files / 50 compiled kernels**; 12 host-callable, hardware-executed and CPU-parity-validated; **5 operationally consumed on the live discovery path**: `technical_features`, `screen_market`, `compact_entry_candidates`, `rank_candidates`, `market_breadth`.
 - Market-wide ranking runs on the GPU (`rank_candidates`), output identical to the prior Python ranker (scores <1e-4, eligibility and order identical).
 - **SIP is the verified operational feed** (`tools/sip_verify.py`: REST + WebSocket authenticated against the real account). Historical SIP certification harness (`tools/phase_b_certify.py`) has driven real SIP bars through the full pipeline; **real-time session certification is pending an eligible market session**.
-- Regression suite: **353 tests passing**.
+- **Adaptive subscriptions are provider-driven.** The `AdaptiveSubscriptionController` owns the single SIP socket and only treats a channel as subscribed on a genuine Alpaca `subscription` frame (`DESIRED → REQUESTED → PROVIDER_CONFIRMED → WARMING_UP → FRESH → STALE`) — never on send success. Reconnection re-confirms from scratch.
+- **Promotion is momentum-gated and staged.** Full master → bars; preliminarily-ranked candidates → trades; only symbols whose momentum is confirmed from **fresh trade observations** → quotes. Protected (positions / pending) are exempt and receive every channel.
+- **Full-market bar coverage.** The whole tradable master is registered into the native engine up front and the default bar cap (8192) covers it; the capacity benchmark (`reports/full_market_discovery_benchmark.json`) measured the full-set GPU screen at ~0.09 s. When demand exceeds a cap, elective coverage rotates deterministically (protected never rotated).
+- **Continuous historical warm-up.** A persistent, bounded background scheduler warms the whole eligible master universe across prioritized batches (no permanent ceiling), with persistent progress, retry/backoff and restart recovery — never blocking mandatory protection.
+- Regression suite: **450+ tests passing** (offline).
 
-- **Operational discovery runs over the master universe.** The scanner's discovery source is the deduplicated master-universe membership (5,651 members incl. the 56 curated ETFs; ~5,616 tradable), feeding the already-wired GPU feature_provider (`screen_market` + `technical_features`), GPU `rank_candidates`, the sole `UniversePublisher`, and the exposure-authorization gate in `CandidateRouter` — not the legacy flat list. A traceable path from membership → metadata → authorization → `OrderManager` → mock fill is validated per instrument category (equity / broad / sector / leveraged-bull / inverse / leveraged-inverse).
+- **Operational discovery runs over the master universe.** The discovery source is the deduplicated master-universe membership — **5,994 members** (NASDAQ-listed ∪ S&P 500 ∪ DJIA ∪ 57 curated ETFs), **5,958 tradable** — from genuine, provenance-stamped sources (Alpaca assets; S&P 500 via datahub CSV; DJIA via the Wikipedia components table; `tools/fetch_index_constituents.py`). It feeds the GPU feature_provider (`screen_market` + `technical_features`), GPU `rank_candidates`, the sole `UniversePublisher`, and the exposure-authorization gate in `CandidateRouter`. A traceable path from membership → metadata → authorization → `OrderManager` → mock fill is validated per instrument category (equity / broad / sector / leveraged-bull / inverse / leveraged-inverse).
 
-In progress / not yet certified: the adaptive four-tier subscription manager is built and tested but is **not yet the live SIP-socket owner** (per-tick evaluation is still bounded by the scanner's subscription window); automatic master-universe historical warm-up scheduling; operational portfolio-optimizer consumers; the remaining Metal kernels; the regime engine and five-family strategy consolidation; the unified dashboard; and out-of-sample/**real-time SIP session** certification. Nodes marked *(target)* below are not certified production capabilities.
+In progress / not yet certified: operational portfolio-optimizer consumers; the remaining Metal kernels; the regime engine and five-family strategy consolidation; the unified dashboard; and out-of-sample/**real-time SIP session** certification (live provider acks, live observation freshness, and full-market streaming capacity under load). Nodes marked *(target)* below are not certified production capabilities.
 
 ## System Architecture
 
@@ -105,10 +109,28 @@ flowchart TD
 - **Objective-C++** — the Metal runtime that manages GPU resources (device, command queues, persistent pipeline cache, `BufferPool`) and bridges C++ state to the GPU without GC pauses.
 - **Apple Metal (GPU)** — broad-market numerical analytics only: technical indicators (`technical_features`), market-wide screening (`screen_market`), compaction and ranking (`compact_entry_candidates`, `rank_candidates`), and market breadth (`market_breadth`). Every GPU kernel has a CPU oracle and is advisory — it shapes discovery/ranking and never authorizes an order.
 
-### Operational vs. target components
+### Implementation status
 
-- **Operational (on the live discovery path, hardware-executed and CPU-parity-validated):** market-data acquisition (SIP WebSocket, historical REST, trades/quotes, broad-market bar streaming, warm-up/recovery), Native C++ Market State, Objective-C++ Metal Runtime, Apple Metal GPU, Technical Indicators, Market-wide Screening, Compaction and Ranking, Market Breadth, Opportunity Discovery, the Operational Scanner, the Native RiskEngine, the Independent Protective Exits, the single OrderManager, and Alpaca execution with fill reconciliation. Note: **real-time SIP session certification is still pending** an eligible market session — the full-market streaming path is verified on historical replay, not yet live-certified.
-- **Target (built or planned, not yet certified):** Portfolio Analytics and the Portfolio Optimizer (operational consumers pending), and the parts of Strategy Intelligence beyond the current four legacy strategies — the regime engine and the five-family strategy consolidation. These are shown for architectural completeness and are not production capabilities.
+Capabilities are tracked in four distinct states — **implemented & offline-validated** is not the same as **real-time certified**, and neither implies **economic validation** (out-of-sample edge):
+
+| Capability | Status |
+|---|---|
+| Native Metal runtime / DiscoveryEngine / GPU kernels (screen, technical_features, rank, breadth, compaction) | ✅ Implemented · offline + hardware + CPU-parity validated |
+| Full-scale native registration of the tradable master (~5,958) | ✅ Implemented · offline-validated |
+| Master-universe membership (NASDAQ ∪ S&P 500 ∪ DJIA ∪ ETFs), provenance-stamped | ✅ Implemented · offline-validated |
+| Adaptive subscription management on one SIP socket | ✅ Implemented · offline-validated |
+| **Authoritative provider acknowledgements** (no optimistic ack-on-send) | ✅ Implemented · offline-validated (simulated frames) · ⏳ real-time cert pending |
+| **Momentum-gated trade → quote promotion** | ✅ Implemented · offline-validated · ⏳ live momentum cert pending |
+| **Continuous historical warm-up** (persistent, bounded, prioritized) | ✅ Implemented · offline-validated · ⏳ full live REST coverage pending |
+| Full-market bar coverage (cap 8192) + deterministic rotation | ✅ Implemented · offline benchmark · ⏳ live streaming-capacity cert pending |
+| Independent −0.5% protective exits | ✅ Implemented · offline-validated |
+| Exposure authorization (geared/inverse gated) | ✅ Implemented · offline-validated |
+| Real-time SIP session certification (live acks, live freshness, full-market load) | ⏳ Session-gated (market-hours) |
+| Portfolio analytics / optimizer operational consumers | 🎯 Target |
+| Regime engine · five-family strategy consolidation · dashboard | 🎯 Target |
+| Economic validation (walk-forward / OOS edge, SIP vs IEX) | 🎯 Target — not yet begun |
+
+Illustrating a component in the diagram is **not** a claim that it is production-certified. Nodes marked *(target)* in the detailed diagrams below are not certified capabilities.
 
 ### Independent protective exit path
 

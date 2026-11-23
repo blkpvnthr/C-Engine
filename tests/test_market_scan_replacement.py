@@ -104,14 +104,17 @@ def test_eligibility_requires_di_plus_over_minus():
 
 
 def test_eligibility_requires_above_bb_mid_and_vwap():
-    f = _good_feat(); f.bb_mid_dist = -0.01
+    f = _good_feat()
+    f.bb_mid_dist = -0.01
     assert eligibility_from_features(f, MKT, CFG).eligible is False
-    g = _good_feat(); g.vwap_dist = -0.01
+    g = _good_feat()
+    g.vwap_dist = -0.01
     assert eligibility_from_features(g, MKT, CFG).eligible is False
 
 
 def test_eligibility_requires_liquidity():
-    f = _good_feat(); f.price = 2.0  # below floor
+    f = _good_feat()
+    f.price = 2.0  # below floor
     assert eligibility_from_features(f, MKT, CFG).eligible is False
 
 
@@ -140,7 +143,8 @@ def test_select_skips_excluded_and_just_closed():
 
 def test_select_returns_none_when_nothing_eligible_hold_cash():
     ranked = ["A", "B"]
-    bad = _good_feat("A"); bad.directional_row = dict(bad.directional_row, pdi=5, mdi=40)
+    bad = _good_feat("A")
+    bad.directional_row = dict(bad.directional_row, pdi=5, mdi=40)
     feats = {"A": bad, "B": bad}
     sym, detail = select_replacement(ranked, evaluate=_eval_from(feats), exclude=set())
     assert sym is None   # remain in cash; never force a replacement

@@ -9,7 +9,6 @@ the file+metadata are fresh and mutually consistent.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -17,7 +16,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import universe
-from market_scan import health
 from market_scan.health import (
     STATUS_DISABLED,
     STATUS_HEALTHY,

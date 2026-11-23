@@ -308,8 +308,9 @@ def test_rank_tick_does_not_repoll_broker_each_tick(tmp_path):
         es, MarketScanConfig(), universe_path=tmp_path / "u.txt",
         context_path=tmp_path / "c.json", stream_client=_FakeStreamLive(True),
         feature_provider=lambda syms, now: {s: _feat(s, _snap()) for s in syms},
-        discovery_fn=lambda **k: SimpleNamespace(symbols=["NVDA", "SPY", "QQQ"],
-                                                 equities=[], etfs=[], error=None, source_counts={}))
+        discovery_fn=lambda **k: SimpleNamespace(
+            symbols=["NVDA", "SPY", "QQQ"], equities=[], etfs=[], error=None,
+            source_counts={}))
     ms._discovered = ["NVDA", "SPY", "QQQ"]
     ms._refresh_positions_snapshot()        # off-loop seed (1 read each)
     base_pos, base_pend = calls["pos"], calls["pend"]

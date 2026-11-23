@@ -659,7 +659,11 @@ class MarketEngine:
             on_trade=self._publish_market_event,
             on_bar=self._publish_market_event,
             on_state=self._stream_state_changed,
+            on_subscription=self._on_subscription_confirmed,
         )
+        # Tracks whether the stream has reached SUBSCRIBED, so a later CONNECTING
+        # transition is recognized as a reconnect (drives controller.on_reconnect).
+        self._stream_was_live = False
         # An omitted URL leaves the stream on its IEX default (never SIP).
         if config.alpaca_url is not None:
             stream_kwargs["url"] = config.alpaca_url
@@ -857,8 +861,15 @@ class MarketEngine:
                 # used to feed live observations into the promotion lifecycle (item 6).
                 self._obs_channel = {"bar": Channel.BARS, "trade": Channel.TRADES,
                                      "quote": Channel.QUOTES}
+                # Default bar cap 8192 covers the full tradable master (~5,958) with
+                # headroom: the capacity benchmark (reports/full_market_discovery_
+                # benchmark.json) measured the full-set GPU screen dispatch at ~0.09s,
+                # well under the rank cadence, so simultaneous full-market BAR coverage
+                # is enabled. Trades/quotes stay tightly capped (adaptive, by measured
+                # opportunity relevance). When demand exceeds a cap the manager rotates
+                # elective coverage deterministically; protected symbols never rotate.
                 caps = ChannelCaps(
-                    bars=int(os.environ.get("CENGINE_TIER1_MAX_BARS", "4096")),
+                    bars=int(os.environ.get("CENGINE_TIER1_MAX_BARS", "8192")),
                     trades=int(os.environ.get("CENGINE_TIER2_MAX_TRADES", "1000")),
                     quotes=int(os.environ.get("CENGINE_TIER3_MAX_QUOTES", "250")))
                 self._adaptive_controller = AdaptiveSubscriptionController(
@@ -883,15 +894,20 @@ class MarketEngine:
 
         # Automatic SIP historical warm-up (directive item 4): feeds the native
         # DiscoveryEngine buffers with prioritized history so GPU features have
-        # adequate depth. One-shot at startup, in a worker thread (never blocks the
-        # loop or protection). Active on SIP + GPU discovery + membership;
+        # adequate depth. A CONTINUOUS, bounded, persistent background scheduler
+        # processes the WHOLE eligible master universe across successive batches
+        # (no permanent coverage ceiling) and then maintains it (membership growth,
+        # stale refresh, bounded retry). Runs in a worker thread, never blocking the
+        # loop or protection. Active on SIP + GPU discovery + membership;
         # CENGINE_HISTORICAL_WARMUP=0 disables.
         self._historical_warmup = None
+        self._warmup_scheduler = None
         if (self._gpu_discovery is not None and self._membership_registry is not None
                 and feed in ("sip", "delayed_sip")
                 and os.environ.get("CENGINE_HISTORICAL_WARMUP", "1") != "0"):
             try:
                 from cengine.historical_warmup import HistoricalWarmup, make_sip_fetch_fn
+                from cengine.warmup_scheduler import ContinuousWarmupScheduler
 
                 _k = (os.environ.get("ALPACA_API_KEY")
                       or os.environ.get("APCA_API_KEY_ID", ""))
@@ -901,9 +917,25 @@ class MarketEngine:
                     self._historical_warmup = HistoricalWarmup(
                         self._gpu_discovery.provider, make_sip_fetch_fn(_k, _s),
                         batch_size=int(os.environ.get("CENGINE_WARMUP_BATCH", "100")))
+                    reg = self._membership_registry
+                    progress = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        "data", "warmup_progress.json")
+                    self._warmup_scheduler = ContinuousWarmupScheduler(
+                        self._historical_warmup,
+                        universe_fn=reg.tradable_master_symbols,
+                        priority_fn=self._warmup_priority_inputs,
+                        batch_size=int(os.environ.get("CENGINE_WARMUP_BATCH", "100")),
+                        state_path=progress,
+                        max_attempts=int(os.environ.get("CENGINE_WARMUP_MAX_ATTEMPTS", "3")),
+                        refresh_after_s=float(
+                            os.environ.get("CENGINE_WARMUP_REFRESH_SECONDS", "21600")))
+                    self._warmup_scheduler.set_membership_version(
+                        reg.snapshot_meta.membership_version)
             except Exception as exc:  # noqa: BLE001
                 LOGGER.warning("historical warm-up unavailable: %s", exc)
                 self._historical_warmup = None
+                self._warmup_scheduler = None
 
         # Full-scale native symbol registration (directive item 3): register the
         # ENTIRE tradable master universe into the native DiscoveryEngine up front
@@ -926,32 +958,101 @@ class MarketEngine:
             except Exception as exc:  # noqa: BLE001 — never block startup
                 LOGGER.warning("native full-scale registration skipped: %s", exc)
 
-    async def _run_historical_warmup(self) -> None:
-        """One-shot prioritized warm-up in a worker thread (off the hot path)."""
-        import datetime as _dt
-
-        from cengine.historical_warmup import prioritize
-
+    def _warmup_priority_inputs(self) -> dict:
+        """Priority groups for the warm-up scheduler: positions and pending orders
+        FIRST (so protected instruments always have history), then references,
+        actionable (canonical), and preliminary (scanner) candidates. The scheduler
+        appends the remaining master universe after these."""
+        positions = list(getattr(self.portfolio, "symbols", lambda: [])() or []) \
+            if self.portfolio is not None else []
         try:
-            inp = self._adaptive_tier_inputs()
-            cap = int(os.environ.get("CENGINE_WARMUP_MAX_SYMBOLS", "500"))
-            master = inp["tier1_bars"][:cap]
-            order = prioritize(positions=inp["protected"], actionable=inp["tier2_trades"],
-                               remaining=master)
-            today = _dt.date.today()
-            start_5m = (today - _dt.timedelta(days=20)).isoformat()
-            start_1m = (today - _dt.timedelta(days=4)).isoformat()
-            cov = await asyncio.to_thread(
-                self._historical_warmup.warm, order,
-                start_5m=start_5m, start_1m=start_1m)
-            LOGGER.info("historical warm-up: %d requested, %d warmed, %d incomplete, "
-                        "%d failed, bars=%s", cov["requested"], cov["warmed"],
-                        cov["incomplete"], cov["failed"], cov["bars_ingested"])
-        except Exception as exc:  # noqa: BLE001 - warm-up must never crash the engine
-            LOGGER.warning("historical warm-up failed: %s", exc)
+            pending = list(self.order_manager.open_orders() or [])
+        except Exception:  # noqa: BLE001
+            pending = []
+        canonical = []
+        if self._canonical_for_adaptive is not None:
+            try:
+                self._canonical_for_adaptive.refresh_from_file()
+                canonical = list(self._canonical_for_adaptive.symbols())
+            except Exception:  # noqa: BLE001
+                canonical = []
+        preliminary = []
+        if self._bridge_client is not None:
+            try:
+                preliminary = list(self._bridge_client.desired_symbols or [])
+            except Exception:  # noqa: BLE001
+                preliminary = []
+        return {"positions": positions, "pending": pending,
+                "references": ["SPY", "QQQ", "DIA", "IWM"],
+                "actionable": canonical, "preliminary": preliminary}
+
+    async def _run_continuous_warmup(self, stop: "asyncio.Event") -> None:
+        """Continuous, bounded warm-up loop (directive item 4). Each iteration warms
+        ONE prioritized batch in a worker thread (off the hot path), persisting
+        progress, until the whole eligible master universe is covered — then idles,
+        re-checking for membership growth / stale refresh. Backs off on failure
+        (rate-limit awareness). Never blocks mandatory protection."""
+        import time as _time
+
+        base = float(os.environ.get("CENGINE_WARMUP_BATCH_SECONDS", "2"))
+        idle = float(os.environ.get("CENGINE_WARMUP_IDLE_SECONDS", "300"))
+        backoff = base
+        while not stop.is_set():
+            try:
+                # Refresh membership version so a new snapshot re-opens failed symbols.
+                if self._membership_registry is not None:
+                    self._warmup_scheduler.set_membership_version(
+                        self._membership_registry.snapshot_meta.membership_version)
+                summary = await asyncio.to_thread(
+                    self._warmup_scheduler.run_once, _time.monotonic())
+                if summary.get("error"):
+                    backoff = min(idle, max(base, backoff * 2.0))  # rate-limit backoff
+                    LOGGER.warning("warm-up batch failed; backing off %.0fs "
+                                   "(warmed=%d pending=%d)", backoff,
+                                   summary.get("warmed", 0), summary.get("pending", 0))
+                    wait = backoff
+                elif summary.get("batch", 0) == 0:
+                    LOGGER.info("warm-up coverage complete: warmed=%d incomplete=%d "
+                                "failed=%d pending=%d bars=%s", summary.get("warmed", 0),
+                                summary.get("incomplete", 0), summary.get("failed", 0),
+                                summary.get("pending", 0), summary.get("bars_ingested"))
+                    wait = idle  # maintain: re-check for growth / stale refresh
+                else:
+                    backoff = base
+                    LOGGER.info("warm-up batch: %d symbols (warmed=%d pending=%d "
+                                "incomplete=%d failed=%d)", summary.get("batch", 0),
+                                summary.get("warmed", 0), summary.get("pending", 0),
+                                summary.get("incomplete", 0), summary.get("failed", 0))
+                    wait = base
+            except Exception as exc:  # noqa: BLE001 — warm-up must never crash the engine
+                LOGGER.warning("continuous warm-up tick failed: %s", exc)
+                wait = idle
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=wait)
+            except asyncio.TimeoutError:
+                pass
 
     def _adaptive_tier_inputs(self) -> dict:
-        """Compute current tier memberships for the adaptive controller."""
+        """Compute current tier memberships with STAGED, momentum-gated promotion
+        (directive item 3):
+
+          Tier 1 (bars)   = full tradable master universe.
+          Tier 2 (trades) = preliminarily-ranked discovery candidates (scanner) —
+                            these earn a TRADE subscription so developing 1-minute
+                            momentum can be observed.
+          Tier 3 (quotes) = already-published canonical actionable UNION the subset
+                            of Tier-2 candidates whose momentum is confirmed from
+                            FRESH trade observations (di+>di-, developing 1m>0). A
+                            quote subscription is requested only AFTER fresh trades
+                            confirm momentum — never together with trades for an
+                            elective candidate.
+          Protected       = positions + pending orders (+ references) — exempt from
+                            the elective promotion gate; they receive every channel.
+
+        The strict final entry contract (VWAP/SMA/BB reference, liquidity, strategy,
+        exposure, risk) is unchanged and enforced downstream before any order."""
+        from market_scan.adaptive_subscriptions import Channel
+
         positions = list(getattr(self.portfolio, "symbols", lambda: [])() or []) \
             if self.portfolio is not None else []
         try:
@@ -968,11 +1069,29 @@ class MarketEngine:
                 canonical = []
         tier1 = (self._membership_registry.tradable_master_symbols()
                  if self._membership_registry is not None else [])
-        protected = sorted(set(positions) | set(pending) | set(refs))
-        # Published canonical candidates are the actionable set -> trades + quotes.
-        actionable = sorted(set(canonical) | set(positions) | set(pending))
-        return {"tier1_bars": tier1, "tier2_trades": actionable,
-                "tier3_quotes": actionable, "protected": protected, "references": refs}
+        # Preliminary ranked candidates earn a TRADE subscription (Tier 2).
+        preliminary = []
+        if self._bridge_client is not None:
+            try:
+                preliminary = list(self._bridge_client.desired_symbols or [])
+            except Exception:  # noqa: BLE001
+                preliminary = []
+        protected = sorted(set(positions) | set(pending))
+        tier2_trades = sorted(set(preliminary) | set(canonical) | set(protected))
+        # Momentum gate: among candidates with FRESH trades, which have GPU-confirmed
+        # preliminary momentum? Only those (plus canonical actionable) earn QUOTES.
+        momentum = set()
+        if self._gpu_discovery is not None and self._adaptive_controller is not None:
+            try:
+                fresh_trades = self._adaptive_controller.fresh(Channel.TRADES)
+                candidates = (set(tier2_trades) & fresh_trades) - set(protected)
+                if candidates:
+                    momentum = self._gpu_discovery.momentum_confirmed(sorted(candidates))
+            except Exception:  # noqa: BLE001
+                momentum = set()
+        tier3_quotes = sorted(set(canonical) | momentum)
+        return {"tier1_bars": tier1, "tier2_trades": tier2_trades,
+                "tier3_quotes": tier3_quotes, "protected": protected, "references": refs}
 
     async def _run_adaptive_subscriptions(self, stop: "asyncio.Event") -> None:
         import time as _time
@@ -1138,13 +1257,14 @@ class MarketEngine:
                 name="adaptive-subscriptions",
             )
 
-        # One-shot warm-up runs DETACHED (not in the FIRST_COMPLETED wait set, so
-        # its completion never triggers engine shutdown). Stored on self to avoid
-        # GC; cancelled during teardown.
+        # Continuous warm-up runs DETACHED (not in the FIRST_COMPLETED wait set, so
+        # it never triggers engine shutdown) and is stop-driven. Stored on self to
+        # avoid GC; cancelled during teardown. It processes the whole master universe
+        # across bounded batches, then idles and maintains coverage.
         self._warmup_task: Optional[asyncio.Task[None]] = None
-        if self._historical_warmup is not None:
+        if self._warmup_scheduler is not None:
             self._warmup_task = asyncio.create_task(
-                self._run_historical_warmup(), name="historical-warmup"
+                self._run_continuous_warmup(self._stop), name="historical-warmup"
             )
 
         factor_task: Optional[asyncio.Task[None]] = None
@@ -1455,6 +1575,34 @@ class MarketEngine:
         LOGGER.info(
             "Alpaca market-data state=%s feed=%s", state.value, self.stream.feed or "custom"
         )
+        # On a (re)connection the previous socket's provider confirmations are void:
+        # drop confirmed/fresh channels to RECOVERING so nothing is treated as live
+        # until the provider re-confirms on the new socket (directive item 2).
+        if (self._adaptive_controller is not None
+                and getattr(state, "value", state) == "connecting"
+                and self._stream_was_live):
+            try:
+                n = self._adaptive_controller.on_reconnect(time.monotonic())
+                LOGGER.info("adaptive subscriptions: reconnect -> %d channels recovering", n)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("adaptive reconnect handling failed: %s", exc)
+            self._stream_was_live = False
+        if getattr(state, "value", state) == "subscribed":
+            self._stream_was_live = True
+
+    async def _on_subscription_confirmed(self, payload: dict) -> None:
+        """Genuine Alpaca `subscription` frame -> drive provider confirmation into
+        the adaptive controller (REQUESTED -> PROVIDER_CONFIRMED). Never fired on
+        mere send success. Fail-safe: a bad frame must not break the feed."""
+        ctl = self._adaptive_controller
+        if ctl is None:
+            return
+        try:
+            ctl.on_provider_confirmation(
+                {k: payload.get(k, []) for k in ("bars", "trades", "quotes")},
+                time.monotonic(), generation=payload.get("generation"))
+        except Exception as exc:  # noqa: BLE001 — confirmation must never break ingest
+            LOGGER.warning("provider confirmation handling failed: %s", exc)
 
 
 class ATRTracker:
