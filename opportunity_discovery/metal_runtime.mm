@@ -412,6 +412,62 @@ std::vector<float> MetalRuntime::ewma_covariance_matrix(
     return out;
 }
 
+namespace {
+// Mirrors metal/monte-carlo.metal MonteCarloParams / PortfolioParams exactly.
+struct McParams {
+    std::uint32_t scenarios, assets, row_stride, return_model;
+    float horizon_scale, volatility_scale, shock_clip, reserved0;
+    std::uint64_t base_seed, stream_id;
+};
+struct PfParams {
+    std::uint32_t scenarios, assets, row_stride, reserved0;
+    float gross_notional, reserved1, reserved2, reserved3;
+};
+}  // namespace
+
+std::vector<float> MetalRuntime::portfolio_scenario_returns(
+    const std::vector<float>& normals, const std::vector<float>& cholesky,
+    const std::vector<float>& weights, std::uint32_t scenarios,
+    std::uint32_t assets, std::uint32_t return_model) {
+    if (!available()) throw MetalError("Metal runtime unavailable");
+    if (scenarios == 0 || assets == 0)
+        throw MetalError("scenarios and assets must be positive");
+    const std::size_t grid = static_cast<std::size_t>(scenarios) * assets;
+    if (normals.size() < grid)
+        throw MetalError("normals smaller than scenarios*assets");
+    if (cholesky.size() < static_cast<std::size_t>(assets) * assets)
+        throw MetalError("cholesky smaller than assets*assets");
+    if (weights.size() < assets)
+        throw MetalError("weights smaller than assets");
+    auto& pool = *impl_->pool;
+    GpuBuffer nb = pool.upload_f32(normals.data(), grid);
+    GpuBuffer chb = pool.upload_f32(cholesky.data(),
+                                    static_cast<std::size_t>(assets) * assets);
+    GpuBuffer wb = pool.upload_f32(weights.data(), assets);
+    McParams mc{scenarios, assets, assets, return_model, 1.0f, 1.0f, 0.0f, 0.0f, 0, 0};
+    GpuBuffer mcb = pool.upload_bytes(&mc, sizeof(mc));
+    PfParams pf{scenarios, assets, assets, 0, 1.0f, 0.0f, 0.0f, 0.0f};
+    GpuBuffer pfb = pool.upload_bytes(&pf, sizeof(pf));
+    GpuBuffer corr = pool.acquire(grid * sizeof(float), true);
+    // ScenarioSummary is 8 x 4 bytes (4 float + 4 uint) per scenario.
+    const std::size_t summary_floats = static_cast<std::size_t>(scenarios) * 8;
+    GpuBuffer summ = pool.acquire(summary_floats * sizeof(float), true);
+    const bool ok1 = dispatch("correlate_normals", {nb, chb, mcb, corr}, grid);
+    const bool ok2 =
+        ok1 && dispatch("portfolio_scenario_pnl", {corr, wb, mcb, pfb, summ}, scenarios);
+    std::vector<float> raw(summary_floats, 0.0f);
+    if (ok2) pool.read_f32(summ, raw.data(), summary_floats);
+    pool.release(nb); pool.release(chb); pool.release(wb); pool.release(mcb);
+    pool.release(pfb); pool.release(corr); pool.release(summ);
+    if (!ok2) throw MetalError("portfolio_scenario_pnl dispatch failed");
+    // ScenarioSummary.portfolio_return is field 0 of each 8-float stride.
+    std::vector<float> out(scenarios, 0.0f);
+    for (std::uint32_t s = 0; s < scenarios; ++s) {
+        out[s] = raw[static_cast<std::size_t>(s) * 8];
+    }
+    return out;
+}
+
 std::vector<ScreeningOutput> MetalRuntime::screen(
     const std::vector<ScreeningInput>& inputs) {
     if (!available()) throw MetalError("Metal runtime unavailable");

@@ -284,6 +284,16 @@ def main() -> int:
     # consumed when an ewma_lambda is configured.
     for name in ("column_means", "covariance_matrix", "ewma_covariance_matrix"):
         reg.mark_operationally_consumed(name)
+    # Milestone 4 (§19): the Monte-Carlo scenario kernels are now operationally
+    # consumed by portfolio scenario-risk analysis (cengine.portfolio_analytics.
+    # PortfolioAnalytics.scenario_losses -> native MetalRuntime.portfolio_scenario_returns,
+    # chaining gme::correlate_normals + gme::portfolio_scenario_pnl). Host-seeded
+    # normals give exact CPU parity.
+    for name in ("correlate_normals", "portfolio_scenario_pnl"):
+        try:
+            reg.mark_operationally_consumed(name)
+        except Exception:  # noqa: BLE001 — name not registered on this build: skip
+            pass
     inventory = json.loads(reg.to_json())
     cov = reg.coverage()
     tele = rt.telemetry()

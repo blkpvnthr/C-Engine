@@ -264,6 +264,10 @@ void register_discovery(py::module_& m) {
              py::arg("values"), py::arg("observations"), py::arg("assets"),
              py::arg("lambda_"), py::arg("minimum_variance") = 0.0f,
              py::call_guard<py::gil_scoped_release>())
+        .def("portfolio_scenario_returns", &MetalRuntime::portfolio_scenario_returns,
+             py::arg("normals"), py::arg("cholesky"), py::arg("weights"),
+             py::arg("scenarios"), py::arg("assets"), py::arg("return_model") = 0,
+             py::call_guard<py::gil_scoped_release>())
         .def("screen", &MetalRuntime::screen, py::arg("inputs"),
              py::call_guard<py::gil_scoped_release>())
         .def("technical_features", &MetalRuntime::technical_features,
