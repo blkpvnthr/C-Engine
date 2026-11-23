@@ -7,11 +7,16 @@ from cengine.learning.inference.contract import (
     InferenceResponse,
     abstain,
 )
+from cengine.learning.inference.loader import ModelLoadError, load_model
+from cengine.learning.inference.service import LearningInferenceService
 
 __all__ = [
     "INFERENCE_CONTRACT_VERSION",
     "Applicability",
     "InferenceRequest",
     "InferenceResponse",
+    "LearningInferenceService",
+    "ModelLoadError",
     "abstain",
+    "load_model",
 ]
