@@ -97,22 +97,20 @@ def load_symbol_bars(symbol: str, timeframe: str, *, start_ns: int | None = None
     ``symbol`` is validated via :func:`safe_ticker`; ``timeframe`` is checked against an
     allow-list; time bounds are passed as bound parameters.
     """
-    sym = safe_ticker(symbol)
+    sym = safe_ticker(symbol)                       # strict allow-list (injection guard)
     if timeframe not in ("1Min", "5Min", "15Min", "1Hour", "1Day"):
         raise ValueError(f"unexpected timeframe {timeframe!r}")
     g = _escape(market_bars_glob())
     con = connect()
-    clauses = [f"{SYMBOL_COL} = ?", "timeframe = ?"]
-    params: list = [sym, timeframe]
+    # sym is allow-list-validated and the bounds are int-coerced, so this interpolation is safe;
+    # con.sql(...).to_arrow_table() avoids the DB-API extra-copy the parameterized path warns on.
+    clauses = [f"{SYMBOL_COL} = '{sym}'", f"timeframe = '{timeframe}'"]
     if start_ns is not None:
-        clauses.append(f"{TS_COL} >= ?")
-        params.append(int(start_ns))
+        clauses.append(f"{TS_COL} >= {int(start_ns)}")
     if end_ns is not None:
-        clauses.append(f"{TS_COL} < ?")
-        params.append(int(end_ns))
+        clauses.append(f"{TS_COL} < {int(end_ns)}")
     where = " AND ".join(clauses)
-    return con.execute(
+    return con.sql(
         f"""SELECT {columns} FROM read_parquet('{g}', union_by_name=true)
-            WHERE {where} ORDER BY {TS_COL}""",
-        params,
-    ).arrow()
+            WHERE {where} ORDER BY {TS_COL}"""
+    ).to_arrow_table()

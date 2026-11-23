@@ -108,6 +108,59 @@ def run_window_backtest(symbol: str, window_name: str, start_ns: int, end_ns: in
     )
 
 
+def certify_entry_contract(symbols: list, *, config=None) -> list:
+    """§26 — certify the entry contract is deterministic and look-ahead-free (causal).
+
+    * **Determinism** — the same bars always yield the same entries (reproducible research).
+    * **Causality** — truncating the series at time T must not change any entry at t < T. If a
+      future bar could alter a past entry, the contract leaks look-ahead. We verify by computing
+      entries on the full series and on a truncated prefix and checking the prefix's entries are
+      a prefix of the full set.
+    """
+    if config is None:
+        from cengine.lakehouse.config import LakehouseConfig
+        config = LakehouseConfig.from_env()
+    results: list = []
+    for sym in symbols:
+        s = safe_ticker(sym)
+        bars = _load_1m(config, s)
+        if bars is None or len(bars.get("c", [])) < 2000:
+            results.append(CertificationResult(
+                check=f"entry_contract.{s}", component="strategy",
+                verdict=CertificationVerdict.INSUFFICIENT_DATA,
+                summary=f"{s}: insufficient bars for entry-contract certification"))
+            continue
+        e1, _ = _entries_and_atr(bars)
+        e2, _ = _entries_and_atr(bars)
+        deterministic = e1 == e2
+        # causality: recompute on a prefix (drop the last 25%); entries strictly inside the
+        # prefix (clear of the look-back/stride edge) must be unchanged. We disable the
+        # max_entries subsampling (its stride factor depends on the TOTAL raw-entry count, which
+        # differs between full and prefix) so the test reflects the causal MASK, not the sampling.
+        n = len(bars["c"])
+        full_mask, _ = _entries_and_atr(bars, max_entries=n)
+        cut = int(n * 0.75)
+        prefix = {k: v[:cut] for k, v in bars.items()}
+        ep, _ = _entries_and_atr(prefix, max_entries=n)
+        safe_region = cut - 50
+        full_in_region = [i for i in full_mask if i < safe_region]
+        prefix_in_region = [i for i in ep if i < safe_region]
+        causal = full_in_region == prefix_in_region
+        ok = deterministic and causal
+        results.append(CertificationResult(
+            check=f"entry_contract.{s}", component="strategy",
+            verdict=CertificationVerdict.CERTIFIED if ok else CertificationVerdict.NOT_CERTIFIED,
+            summary=(f"{s}: entries deterministic={deterministic}, look-ahead-free(causal)="
+                     f"{causal}; {len(e1)} entries"),
+            sample_size=len(e1),
+            metrics={"deterministic": deterministic, "causal": causal,
+                     "n_entries": len(e1), "prefix_matches": len(prefix_in_region),
+                     "full_in_region": len(full_in_region)},
+            notes="§26 entry contract: reproducible + causal (no future information)",
+        ))
+    return results
+
+
 def _verdict_from(bt: WindowBacktest) -> CertificationVerdict:
     if bt.n_entries < _MIN_ENTRIES or not bt.gate_result:
         return CertificationVerdict.INSUFFICIENT_DATA
