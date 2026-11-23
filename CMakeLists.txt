@@ -57,6 +57,7 @@ set(CENGINE_CORE_SOURCES
   market_depth/market-book.cpp
   orderbook/orderbook.cpp
   risk/risk_engine.cpp
+  risk/portfolio_allocator.cpp
   statArb/stat-arb.cpp
   volatility/volatility.cpp
   opportunity_discovery/cpu_reference.cpp
@@ -88,7 +89,8 @@ if(CENGINE_BUILD_PYTHON)
   find_package(pybind11 CONFIG REQUIRED)
   pybind11_add_module(_cengine_native
     bindings/python_bindings.cpp
-    bindings/discovery_bindings.cpp)
+    bindings/discovery_bindings.cpp
+    bindings/portfolio_bindings.cpp)
   target_link_libraries(_cengine_native PRIVATE cengine_core)
   if(CENGINE_METAL_ENABLED)
     target_compile_definitions(_cengine_native PRIVATE CENGINE_WITH_METAL=1)

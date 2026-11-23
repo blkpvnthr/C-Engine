@@ -12,6 +12,10 @@ using namespace trading;
 // stub is provided there for non-Apple builds so this call always links.
 void register_discovery(py::module_& m);
 
+// Implemented in bindings/portfolio_bindings.cpp. Registers the native
+// deterministic portfolio allocator + portfolio-risk math (Milestone 3).
+void register_portfolio(py::module_& m);
+
 PYBIND11_MODULE(_cengine_native, m) {
     m.doc() = "C-Engine native risk, order-book boundary, and Metal runtime";
     py::enum_<Side>(m, "Side").value("BUY", Side::Buy).value("SELL", Side::Sell);
@@ -191,4 +195,5 @@ PYBIND11_MODULE(_cengine_native, m) {
     }
 
     register_discovery(m);
+    register_portfolio(m);
 }
