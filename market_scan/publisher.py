@@ -70,13 +70,28 @@ class UniversePublisher:
         now: float,
         force_rewrite: bool = False,
         health: dict[str, Any] | None = None,
+        members: "list[str] | tuple[str, ...] | None" = None,
     ) -> PublishResult:
         """Publish ``ranked_candidates`` (descending rank). Returns a
-        :class:`PublishResult`. Never raises on the normal paths."""
+        :class:`PublishResult`. Never raises on the normal paths.
+
+        ``ranked_candidates`` is the ENTRY-eligible ranking; it drives
+        ``entry_eligible_count``, ``ranked``, and replacement candidates in
+        live_context.json (and therefore the fail-closed entry gate).
+
+        ``members`` is the ACTIVE SCANNING WINDOW written to universe.txt. When
+        the DynamicUniverseManager is active it is the manager's active-universe
+        snapshot (baseline permanence + protection + opportunity rotation), which
+        is broader than the entry-eligible list. When ``members is None`` it
+        defaults to ``ranked_candidates`` — the legacy behavior where universe.txt
+        membership and the entry-eligible list are one and the same. Both files
+        always derive membership from the SAME resolved window, so the gate's
+        consistency check (universe.txt == live_context ``universe``) holds.
+        """
         self._seed_from_disk()
         prev = list(self._last_written or [])
 
-        # Normalize + de-dupe + cap to the target entry-universe size.
+        # Entry-eligible ranking (drives entry_eligible_count / ranked / gate).
         candidates = list(
             dict.fromkeys(
                 universe.normalize_symbol(s)
@@ -86,21 +101,31 @@ class UniversePublisher:
         )[: self.config.target_universe_size]
         eligible = len(candidates)
 
+        # Active scanning window written to universe.txt (defaults to the
+        # entry-eligible list for backward compatibility).
+        window_src = candidates if members is None else members
+        window = list(
+            dict.fromkeys(
+                universe.normalize_symbol(s)
+                for s in (window_src or [])
+                if universe.normalize_symbol(s)
+            )
+        )[: self.config.target_universe_size]
+
         rewrote = False
         added: list[str] = []
         removed: list[str] = []
 
-        if candidates:
-            membership_changed = set(candidates) != set(prev)
+        if window:
+            membership_changed = set(window) != set(prev)
             if membership_changed or force_rewrite:
-                universe.write_canonical_universe(candidates, self.universe_path)
-                self._last_written = candidates
+                universe.write_canonical_universe(window, self.universe_path)
+                self._last_written = window
                 self._published_at = now
                 rewrote = True
-                added = [s for s in candidates if s not in set(prev)]
-                removed = [s for s in prev if s not in set(candidates)]
-        # else: nothing qualifies -> keep the last-good file importable and let
-        # entry_eligible_count=0 block entries.
+                added = [s for s in window if s not in set(prev)]
+                removed = [s for s in prev if s not in set(window)]
+        # else: nothing in the window -> keep the last-good file importable.
 
         # Always bump the file mtime to `now` so (a) it stays consistent with the
         # logical clock used by the freshness gate and (b) a live scanner keeps
