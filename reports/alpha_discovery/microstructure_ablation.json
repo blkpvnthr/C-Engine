@@ -1,0 +1,50 @@
+{
+  "version": "microstructure-research-1.0.0",
+  "data_label": "historical_replay",
+  "genuine_l1_tick_data_available": false,
+  "genuine_l1_features_status": "INSUFFICIENT_DATA",
+  "genuine_l1_features_deferred": [
+    "quote_imbalance",
+    "order_flow_imbalance",
+    "microprice",
+    "inferred_cum_volume_delta",
+    "bid_replenishment",
+    "liquidity_resilience",
+    "spread_normalization",
+    "selling_intensity_deterioration"
+  ],
+  "bar_only_proxy_evaluation": {
+    "status": "ok",
+    "proxy": "close_location_value>0 (bar-only buying pressure)",
+    "baseline_val_expectancy": -0.001159,
+    "gated_val_expectancy": -0.001041,
+    "gated_keep_fraction": 0.6909,
+    "improves": true,
+    "positive": false,
+    "caveat": "bar-only approximation of order-flow pressure, NOT genuine L1"
+  },
+  "per_symbol": {
+    "AAPL": {
+      "available": true,
+      "n": 3000
+    },
+    "MSFT": {
+      "available": true,
+      "n": 3000
+    },
+    "NVDA": {
+      "available": true,
+      "n": 3000
+    },
+    "SPY": {
+      "available": true,
+      "n": 3000
+    },
+    "QQQ": {
+      "available": true,
+      "n": 3000
+    }
+  },
+  "conclusion": "Genuine L1 microstructure (quote/order-flow imbalance, microprice, bid replenishment, spread normalization, seller-exhaustion) is INSUFFICIENT_DATA \u2014 the historical lakehouse holds bars only; it is deferred to live/paper L1 capture. The bar-only close-location proxy improves but stays non-positive entry timing \u2014 a weak approximation, not genuine microstructure evidence.",
+  "note": "no Level-2 observations fabricated; bar-only proxies separately identified"
+}

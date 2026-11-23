@@ -1,0 +1,88 @@
+{
+  "version": "strategy-family-research-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "SPY",
+    "QQQ"
+  ],
+  "by_family": {
+    "MOMENTUM_CONTINUATION": {
+      "status": "COMPLETED",
+      "entry_signals": 15000,
+      "trades_taken": 15000,
+      "net_expectancy_per_trade": -0.001075,
+      "profit_factor": 0.6408,
+      "win_rate": 0.352,
+      "total_return": -0.8023,
+      "max_drawdown": 0.8028,
+      "sharpe_annualized": -5.201,
+      "turnover": 749.84,
+      "span_days": 2472.2,
+      "positive_expectancy": false
+    },
+    "VOLATILITY_BREAKOUT": {
+      "status": "COMPLETED",
+      "entry_signals": 15000,
+      "trades_taken": 15000,
+      "net_expectancy_per_trade": -0.001188,
+      "profit_factor": 0.5806,
+      "win_rate": 0.3457,
+      "total_return": -0.8329,
+      "max_drawdown": 0.8329,
+      "sharpe_annualized": -5.856,
+      "turnover": 675.65,
+      "span_days": 2500.0,
+      "positive_expectancy": false
+    },
+    "TREND_PULLBACK": {
+      "status": "COMPLETED",
+      "entry_signals": 15000,
+      "trades_taken": 15000,
+      "net_expectancy_per_trade": -0.001019,
+      "profit_factor": 0.5988,
+      "win_rate": 0.3713,
+      "total_return": -0.7855,
+      "max_drawdown": 0.7862,
+      "sharpe_annualized": -4.132,
+      "turnover": 784.85,
+      "span_days": 2507.3,
+      "positive_expectancy": false
+    },
+    "MEAN_REVERSION": {
+      "status": "COMPLETED",
+      "entry_signals": 15000,
+      "trades_taken": 15000,
+      "net_expectancy_per_trade": -0.000873,
+      "profit_factor": 0.6658,
+      "win_rate": 0.3691,
+      "total_return": -0.7312,
+      "max_drawdown": 0.7315,
+      "sharpe_annualized": -5.877,
+      "turnover": 865.99,
+      "span_days": 2514.0,
+      "positive_expectancy": false
+    },
+    "MULTI_DAY_SWING": {
+      "status": "COMPLETED",
+      "entry_signals": 4628,
+      "trades_taken": 4628,
+      "net_expectancy_per_trade": -0.000905,
+      "profit_factor": 0.6076,
+      "win_rate": 0.3755,
+      "total_return": -0.343,
+      "max_drawdown": 0.352,
+      "sharpe_annualized": -3.165,
+      "turnover": 388.94,
+      "span_days": 2497.0,
+      "positive_expectancy": false
+    }
+  },
+  "families_with_positive_expectancy": [],
+  "best_family": "MEAN_REVERSION",
+  "conclusion": "All 5 evaluated families have NEGATIVE net expectancy under the mandatory \u22120.5% exit; the failure is not specific to momentum \u2014 the intraday \u22120.5% protective exit dominates every long archetype on this universe. MULTI_DAY_SWING is structurally incompatible with the intraday \u22120.5% protective exit (it stops out before the multi-day thesis can play out). Negative result preserved.",
+  "note": "vectorized archetype signals faithful to FAMILY_SPECS, evaluated via the capital-constrained accountant under the mandatory \u22120.5% exit; long-only; simulated historical-replay, not live, no profitability claim"
+}

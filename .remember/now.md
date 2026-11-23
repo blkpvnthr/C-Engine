@@ -17,3 +17,7 @@ P0 accounting audit committed: corrected M7's 97% DD compound artifact → 80.3%
 Impl Decision Core: baseline registry, 4-layer model, candidate lifecycle, priority scheduler; 26 tests pass; branched m7-tip; next: manager+integration plan.
 ## 10:30 | feature/m8-autonomous-alpha-discovery
 M8 P0–P1 committed: capital-constrained portfolio replay (corrects DD to 80.3%), failure attribution (MAE>MFE, entry-quality root), entry/multi-timeframe/regime filters tested (all preserve negative expectancy); 7 modules + 10 tests.
+## 02:50 | feature/dynamic-universe-rotation
+P1 Decision Core committed: baseline (spec-30 protected), config, layers, lifecycle, rotation-sched w/residence-hysteresis; 26 tests ✓; suite 987/10 skipped; worktree editable-install shadowing resolved.
+## 02:52 | feature/m8-autonomous-alpha-discovery
+P0 accounting audit + failure attribution complete (corrected capital-constrained DD 80.3%, shows momentum has no directional edge: MAE −69bps vs MFE +58bps); §5–8 research deployed: entry-quality ablation, multi-timeframe confirmation, regime decomposition, strategy-family comparison all confirm no positive net expectancy under −0.5% exit; supervised opportunity filter (§10) in-progress.
