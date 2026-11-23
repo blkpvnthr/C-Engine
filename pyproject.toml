@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Paper-first native trading engine"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["h5py>=3.10", "numpy>=1.26", "websockets>=12"]
+dependencies = ["h5py>=3.10", "numpy>=1.26", "websockets>=12",
+                "pyarrow>=16", "duckdb>=1.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6", "mypy>=1.11"]

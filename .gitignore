@@ -47,3 +47,12 @@ data/membership_snapshot.json
 # Regenerable continuous warm-up progress (rebuilt by the scheduler at runtime)
 data/warmup_progress.json
 trade.txt
+
+# Milestone 5 local lakehouse: market datasets, financial records, model artifacts,
+# and the DuckDB catalog are NEVER committed to Git (data/credentials/models stay local).
+data/lakehouse/
+*.parquet
+*.duckdb
+*.duckdb.wal
+models/
+data/model_registry/
