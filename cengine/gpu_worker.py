@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any
 
+from cengine.metal_backend import discover_metallib
 from cengine.metal_indicators import MetalIndicators
 from cengine.metal_runtime import MetalRuntime
 
@@ -18,12 +19,49 @@ MAX_BODY_BYTES = 2 * 1024 * 1024
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LIBRARY = PROJECT_ROOT / "build" / "cengine.metallib"
 
-LIBRARY = Path(
-    os.environ.get("CENGINE_METAL_LIBRARY", str(DEFAULT_LIBRARY))
-).resolve()
+# Metal runtime is created lazily (on first request / server start), NOT at import time:
+# importing this worker must never crash in a CPU-only or un-built environment, and the library
+# path is resolved through the authoritative `discover_metallib()` (metallib installed beside
+# the native extension, then build*/), falling back to the explicit env/DEFAULT only if
+# discovery finds nothing. This fixes a hard-coded `build/cengine.metallib` import-time load.
+_runtime: MetalRuntime | None = None
+_gpu: MetalIndicators | None = None
+_library: Path | None = None
 
-runtime = MetalRuntime(LIBRARY)
-gpu = MetalIndicators(runtime)
+
+def resolve_library() -> Path:
+    """Resolve the metallib path (env override > discovery > DEFAULT)."""
+    env = os.environ.get("CENGINE_METAL_LIBRARY", "").strip()
+    if env:
+        return Path(env).resolve()
+    found = discover_metallib()
+    return Path(found).resolve() if found else DEFAULT_LIBRARY.resolve()
+
+
+def _ensure() -> None:
+    global _runtime, _gpu, _library
+    if _runtime is None:
+        _library = resolve_library()
+        _runtime = MetalRuntime(_library)
+        _gpu = MetalIndicators(_runtime)
+
+
+def get_runtime() -> MetalRuntime:
+    _ensure()
+    assert _runtime is not None
+    return _runtime
+
+
+def get_gpu() -> MetalIndicators:
+    _ensure()
+    assert _gpu is not None
+    return _gpu
+
+
+def get_library() -> Path:
+    _ensure()
+    assert _library is not None
+    return _library
 
 
 def require_int_list(value: Any, name: str) -> list[int]:
@@ -96,8 +134,8 @@ class Handler(BaseHTTPRequestHandler):
             {
                 "status": "ok",
                 "backend": "metal",
-                "device": runtime.device.name(),
-                "library": LIBRARY.name,
+                "device": get_runtime().device.name(),
+                "library": get_library().name,
             },
         )
 
@@ -109,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
                 prices = require_int_list(payload.get("prices"), "prices")
                 window = require_int(payload.get("window"), "window")
 
-                result = gpu.sma(prices, window)
+                result = get_gpu().sma(prices, window)
 
             elif self.path == "/v1/indicators/ema":
                 prices = require_int_list(payload.get("prices"), "prices")
@@ -122,7 +160,7 @@ class Handler(BaseHTTPRequestHandler):
                     "alpha_denominator",
                 )
 
-                result = gpu.ema(
+                result = get_gpu().ema(
                     prices,
                     numerator,
                     denominator,
@@ -132,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
                 fast = require_int_list(payload.get("fast_ema"), "fast_ema")
                 slow = require_int_list(payload.get("slow_ema"), "slow_ema")
 
-                result = gpu.apo(fast, slow)
+                result = get_gpu().apo(fast, slow)
 
             elif self.path == "/v1/indicators/true-range":
                 highs = require_int_list(payload.get("highs"), "highs")
@@ -142,7 +180,7 @@ class Handler(BaseHTTPRequestHandler):
                     "previous_closes",
                 )
 
-                result = gpu.true_range(
+                result = get_gpu().true_range(
                     highs,
                     lows,
                     previous,
@@ -187,8 +225,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    print(f"Metal device: {runtime.device.name()}")
-    print(f"Metal library: {LIBRARY}")
+    print(f"Metal device: {get_runtime().device.name()}")
+    print(f"Metal library: {get_library()}")
     print(f"GPU worker: http://{HOST}:{PORT}")
     print("Localhost only")
 
