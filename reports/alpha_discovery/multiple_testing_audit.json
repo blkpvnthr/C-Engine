@@ -1,0 +1,18 @@
+{
+  "development_experiment_families": {
+    "entry_quality_filter_scans": "11 features x 8 thresholds x 2 directions",
+    "multi_timeframe_gates": 5,
+    "regime_buckets": "~9",
+    "strategy_family_archetypes": 5,
+    "supervised_models": 4,
+    "bandit_contexts": "regime x family"
+  },
+  "approx_total_development_comparisons": 400,
+  "selection_bias_warning": "the best figure among many development comparisons is optimistic; no best-of-search configuration is described as certified. A Bonferroni-style correction would widen every development confidence interval substantially.",
+  "data_snooping_controls": [
+    "chronological TRAIN/VAL splits (no future leakage)",
+    "thresholds fit on TRAIN, measured on VAL",
+    "sealed M7 holdout never accessed",
+    "fresh cohort reserved; single pre-registered incumbent test only"
+  ]
+}

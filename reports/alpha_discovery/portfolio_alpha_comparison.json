@@ -1,0 +1,43 @@
+{
+  "version": "portfolio-alpha-selection-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "SPY",
+    "QQQ"
+  ],
+  "portfolios": {
+    "all_eligible": {
+      "trades_taken": 15000,
+      "total_return": -0.8023,
+      "final_equity": 19768.03,
+      "max_drawdown": 0.8028,
+      "sharpe_annualized": -5.201,
+      "net_expectancy_per_trade": -0.001075
+    },
+    "selective_htf": {
+      "trades_taken": 9478,
+      "total_return": -0.702,
+      "final_equity": 29799.47,
+      "max_drawdown": 0.7021,
+      "sharpe_annualized": -4.544,
+      "net_expectancy_per_trade": -0.001271
+    },
+    "cash_no_trade": {
+      "trades_taken": 0,
+      "total_return": 0.0,
+      "final_equity": 100000.0,
+      "max_drawdown": 0.0,
+      "sharpe_annualized": 0.0,
+      "net_expectancy_per_trade": 0.0
+    }
+  },
+  "best_policy_by_total_return": "cash_no_trade",
+  "cash_dominates_active": true,
+  "no_trade_is_valid_decision": true,
+  "conclusion": "Cash (NO_TRADE) DOMINATES the active policies: all_eligible -80.2%, selective_htf -70.2%, cash +0.0%. Deploying capital into these negative-edge entries destroys capital versus holding cash \u2014 NO_TRADE is the correct portfolio decision here.",
+  "note": "capital-constrained portfolio comparison on genuine bars; cash is an explicit baseline; simulated, not live, no profitability claim"
+}

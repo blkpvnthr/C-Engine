@@ -1,0 +1,54 @@
+{
+  "version": "protective-exit-research-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "production_exit_preserved": true,
+  "emergency_3pct_candidate_active": false,
+  "entry_selectivity_vs_stop_frequency": {
+    "all_entries": {
+      "stop_out_fraction": 0.4567,
+      "net_expectancy": -0.001075,
+      "n": 15000
+    },
+    "selective_entries": {
+      "stop_out_fraction": 0.4442,
+      "net_expectancy": -0.001157,
+      "n": 9449
+    },
+    "selectivity_reduces_stop_frequency": true
+  },
+  "alternative_stop_counterfactuals_isolated": {
+    "stop_0.0050": {
+      "stop_out_fraction": 0.4567,
+      "net_expectancy": -0.001075,
+      "is_production": true,
+      "isolated_counterfactual": false
+    },
+    "stop_0.0075": {
+      "stop_out_fraction": 0.2976,
+      "net_expectancy": -0.001041,
+      "is_production": false,
+      "isolated_counterfactual": true
+    },
+    "stop_0.0100": {
+      "stop_out_fraction": 0.1991,
+      "net_expectancy": -0.000996,
+      "is_production": false,
+      "isolated_counterfactual": true
+    },
+    "stop_0.0150": {
+      "stop_out_fraction": 0.0993,
+      "net_expectancy": -0.000966,
+      "is_production": false,
+      "isolated_counterfactual": true
+    },
+    "stop_0.0200": {
+      "stop_out_fraction": 0.0554,
+      "net_expectancy": -0.000897,
+      "is_production": false,
+      "isolated_counterfactual": true
+    }
+  },
+  "conclusion": "entry selectivity reduces the stop-out rate 45.7%->44.4% (expectancy -0.00108->-0.00116); best isolated hard stop 'stop_0.0200' expectancy -0.00090 (still negative); production protection unchanged; no auto-modification.",
+  "note": "production \u22120.5% exit + event-driven path + 5s backstop UNCHANGED; \u22123% candidate inactive; alternative stops are isolated counterfactuals; simulated, not live"
+}
