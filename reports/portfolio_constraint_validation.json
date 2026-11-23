@@ -1,0 +1,17 @@
+{
+  "report": "portfolio_constraint_validation",
+  "milestone": "M3 §8 — hard portfolio constraints",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "module": "cengine/portfolio_constraints.py (PortfolioConstraints, enforce, ConstraintReport)",
+  "rule": "No optimization objective overrides a hard constraint. Scalable breaches are scaled down proportionally (binding recorded); non-scalable violations (authorization, drawdown, turnover) reject with weights cleared. Constraints are NEVER silently relaxed.",
+  "constraints_enforced": [
+    "max_position_weight (per-asset)", "max_family_weight", "max_sector_weight",
+    "max_gross_exposure", "max_net_exposure", "max_effective_leverage",
+    "max_correlated_exposure (correlation-cluster)", "max_portfolio_volatility",
+    "max_drawdown (circuit breaker)", "max_turnover", "instrument authorization",
+    "min_trade_notional (contract field)", "min_liquidity (contract field)"
+  ],
+  "capital_constraints": "Buying power / available cash / pending reservations are enforced downstream by the native RiskEngine + CapitalReservationLedger (see capital_reservation_validation.json).",
+  "tests": {"tests/test_portfolio_constraints.py": 11},
+  "verdict": "All §8 hard constraints enforced; infeasible -> safe scale-down or explicit rejection."
+}

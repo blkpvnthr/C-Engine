@@ -1,0 +1,259 @@
+{
+  "report": "gpu_portfolio_benchmarks",
+  "milestone": "M3 \u00a720 \u2014 GPU portfolio performance certification",
+  "device": "Apple M5 Max",
+  "metallib": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
+  "observations_per_matrix": 120,
+  "repeats": 20,
+  "candidate_sizes": [
+    1,
+    8,
+    16,
+    30,
+    64,
+    128,
+    256,
+    500,
+    1000,
+    2000,
+    4096
+  ],
+  "kernel": "covariance_matrix (+ column_means) \u2014 operationally consumed",
+  "results": [
+    {
+      "assets": 1,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.0086,
+        "p95_ms": 0.0751,
+        "p99_ms": 0.0751,
+        "min_ms": 0.0071,
+        "max_ms": 0.0751
+      },
+      "max_abs_parity_diff": 2.1140271458841738e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.5055,
+        "p95_ms": 21.4212,
+        "p99_ms": 21.4212,
+        "min_ms": 0.3707,
+        "max_ms": 21.4212
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 8,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.0098,
+        "p95_ms": 0.4583,
+        "p99_ms": 0.4583,
+        "min_ms": 0.0092,
+        "max_ms": 0.4583
+      },
+      "max_abs_parity_diff": 4.547162432287817e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.4509,
+        "p95_ms": 0.964,
+        "p99_ms": 0.964,
+        "min_ms": 0.3425,
+        "max_ms": 0.964
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 16,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.0099,
+        "p95_ms": 0.0318,
+        "p99_ms": 0.0318,
+        "min_ms": 0.0096,
+        "max_ms": 0.0318
+      },
+      "max_abs_parity_diff": 3.8031029443285486e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.4192,
+        "p95_ms": 0.6806,
+        "p99_ms": 0.6806,
+        "min_ms": 0.3708,
+        "max_ms": 0.6806
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 30,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.0122,
+        "p95_ms": 0.0482,
+        "p99_ms": 0.0482,
+        "min_ms": 0.0118,
+        "max_ms": 0.0482
+      },
+      "max_abs_parity_diff": 5.823048312525274e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.5098,
+        "p95_ms": 0.6121,
+        "p99_ms": 0.6121,
+        "min_ms": 0.4313,
+        "max_ms": 0.6121
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 64,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.0172,
+        "p95_ms": 0.0414,
+        "p99_ms": 0.0414,
+        "min_ms": 0.0166,
+        "max_ms": 0.0414
+      },
+      "max_abs_parity_diff": 4.2645199790089863e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.5124,
+        "p95_ms": 0.5798,
+        "p99_ms": 0.5798,
+        "min_ms": 0.4122,
+        "max_ms": 0.5798
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 128,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.0291,
+        "p95_ms": 0.0725,
+        "p99_ms": 0.0725,
+        "min_ms": 0.0284,
+        "max_ms": 0.0725
+      },
+      "max_abs_parity_diff": 4.306717677794725e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.5271,
+        "p95_ms": 0.7176,
+        "p99_ms": 0.7176,
+        "min_ms": 0.498,
+        "max_ms": 0.7176
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 256,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.1281,
+        "p95_ms": 0.1685,
+        "p99_ms": 0.1685,
+        "min_ms": 0.1233,
+        "max_ms": 0.1685
+      },
+      "max_abs_parity_diff": 5.0602984991285e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 0.8728,
+        "p95_ms": 1.225,
+        "p99_ms": 1.225,
+        "min_ms": 0.8089,
+        "max_ms": 1.225
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 500,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.1989,
+        "p95_ms": 0.33,
+        "p99_ms": 0.33,
+        "min_ms": 0.1913,
+        "max_ms": 0.33
+      },
+      "max_abs_parity_diff": 5.888599991735882e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 2.9827,
+        "p95_ms": 4.4466,
+        "p99_ms": 4.4466,
+        "min_ms": 2.2614,
+        "max_ms": 4.4466
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 1000,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 0.7063,
+        "p95_ms": 4.5998,
+        "p99_ms": 4.5998,
+        "min_ms": 0.667,
+        "max_ms": 4.5998
+      },
+      "max_abs_parity_diff": 6.853640852272965e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 12.6061,
+        "p95_ms": 15.6337,
+        "p99_ms": 15.6337,
+        "min_ms": 11.2508,
+        "max_ms": 15.6337
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 2000,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 3.8286,
+        "p95_ms": 8.9574,
+        "p99_ms": 8.9574,
+        "min_ms": 3.6265,
+        "max_ms": 8.9574
+      },
+      "max_abs_parity_diff": 6.175787306680544e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 51.1416,
+        "p95_ms": 76.07,
+        "p99_ms": 76.07,
+        "min_ms": 40.6183,
+        "max_ms": 76.07
+      },
+      "gpu_faster": false
+    },
+    {
+      "assets": 4096,
+      "observations": 120,
+      "cpu": {
+        "p50_ms": 50.8939,
+        "p95_ms": 83.9944,
+        "p99_ms": 83.9944,
+        "min_ms": 49.0461,
+        "max_ms": 83.9944
+      },
+      "max_abs_parity_diff": 6.979987154400163e-11,
+      "gpu_available": true,
+      "gpu": {
+        "p50_ms": 193.3752,
+        "p95_ms": 284.9841,
+        "p99_ms": 284.9841,
+        "min_ms": 155.9445,
+        "max_ms": 284.9841
+      },
+      "gpu_faster": false
+    }
+  ],
+  "cpu_gpu_crossover_assets": null,
+  "crossover_policy": "GPU did not beat CPU at the tested sizes for this deterministic (non-parallel-reduction) kernel; covariance stays on CPU for typical candidate sets. The kernel remains available + parity-validated; crossover may shift with a parallel-reduction covariance implementation (future increment).",
+  "scope_note": "Covariance is sized to the CANDIDATE set (instruments that can enter the portfolio), never the full discovery universe.",
+  "max_parity_diff_overall": 6.979987154400163e-11
+}

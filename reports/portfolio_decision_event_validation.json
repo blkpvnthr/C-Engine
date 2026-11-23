@@ -1,0 +1,21 @@
+{
+  "report": "portfolio_decision_event_validation",
+  "milestone": "M3 §18 — portfolio decision evidence",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "schema_version": "decision-events-1.0.0",
+  "added_event_types": ["PORTFOLIO_STATE", "PORTFOLIO_OPTIMIZATION", "PORTFOLIO_RECOMMENDATION",
+                        "PORTFOLIO_CONSTRAINT_BINDING", "CAPITAL_RESERVATION", "REPLACEMENT_DECISION"],
+  "added_emitters": ["record_portfolio_state", "record_portfolio_optimization",
+                     "record_portfolio_recommendation", "record_capital_reservation",
+                     "record_replacement_decision"],
+  "captured": ["portfolio state before decisions", "optimization inputs/policy/covariance version",
+               "return-estimation methodology (return_basis)", "target allocations + binding constraints",
+               "rejected allocations", "capital reservations (accepted/reason)", "replacement decisions",
+               "order intents / acks / partial + complete fills (via composed audit handler)",
+               "realized execution costs (fill prices)"],
+  "linkage": "portfolio_decision_id links PORTFOLIO_RECOMMENDATION -> CAPITAL_RESERVATION -> ORDER_INTENT -> RISK_APPROVAL -> BROKER_ACK -> PARTIAL/COMPLETE_FILL via correlation_id; source_strategy_decision_id links to the originating strategy decision.",
+  "recoverability": "Nonblocking bounded sink; execution events also recoverable from the authoritative journal; events_from_rows round-trips the new portfolio event types.",
+  "ml_rl_readiness": "Events flat-serialize (to_row) for the later Parquet/DuckDB platform (not built here).",
+  "tests": {"tests/test_portfolio_decision_events.py": 7},
+  "verdict": "Portfolio allocation decisions are linked to execution outcomes and recoverable."
+}

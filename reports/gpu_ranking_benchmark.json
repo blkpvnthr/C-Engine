@@ -1,35 +1,35 @@
 {
-  "recorded_utc": "2026-11-22T21:16:08.622755+00:00",
+  "recorded_utc": "2026-11-23T02:03:04.375159+00:00",
   "device": "Apple M5 Max",
   "note": "rank_candidates scoring-kernel latency (host->device->host, pipeline cached) vs the native CPU oracle, mean of 20 runs. Sort/top-K excluded (host step). For small N the CPU oracle wins (dispatch overhead); GPU scales flat \u2014 informs the CPU/GPU crossover (directive \u00a74/\u00a77).",
   "by_candidate_count": {
     "30": {
-      "gpu_ms": 0.2772,
-      "cpu_oracle_ms": 0.0037
+      "gpu_ms": 0.3423,
+      "cpu_oracle_ms": 0.0041
     },
     "128": {
-      "gpu_ms": 0.251,
-      "cpu_oracle_ms": 0.0151
+      "gpu_ms": 0.1515,
+      "cpu_oracle_ms": 0.0154
     },
     "256": {
-      "gpu_ms": 0.2491,
-      "cpu_oracle_ms": 0.0295
+      "gpu_ms": 0.1848,
+      "cpu_oracle_ms": 0.0287
     },
     "500": {
-      "gpu_ms": 0.2056,
-      "cpu_oracle_ms": 0.0568
+      "gpu_ms": 0.2108,
+      "cpu_oracle_ms": 0.0574
     },
     "1000": {
-      "gpu_ms": 0.2562,
-      "cpu_oracle_ms": 0.1145
+      "gpu_ms": 0.2523,
+      "cpu_oracle_ms": 0.113
     },
     "2000": {
-      "gpu_ms": 0.3633,
-      "cpu_oracle_ms": 0.2253
+      "gpu_ms": 0.3722,
+      "cpu_oracle_ms": 0.2247
     },
     "4096": {
-      "gpu_ms": 0.6287,
-      "cpu_oracle_ms": 0.4702
+      "gpu_ms": 0.6177,
+      "cpu_oracle_ms": 0.4737
     }
   }
 }

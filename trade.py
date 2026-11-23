@@ -539,6 +539,7 @@ class MarketEngine:
         on_decision: Optional[Callable[["DecisionReport"], None]] = None,
         on_metrics: Optional[Callable[[PortfolioMetrics], None]] = None,
         on_order_event: Optional[Callable[[str, ManagedOrder], None]] = None,
+        on_portfolio: Optional[Callable[[object, dict], None]] = None,
     ) -> None:
         config.validate()
         self.config = config
@@ -550,6 +551,8 @@ class MarketEngine:
         self._on_decision = on_decision
         self._on_metrics = on_metrics
         self._on_order_event = on_order_event
+        self._on_portfolio = on_portfolio
+        self._last_portfolio_state = None
         self.state = EngineStateMachine()
         self.nosql_journal = MongoDailyJournalStore(
             config.mongodb_uri,
@@ -1027,6 +1030,80 @@ class MarketEngine:
                 LOGGER.warning("strategy execution bridge unavailable: %s", exc)
                 self._exec_bridge = None
 
+        # GPU portfolio intelligence (Milestone 3, §17): optimizer -> capital
+        # reservation -> existing CandidateRouter -> native RiskEngine -> OrderManager.
+        # Default authorization NONE -> advisory (emits portfolio state + evidence,
+        # routes nothing). Routing requires CENGINE_PORTFOLIO_EXECUTION_AUTH!=none
+        # AND sufficient observed return history. Creates no parallel authority:
+        # routes through the SAME OrderManager. Fail-safe; never blocks startup.
+        self._portfolio_pipeline = None
+        self._portfolio_returns: dict[str, dict[int, float]] = {}
+        self._portfolio_last_price: dict[str, int] = {}
+        self._portfolio_state_builder = None
+        self._portfolio_audit_handler = None
+        if self._regime_pipeline is not None:
+            try:
+                from cengine.capital_reservation import CapitalReservationLedger
+                from cengine.portfolio_analytics import PortfolioAnalytics
+                from cengine.portfolio_optimizer import OptimizerConfig, PortfolioOptimizer
+                from cengine.portfolio_pipeline import (
+                    PortfolioPipeline,
+                    PortfolioQuantityPolicy,
+                )
+                from cengine.portfolio_state import PortfolioStateBuilder
+                from cengine.strategy_maturity import ExecutionAuthorization
+
+                pf_auth = {
+                    "none": ExecutionAuthorization.NONE, "mock": ExecutionAuthorization.MOCK,
+                    "paper": ExecutionAuthorization.PAPER, "live": ExecutionAuthorization.LIVE,
+                }.get(os.environ.get("CENGINE_PORTFOLIO_EXECUTION_AUTH", "none").lower(),
+                      ExecutionAuthorization.NONE)
+                rstate = getattr(self._adapter_module, "STATE", None)
+                if rstate is not None:
+                    exposure_info = (self._exposure_registry.get
+                                     if self._exposure_registry is not None else None)
+                    self._portfolio_state_builder = PortfolioStateBuilder(
+                        account=rstate.account, positions=rstate.positions,
+                        reservations=rstate.reservations, price_ticks=rstate.price_ticks,
+                        exposure_info=exposure_info)
+                    runtime = None
+                    try:  # reuse the native Metal runtime for GPU covariance if present
+                        runtime = getattr(self._gpu_discovery.provider, "_runtime", None)
+                    except Exception:  # noqa: BLE001
+                        runtime = None
+                    analytics = PortfolioAnalytics(runtime=runtime, ridge=1e-8)
+                    pf_qpol = PortfolioQuantityPolicy()
+                    pf_router = CandidateRouter(
+                        order_manager=self.order_manager, entry_quantity_policy=pf_qpol,
+                        exit_quantity_provider=pf_qpol,
+                        execution_policy=self._portfolio_execution_policy(),
+                        strategy_state=self.strategy_state,
+                        exposure_authorizer=(
+                            self._exposure_registry.authorize_entry
+                            if self._exposure_registry is not None else None))
+                    ledger = CapitalReservationLedger(risk_reservations=rstate.reservations)
+                    self._portfolio_pipeline = PortfolioPipeline(
+                        router=pf_router, quantity_policy=pf_qpol,
+                        optimizer=PortfolioOptimizer(OptimizerConfig(), analytics=analytics),
+                        analytics=analytics, reservation_ledger=ledger,
+                        sink=self._regime_pipeline.sink, authorization=pf_auth)
+                    # Emit portfolio ack/fill/risk evidence, attributed by correlation
+                    # id -> portfolio_decision_id, composed onto the audit chain.
+                    from cengine.strategy_execution_bridge import make_decision_audit_handler
+                    self._portfolio_audit_handler = make_decision_audit_handler(
+                        self._regime_pipeline.sink, self._portfolio_pipeline.correlation_index)
+                    LOGGER.info(
+                        "portfolio intelligence active (authorization=%s; advisory until "
+                        "return history accrues; routes via existing authority)",
+                        pf_auth.value)
+            except Exception as exc:  # noqa: BLE001 — must never block startup
+                LOGGER.warning("portfolio intelligence unavailable: %s", exc)
+                self._portfolio_pipeline = None
+
+    @staticmethod
+    def _portfolio_execution_policy():
+        return ConfiguredExecutionPolicy(OrderType.MARKET, TimeInForce.DAY)
+
     def _exposure_opposing_fn(self):
         """Pairwise opposing-exposure predicate from the exposure registry: two
         symbols oppose if they share an underlying exposure group with opposite
@@ -1115,7 +1192,78 @@ class MarketEngine:
                 out["bridge"] = bo
             except Exception as exc:  # noqa: BLE001 — bridge must never kill the loop
                 LOGGER.warning("exec bridge route failed: %s", exc)
+        # Portfolio intelligence pass (default advisory): emit portfolio state +
+        # evidence; route only when authorized AND enough observed return history.
+        if self._portfolio_pipeline is not None:
+            try:
+                await self._portfolio_tick(rows, now_ns)
+            except Exception as exc:  # noqa: BLE001 — portfolio must never kill the loop
+                LOGGER.warning("portfolio tick failed: %s", exc)
         return out
+
+    async def _portfolio_tick(self, rows: dict, now_ns: int) -> None:
+        """Update observed returns, build + emit portfolio state, and (when
+        authorized with sufficient history) run the portfolio optimizer -> reservation
+        -> existing execution authority. Never fabricates returns."""
+        min_obs = int(os.environ.get("CENGINE_PORTFOLIO_MIN_OBS", "20"))
+        window = int(os.environ.get("CENGINE_PORTFOLIO_RETURN_WINDOW", "120"))
+        # candidate universe = non-benchmark screen rows with a valid price
+        refs = {"SPY", "QQQ", "DIA", "IWM"}
+        candidates = []
+        for sym, row in rows.items():
+            price = getattr(row, "price", None) if not isinstance(row, dict) else row.get("price")
+            if sym in refs or not price or price <= 0:
+                continue
+            candidates.append(sym)
+            ticks = int(round(float(price) * 10_000))
+            prev = self._portfolio_last_price.get(sym)
+            if prev and prev > 0:
+                ret = (ticks - prev) / prev
+                series = self._portfolio_returns.setdefault(sym, {})
+                series[now_ns] = float(ret)
+                if len(series) > window:  # bound memory: keep the most recent window
+                    for ts in sorted(series)[:-window]:
+                        series.pop(ts, None)
+            self._portfolio_last_price[sym] = ticks
+
+        state = self._portfolio_state_builder.build(now_ns=now_ns) \
+            if self._portfolio_state_builder is not None else None
+        if state is None:
+            return
+        # Build + emit state evidence always (advisory telemetry).
+        self._regime_pipeline.sink.record_portfolio_state(state, now_ns)
+        self._last_portfolio_state = state
+
+        symbols = tuple(s for s in candidates if len(self._portfolio_returns.get(s, {})) >= min_obs)
+        if not symbols:
+            if self._on_portfolio is not None:
+                self._on_portfolio(state, {"allocation_policy": "warming_up"})
+            return
+        returns_by_symbol = {s: dict(self._portfolio_returns[s]) for s in symbols}
+        authorized_fn = (self._exposure_registry.authorize_entry
+                         if self._exposure_registry is not None else None)
+
+        def _authorized(sym: str) -> bool:
+            if authorized_fn is None:
+                return True
+            ok, _ = authorized_fn(sym)
+            return ok
+
+        res = await self._portfolio_pipeline.run(
+            symbols=symbols, returns_by_symbol=returns_by_symbol, state=state,
+            now_ns=now_ns, price_ticks=self._adapter_module.STATE.price_ticks,
+            authorized=_authorized)
+        if res.routed or res.reserved:
+            LOGGER.warning("portfolio: policy=%s cov=%s reserved=%d routed=%d skipped=%d",
+                           res.allocation_policy, res.covariance_source,
+                           res.reserved, res.routed, res.skipped)
+        if self._on_portfolio is not None:
+            binding = sorted({c for r in res.recommendations for c in r.binding_constraints})
+            self._on_portfolio(state, {
+                "allocation_policy": res.allocation_policy,
+                "covariance_source": res.covariance_source,
+                "binding_constraints": binding,
+                "reserved": res.reserved, "routed": res.routed})
 
     def _warmup_priority_inputs(self) -> dict:
         """Priority groups for the warm-up scheduler: positions and pending orders
@@ -1733,6 +1881,12 @@ class MarketEngine:
                 bridge_audit(event, order)
             except Exception:  # noqa: BLE001 — evidence must never block the order path
                 pass
+        portfolio_audit = getattr(self, "_portfolio_audit_handler", None)
+        if portfolio_audit is not None:
+            try:
+                portfolio_audit(event, order)
+            except Exception:  # noqa: BLE001 — evidence must never block the order path
+                pass
         self.journal.append(
             "order_event",
             max(order.last_event_ns, time.time_ns()),
@@ -1987,6 +2141,27 @@ class ConsoleDecisionStream:
             f"intraday_pnl={_fmt_usd(metrics.intraday_pnl_ticks)} "
             f"positions={metrics.position_count} open_orders={metrics.open_order_count} "
             f"drawdown={metrics.drawdown_bps}bps",
+        )
+
+    def on_portfolio(self, state, extra: Optional[dict] = None) -> None:
+        """Non-blocking portfolio panel (Milestone 3, §19). ``extra`` carries
+        optimizer status / covariance freshness / binding constraints when available;
+        unavailable metrics are shown as n/a rather than fabricated."""
+        extra = extra or {}
+        self._emit(
+            "PORTFOLIO",
+            f"equity={_fmt_usd(state.account_equity_ticks)} "
+            f"avail_cash={_fmt_usd(state.available_cash_ticks)} "
+            f"reserved={_fmt_usd(state.reserved_capital_ticks)} "
+            f"gross_exp={_fmt_usd(state.gross_exposure_ticks)} "
+            f"net_exp={_fmt_usd(state.net_exposure_ticks)} "
+            f"eff_exp={_fmt_usd(state.effective_exposure_ticks)} "
+            f"drawdown={state.drawdown_bps}bps "
+            f"recon={state.reconciliation_status.value} "
+            f"optimizer={extra.get('allocation_policy', 'n/a')} "
+            f"cov={extra.get('covariance_source', 'n/a')} "
+            f"binding={','.join(extra.get('binding_constraints', [])) or 'none'} "
+            f"reserved_n={extra.get('reserved', 0)} routed={extra.get('routed', 0)}",
         )
 
 
@@ -2247,6 +2422,7 @@ async def run_engine(
     on_decision: Optional[Callable[["DecisionReport"], None]] = None,
     on_metrics: Optional[Callable[[PortfolioMetrics], None]] = None,
     on_order_event: Optional[Callable[[str, ManagedOrder], None]] = None,
+    on_portfolio: Optional[Callable[[object, dict], None]] = None,
 ) -> None:
     """Programmatic activation entry point.
 
@@ -2264,6 +2440,7 @@ async def run_engine(
         on_decision=on_decision,
         on_metrics=on_metrics,
         on_order_event=on_order_event,
+        on_portfolio=on_portfolio,
     )
 
     loop = asyncio.get_running_loop()
@@ -2429,6 +2606,7 @@ def _engine_composition_root() -> None:
                 on_decision=stream.on_decision,
                 on_metrics=stream.on_metrics,
                 on_order_event=stream.on_order_event,
+                on_portfolio=stream.on_portfolio,
             )
         )
     except KeyboardInterrupt:

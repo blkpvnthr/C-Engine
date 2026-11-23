@@ -1,0 +1,62 @@
+{
+  "report": "portfolio_economic_comparison",
+  "milestone": "M3 \u00a721 \u2014 allocation policy comparison",
+  "data_source": "SYNTHETIC (seeded multi-regime generator) \u2014 LABELED, NOT real market data",
+  "scope_honesty": "Methodology + relative-behavior comparison only. This is NOT an economic-edge claim. Genuine historical / walk-forward / OOS and SIP-vs-IEX validation on real bars is DEFERRED (data/session-gated) and must not be conflated with these synthetic runs.",
+  "config": {
+    "assets": 8,
+    "periods": 1000,
+    "lookback": 120,
+    "rebalance_every": 20,
+    "cost_bps": 5.0,
+    "per_asset_cap": 0.3,
+    "gross_cap": 1.0
+  },
+  "policies": {
+    "equal_weight": {
+      "available": true,
+      "net_mean_daily": 0.00033943,
+      "net_vol_daily": 0.01369339,
+      "net_sharpe_annualized": 0.3935,
+      "sortino_annualized": 0.6049,
+      "max_drawdown": 0.297,
+      "total_turnover": 1.0,
+      "total_cost_fraction": 0.0005,
+      "final_equity_multiple": 1.2413
+    },
+    "inverse_volatility": {
+      "available": true,
+      "net_mean_daily": 0.00037322,
+      "net_vol_daily": 0.01340874,
+      "net_sharpe_annualized": 0.4419,
+      "sortino_annualized": 0.6813,
+      "max_drawdown": 0.2912,
+      "total_turnover": 2.2097,
+      "total_cost_fraction": 0.001105,
+      "final_equity_multiple": 1.2832
+    },
+    "native_risk_based": {
+      "available": true,
+      "net_mean_daily": 0.00037322,
+      "net_vol_daily": 0.01340874,
+      "net_sharpe_annualized": 0.4419,
+      "sortino_annualized": 0.6813,
+      "max_drawdown": 0.2912,
+      "total_turnover": 2.2097,
+      "total_cost_fraction": 0.001105,
+      "final_equity_multiple": 1.2832
+    },
+    "mean_variance_cvxpy": {
+      "available": true,
+      "net_mean_daily": 4.416e-05,
+      "net_vol_daily": 0.0120614,
+      "net_sharpe_annualized": 0.0581,
+      "sortino_annualized": 0.0849,
+      "max_drawdown": 0.3043,
+      "total_turnover": 16.7929,
+      "total_cost_fraction": 0.008396,
+      "final_equity_multiple": 0.9753
+    }
+  },
+  "note": "Fixed market-data subscription cost (Alpaca Algo Trader Plus, $99/mo) is an account-level cost measured separately; it is not amortized into these per-strategy synthetic returns."
+}

@@ -1,0 +1,16 @@
+{
+  "report": "portfolio_optimizer_validation",
+  "milestone": "M3 §7/§10/§11 — constrained optimization + recommendation contract",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "policies": {
+    "mean_variance": "cengine/portfolio_optimization.RegimeMarkowitzAllocator (CVXPY 1.9.3) when reliable expected returns are supplied",
+    "risk_based": "native C++ _cengine_native.allocate_risk_based (inverse-vol + constraint projection) when reliable returns absent (§7 deterministic fallback)",
+    "numpy_fallback": "pure-numpy inverse-vol when native unavailable"
+  },
+  "native_optimization": "risk/portfolio_allocator.cpp (bound via bindings/portfolio_bindings.cpp): portfolio_variance/marginal_variance/risk_contributions/inverse_volatility_weights/project_long_only_capped/allocate_risk_based. CPU parity vs numpy ~1e-19 (portfolio variance), inverse-vol exact.",
+  "no_fabrication": "Heuristic strategy scores are NEVER converted to expected returns; expected_incremental_net_return stays None when uncalibrated; return_basis labeled deterministic_risk_based vs calibrated_mean_variance.",
+  "recommendation_contract": "cengine/portfolio_optimizer.PortfolioRecommendation (§11): all fields incl. portfolio/optimizer/configuration versions, source_strategy_decision_id linkage, target/current weight, requested qty/notional, capital_required, expected risk contribution, binding constraints, eligibility, rejection_reason.",
+  "sizing": "target_weight*equity/price -> requested_quantity (fractional only when allow_fractional); revalidated against native risk at order time.",
+  "tests": {"tests/test_portfolio_optimizer.py": 8, "tests/test_portfolio_allocator_native.py": 11},
+  "verdict": "Native + CVXPY optimization generate valid constrained allocations; recommendation contract complete."
+}

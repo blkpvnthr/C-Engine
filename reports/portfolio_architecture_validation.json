@@ -1,0 +1,53 @@
+{
+  "report": "portfolio_architecture_validation",
+  "milestone": "M3 — GPU-accelerated portfolio intelligence (directive §2 audit)",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "baseline": {"main_merge": "72f07e3", "tests": 549, "ruff": "clean", "metal_kernels": 50,
+               "cvxpy": "1.9.3 (installed — mean-variance path live)", "numpy": "2.4.6"},
+  "existing_reusable_components": {
+    "RegimeMarkowitzAllocator": "cengine/portfolio_optimization.py — CVXPY mean-variance (regime-tilted), AllocationConstraints{gross,per_asset,risk_aversion}, PortfolioRiskManager.validate. WIRED: no (tests only). REUSE as the mean-variance optimizer.",
+    "covariance_from_returns": "cengine/metal_portfolio.py — GPU covariance (Metal) with CPU fallback, symmetrized + ridge-regularized PSD. REUSE as the covariance seam.",
+    "MetalCovariance": "cengine/metal_covariance.py — column_means+covariance_matrix+ewma_covariance_matrix via MetalBackend.dispatch (PyObjC). Also native typed MetalRuntime.covariance_matrix/ewma_covariance_matrix/column_means (pybind).",
+    "PortfolioMetricsCollector": "cengine/metrics.py — equity/cash/buying_power/gross+net exposure/reserved/drawdown(HWM)/intraday PnL. WIRED (MarketEngine.metrics). EXTEND into versioned PortfolioState.",
+    "RiskReservationBook": "cengine/reservations.py — reserve/release/projected_position/gross_notional, idempotent-by-key. WIRED (native risk path). EXTEND into capital-reservation ledger.",
+    "RuntimeState (STATE)": "native_adapters.py — account+positions+quotes+trades+reservations aggregate. The de-facto portfolio-state root.",
+    "VolatilityScaledQuantityPolicy": "trade.py — ATR + buying-power bounded sizing. REUSE for target-weight->quantity.",
+    "exposure math": "cengine/exposure_registry.py — effective_exposure(mv, target_daily_leverage), detect_opposing, detect_overlap, ExposureInfo.target_daily_leverage. No portfolio-level signed-leverage aggregator (GAP).",
+    "replacement logic": "market_scan/replacement.py — find_loss_exits, ReplacementEligibility, select_replacement. eligibility_from_features WIRED (scanner); select_replacement/find_loss_exits tests-only. Needs a driving workflow (GAP).",
+    "ProtectiveExitCoordinator": "protective_exit.py — independent -0.5% exit, WIRED. PRESERVE.",
+    "StrategyExecutionBridge": "cengine/strategy_execution_bridge.py — maturity-gated routing to existing authority (M2). REUSE as the execution seam.",
+    "DecisionEventSink": "cengine/decision_events.py — nonblocking bounded evidence + journal recovery (M2). EXTEND with portfolio events.",
+    "ConsoleDecisionStream": "trade.py — non-blocking stdout dashboard (on_metrics). EXTEND with portfolio fields."
+  },
+  "gpu_kernel_status": {
+    "operationally_consumed_5": ["screen_market", "technical_features", "market_breadth",
+                                 "compact_entry_candidates", "rank_candidates"],
+    "host_callable_not_consumed_covariance_3": ["column_means", "covariance_matrix",
+                                                "ewma_covariance_matrix"],
+    "covariance_parity": "native <1e-4, pyobjc <1e-6 vs cengine/metal_cpu_ref; C++ + Python CPU oracles exist",
+    "compiled_unbound_research_31": "monte-carlo (12) + reductions (15) + covariance research (4) — NO pybind binding, NO CPU oracle, NO parity. Generic MetalRuntime.dispatch() is C++-only (not exposed to Python).",
+    "blocked_6": "imbalance.metal depth kernels (L2 unavailable on IEX/L1)",
+    "registry_lever": "KernelRegistry.mark_operationally_consumed(name) is the sole honest flag."
+  },
+  "identified_gaps": [
+    "Covariance kernels host-callable but NOT operationally consumed by any live portfolio calculation — wire + flip flag honestly.",
+    "No versioned PortfolioState aggregate (§4) — build from PortfolioMetrics + reservations + exposure.",
+    "No portfolio-level signed effective-exposure aggregator (§6).",
+    "No native constrained risk-based allocator / portfolio-vol / risk-contribution compute (§3/§7/§25) — add native C++ PortfolioAllocator (complements, does not duplicate, the CVXPY MV optimizer).",
+    "No hard-constraint enforcement layer (§8).",
+    "No capital-reservation ledger across concurrent recommendations with pending exposure + unknown-outcome handling (§16).",
+    "No PortfolioRecommendation contract (§11) nor target-weight->quantity sizing (§10).",
+    "No replacement workflow state machine (§13) — decision logic exists, coordinator does not.",
+    "No portfolio pipeline wiring optimizer->reservation->bridge into the production path (§17).",
+    "No portfolio decision events (§18) nor portfolio dashboard fields (§19)."
+  ],
+  "architecture_decision": {
+    "gpu_consume": "Operationally consume covariance + EWMA covariance (the heavy O(obs*assets^2) work). Correlation, portfolio volatility, risk contributions, scenario losses are cheap linear algebra on the small assets x assets matrix -> CPU/numpy (+ native C++) per measured-crossover; do NOT dispatch tiny ops to GPU.",
+    "mc_reductions": "Monte-carlo/reductions GPU kernels remain compiled-but-unbound; scenario/stress losses computed deterministically on CPU. GPU MC consumption is a tracked future increment (requires pybind bindings) — NOT claimed consumed.",
+    "optimizer": "Reuse CVXPY RegimeMarkowitzAllocator for mean-variance when reliable expected returns are available; add native C++ PortfolioAllocator for the deterministic risk-based fallback (§7) + portfolio volatility + risk contributions + constraint projection (satisfies §3/§25 native optimization without duplicating the MV optimizer).",
+    "no_fabrication": "Heuristic strategy scores are NOT converted to expected returns; absent returns -> risk-based/deterministic policy, explicitly labeled."
+  },
+  "preserve": ["Milestone 1 + 2 functionality", "independent -0.5% protective exit",
+               "strict long-entry contract", "maturity-gated default-advisory behavior",
+               "single OrderManager / UniversePublisher / SIP socket"]
+}

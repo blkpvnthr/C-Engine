@@ -64,6 +64,9 @@ class StrategyName(str, Enum):
     # and order attribution separate from the legacy per-strategy signals. The
     # specific family/version attribution rides in the decision-event evidence.
     REGIME_INTELLIGENCE = "regime_intelligence"
+    # Routing identity for orders originated by the GPU portfolio optimizer
+    # (Milestone 3). Separate pending-guard key + attribution from strategy signals.
+    PORTFOLIO = "portfolio"
 
 
 @dataclass(frozen=True, slots=True)

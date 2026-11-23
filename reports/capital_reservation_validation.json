@@ -1,0 +1,16 @@
+{
+  "report": "capital_reservation_validation",
+  "milestone": "M3 §16 — atomic capital reservation",
+  "branch": "feature/gpu-portfolio-intelligence",
+  "module": "cengine/capital_reservation.py (CapitalReservationLedger), wrapping cengine/reservations.RiskReservationBook",
+  "properties": {
+    "atomic_no_double_spend": "concurrent BUY reservations cannot collectively exceed available capital; the over-budget reservation fails insufficient_capital",
+    "sell_no_consume": "SELL reservations never consume buying power",
+    "idempotent": "re-reserving the same decision_id is a no-op (safe across restarts / duplicate recommendations)",
+    "unknown_outcome_no_release": "mark_unknown keeps capital reserved (never released prematurely)",
+    "terminal_release": "FILLED/REJECTED/CANCELED release capital; SUBMITTED/PARTIAL keep it held",
+    "broker_bridge": "optionally propagates to the native-path RiskReservationBook so downstream native risk sees the same reserved capital"
+  },
+  "tests": {"tests/test_capital_reservation.py": 9},
+  "verdict": "Capital reservations prevent overspending; unknown outcomes never release capital prematurely."
+}
