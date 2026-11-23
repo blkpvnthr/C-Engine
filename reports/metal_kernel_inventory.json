@@ -1,18 +1,18 @@
 {
-  "recorded_utc": "2026-11-23T02:03:04.375159+00:00",
+  "recorded_utc": "2026-11-23T02:38:25.266444+00:00",
   "device": "Apple M5 Max",
   "metallib": "/Users/blkpvnthr/C-engine/.venv/lib/python3.11/site-packages/cengine.metallib",
   "discovered": 50,
   "compiled_callable": 50,
   "host_callable": 12,
-  "consumer_connected": 8,
+  "consumer_connected": 10,
   "intended_consumer": 37,
   "hardware_executed": 12,
   "numerically_validated": 12,
   "benchmarked": 0,
   "blocked": 6,
   "pipeline_coverage_pct": 100,
-  "operational_coverage_pct": 16,
+  "operational_coverage_pct": 20,
   "kernels": [
     {
       "shader_file": "indicators.metal",
@@ -299,7 +299,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "blocker": "structured Cholesky ABI; pipeline not yet wired"
     },
     {
@@ -331,7 +331,7 @@
       "hardware_executed": false,
       "numerically_validated": false,
       "benchmarked": false,
-      "operationally_consumed": false,
+      "operationally_consumed": true,
       "blocker": "multi-stage MC pipeline; not wired"
     },
     {

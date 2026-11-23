@@ -1,0 +1,17 @@
+{
+  "report": "position_management_validation",
+  "milestone": "M4 §12/§13/§14",
+  "module": "cengine/position_management.py",
+  "adaptive_inputs": ["unrealized_return", "MFE", "MAE", "ATR", "realized_vol", "momentum",
+                      "buyer/seller_exhaustion", "VWAP/BB relationships", "holding_duration",
+                      "strategy_invalidation", "effective_exposure"],
+  "profit_protection_policies": ["atr_trailing", "break_even", "momentum_deterioration",
+                                 "time_based", "technical_invalidation"],
+  "policy_default": "RESEARCH/shadow: each policy emits shadow_only actions unless explicitly promoted (MaturityState) AND authorized; never auto-enabled for live.",
+  "exit_arbitration_hierarchy": ["emergency", "mandatory_-0.5pct", "portfolio_risk",
+                                 "profit_protection", "technical_exit", "position_adjust",
+                                 "new_entry", "reallocation"],
+  "mandatory_priority": "ExitArbiter: MANDATORY_PROTECTIVE always outranks every discretionary action; exit+entry conflicts detected and collapsed.",
+  "tests": {"tests/test_position_management.py": 14, "tests/test_execution_exit_independence.py": 4},
+  "verdict": "Discretionary exits distinguished from mandatory; shadow-by-default; mandatory exit always wins."
+}

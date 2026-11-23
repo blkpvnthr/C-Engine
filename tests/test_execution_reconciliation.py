@@ -56,7 +56,7 @@ async def test_full_fill_from_zero() -> None:
     assert update.status is OrderStatus.FILLED
     assert update.cumulative_filled_quantity == 10
     assert update.last_fill_quantity == 10
-    assert update.last_fill_price_ticks == 12345
+    assert update.last_fill_price_ticks == 1_234_500  # $123.45 at scale 10_000
 
 
 async def test_partial_then_full_fill_derives_incremental_price() -> None:
@@ -83,7 +83,7 @@ async def test_partial_then_full_fill_derives_incremental_price() -> None:
     assert first.status is OrderStatus.PARTIALLY_FILLED
     assert first.cumulative_filled_quantity == 4
     assert first.last_fill_quantity == 4
-    assert first.last_fill_price_ticks == 10000
+    assert first.last_fill_price_ticks == 1_000_000  # $100.00 at scale 10_000
 
     # State from the first poll (cumulative=4, notional=$400) carries internally.
     second = await venue.reconcile_status("venue-2")
@@ -92,7 +92,7 @@ async def test_partial_then_full_fill_derives_incremental_price() -> None:
     assert second.last_fill_quantity == 6
     # Cumulative notional 10*$103=$1,030 minus prior 4*$100=$400, over the 6 newly
     # observed shares => ($1,030 - $400) / 6 = $105.
-    assert second.last_fill_price_ticks == 10500
+    assert second.last_fill_price_ticks == 1_050_000  # $105.00 at scale 10_000
 
 
 async def test_duplicate_poll_has_zero_fill_delta() -> None:

@@ -1,0 +1,14 @@
+{
+  "report": "execution_policy_validation",
+  "milestone": "M4 §8/§9",
+  "module": "cengine/execution_planner.py",
+  "policies": ["PASSIVE_LIMIT", "MARKETABLE_LIMIT", "IMMEDIATE_EXECUTION", "BOUNDED_REPRICE",
+               "TIME_SLICED_EXECUTION", "URGENT_RISK_REDUCTION", "MANDATORY_PROTECTIVE_EXIT"],
+  "selection_inputs": ["urgency", "spread_bps", "expected_cost", "opportunity_expiration",
+                       "momentum", "size_vs_observed_liquidity", "quote_staleness"],
+  "limit_price": "compute_limit_price_ticks: fresh-quote derived, penny (100-tick) rounded, bounded by max elective slippage; passive joins bid/ask, marketable crosses. No fabricated price — a limit policy with no fresh quote downgrades to IMMEDIATE_EXECUTION.",
+  "broker_compatibility": "Only broker-supported order types (MARKET/LIMIT) via ExecutionInstruction; routed through the existing CandidateRouter.",
+  "mandatory_exit": "Retains independent broker-compatible authority (protective_exit.py); the planner only labels the policy.",
+  "tests": {"tests/test_execution_planner.py": 14},
+  "verdict": "Policies broker-compatible; limit prices fresh + bounded; mandatory exit independent."
+}

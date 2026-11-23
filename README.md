@@ -91,11 +91,16 @@ flowchart TD
 
     subgraph Execution[Risk and Execution]
         W[Strategy Execution Bridge · maturity-gated · default-off]
+        MS[L1 Microstructure Intelligence]
+        XP[ExecutionPlanner · policy + limit price + TCE]
+        PM[Position Mgmt + Exit Arbiter · shadow-default]
         S[Native RiskEngine]
         T[Independent Protective Exits]
         U[OrderManager]
         V[Alpaca Execution / Mock Broker]
-        W --> X[CandidateRouter + Exposure Gate]
+        MS --> XP
+        XP --> X[CandidateRouter + Exposure Gate]
+        W --> X
         X --> U
         U --> S
         S --> U
@@ -103,10 +108,12 @@ flowchart TD
         U --> V
     end
 
-    CR --> X
+    CR --> XP
+    E --> MS
     Q --> W
     G --> T
-    V -->|Execution reports and fills| G
+    PM -.->|discretionary · shadow-default| X
+    V -->|fills + TCA| G
     U -.->|decision + execution evidence| Y[DecisionEventSink]
 ```
 
@@ -145,7 +152,12 @@ Capabilities are tracked in four distinct states — **implemented & offline-val
 | **Native + CVXPY portfolio optimizer** (constrained allocation, risk contributions) | ✅ Implemented · offline-validated |
 | **Capital reservation** (atomic, no double-spend) + versioned PortfolioState | ✅ Implemented · offline-validated |
 | **Portfolio → execution** (optimizer → reservation → existing authority) | ✅ **mock-execution certified** · default-advisory |
-| Intelligent replacement (reconciliation-gated, no forced reinvest) | ✅ Implemented · offline-validated |
+| Intelligent replacement (reconciliation-gated, no forced reinvest) | ✅ Implemented · offline-validated · wired to protective-exit fills |
+| **Intelligent execution** (planner · 7 policies · fresh-quote limit prices) | ✅ **mock-execution certified** · default-advisory |
+| **L1 microstructure intelligence** (OFI/microprice/Kyle/Amihud/exhaustion/adverse-selection) | ✅ Implemented · observed-vs-inferred · no L2 fabrication |
+| **Transaction Cost Analysis** (expected estimator + realized shortfall/slippage) | ✅ Implemented · side-aware |
+| Adaptive position mgmt + profit protection + exit arbitration | ✅ Implemented · research/shadow-default |
+| GPU Monte-Carlo scenario risk (bound + consumed, parity <2e-7) | ✅ Implemented · on-device M5 Max |
 | Portfolio dashboard panel + decision evidence | ✅ Implemented · non-blocking |
 | Economic validation (walk-forward / OOS edge, SIP vs IEX) | 🎯 Target — synthetic-only so far; genuine OOS deferred |
 | Paper / live execution certification (strategies + portfolio) | ⏳ Gated (separate validation) |
@@ -172,6 +184,10 @@ The bridge is wired into `trade.py` behind `CENGINE_STRATEGY_EXECUTION_AUTH` (de
 The portfolio layer (Milestone 3) sizes capital across qualified opportunities and routes through the **same** execution authority — it adds no parallel engine and reuses the existing CVXPY `RegimeMarkowitzAllocator`, exposure registry, reservation ledger, and native `RiskEngine`. Flow: GPU covariance (`cengine/portfolio_analytics.py` — operationally consuming the `covariance_matrix`/`ewma_covariance_matrix`/`column_means` Metal kernels, CPU-parity <7e-11 on M5 Max) → optimizer (`cengine/portfolio_optimizer.py` — native C++ risk-based allocator in `risk/portfolio_allocator.cpp`, or CVXPY mean-variance when reliable expected returns exist; heuristic scores are **never** converted to fabricated returns) → hard constraints (`cengine/portfolio_constraints.py`, §8, never silently relaxed) → atomic capital reservation (`cengine/capital_reservation.py` — prevents double-spend; unknown outcomes never release capital) → the existing `CandidateRouter` → exposure gate → native `RiskEngine` → `OrderManager`.
 
 Authoritative, versioned `PortfolioState` (`cengine/portfolio_state.py`) is broker-reconciled and **fails closed** when stale/unreconciled; submitted sells are never treated as completed liquidations. Intelligent replacement (`cengine/portfolio_replacement.py`) evaluates new opportunities **only after** a mandatory exit has fully filled and reconciled, holds cash when nothing qualifies, and blocks immediate re-entry into a just-stopped symbol. The path is wired into `trade.py` behind `CENGINE_PORTFOLIO_EXECUTION_AUTH` (default `none` → advisory: it emits portfolio state + decision evidence and routes nothing). The independent **−0.5% protective exit is never deferred, suppressed, or vetoed** by the optimizer (re-verified under optimizer/GPU failure). The GPU covariance kernel is parity-validated but, being correctness-first (one-thread-per-cell), is not yet faster than numpy BLAS at tested sizes, so covariance runs on CPU below the (unreached) measured crossover; the GPU monte-carlo/reductions kernels remain compiled-but-unbound (a tracked future increment). See [docs/portfolio_intelligence.md](docs/portfolio_intelligence.md). **Mock-certified; not economically validated, paper-, or live-certified.**
+
+### Intelligent execution, position management, and L1 microstructure
+
+Milestone 4 turns authorized recommendations into cost-, liquidity-, and risk-aware broker orders — through the **same** OrderManager / native RiskEngine / CandidateRouter (no parallel execution authority). A **Level-1 Microstructure Intelligence Engine** (`cengine/microstructure.py`, reusing `order_flow_engine`) derives L1 features from genuine SIP top-of-book quotes + trades — quote imbalance, order-flow imbalance, microprice displacement, CVD, trade-arrival intensity, trade-size distribution, Kyle's lambda, Amihud illiquidity, seller/buyer exhaustion, adverse selection — with **observed quantities kept separate from inferred ones** and strict data-integrity rules (crossed/locked/stale flagged; unknowns stay `None`; **no fabricated Level-2 depth, hidden orders, queue position, or aggressor side**). The `ExecutionPlanner` (`cengine/execution_planner.py`) selects one of seven broker-compatible policies (passive / marketable / immediate / bounded-reprice / time-sliced / urgent-risk-reduction / mandatory-protective-exit) by urgency, spread, liquidity, expected cost, and momentum, and computes a tick-rounded limit price from fresh quotes bounded by a maximum elective slippage (never a fabricated price). A `TransactionCostEstimator` gives explicitly-qualified expected cost (spread crossing + Kyle's-lambda/participation impact + fees, with a conservative fallback), and `analyze_execution` produces side-aware realized **Transaction Cost Analysis** (implementation shortfall, slippage, adverse movement, latencies). `AdaptivePositionManager` + `ExitArbiter` (`cengine/position_management.py`) add discretionary profit-protection policies (ATR-trailing, break-even, momentum-deterioration, time-based, technical-invalidation) that are **research/shadow by default** and gated by maturity/authorization; the **exit-priority hierarchy always ranks the mandatory −0.5% protective exit above every discretionary decision**, re-verified under planner/microstructure/optimizer/GPU failure. The GPU **Monte-Carlo** scenario kernels (`gme::correlate_normals` + `gme::portfolio_scenario_pnl`) are now bound and operationally consumed for portfolio VaR/ES (host-seeded, CPU-parity <2e-7). A **tick-scale reconciliation** unified the whole system on `DEFAULT_PRICE_SCALE` (10,000), fixing a pre-existing venue cents-vs-market-data mismatch that limit prices would otherwise have mis-serialized. Wired into `trade.py` behind `CENGINE_PORTFOLIO_EXECUTION_AUTH` (default advisory — emits plans + microstructure + TCA evidence, routes nothing). See [docs/intelligent_execution.md](docs/intelligent_execution.md). **Mock-certified; not economically validated, paper-, or live-certified.**
 
 ## Runtime data-flow overview
 

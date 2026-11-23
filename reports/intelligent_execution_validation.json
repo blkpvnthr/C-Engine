@@ -1,0 +1,21 @@
+{
+  "report": "intelligent_execution_validation",
+  "milestone": "M4 — intelligent execution + adaptive position management + L1 microstructure",
+  "branch": "feature/intelligent-execution",
+  "baseline": {"main_merge": "b83cdd3", "tests_before": 638, "tests_after": 720,
+               "new_tests": 82, "ruff": "clean", "metal_kernels": 50,
+               "operationally_consumed_kernels": 10},
+  "reuse_not_duplicate": "Reuses OrderManager, native RiskEngine, CandidateRouter, exposure gate, SimulatedBroker, DecisionEventSink, CapitalReservationLedger, ReplacementCoordinator (M3), order_flow_engine (microstructure). No parallel execution authority.",
+  "lifecycle": "StrategyRecommendation -> PortfolioRecommendation -> CapitalReservation -> ExecutionPlan -> RiskAuthorization (native) -> OrderIntent -> Broker -> PartialFill/CompleteFill -> BrokerReconciliation -> ExecutionOutcome (TCA). Every transition carries a stable decision id.",
+  "components": {
+    "microstructure": "cengine/microstructure.py (L1 features; reuses order_flow_engine)",
+    "transaction_cost": "cengine/transaction_cost.py (TransactionCostEstimator + analyze_execution)",
+    "execution_planner": "cengine/execution_planner.py (ExecutionPlan contract, 7 policies, limit prices)",
+    "position_management": "cengine/position_management.py (AdaptivePositionManager + ExitArbiter + profit-protection)",
+    "gpu_monte_carlo": "MetalRuntime.portfolio_scenario_returns (correlate_normals + portfolio_scenario_pnl bound + consumed)",
+    "integration": "cengine/portfolio_pipeline.py (planner+microstructure wired) + trade.py (default-advisory)"
+  },
+  "tick_scale_fix": "Unified the whole system on DEFAULT_PRICE_SCALE (10_000): AlpacaExecutionVenue price conversion + _fmt_usd now match market-data + native-risk ticks, fixing a pre-existing cents(100)-vs-10000 mismatch that M4 limit prices would otherwise have mis-serialized.",
+  "safety": "Independent -0.5% protective exit preserved + re-verified (never deferred/vetoed by planner/microstructure). New execution policies + profit-protection default non-live (maturity/authorization gated). No live orders.",
+  "verdict": "Implementation-complete + mock-certified. NOT economically validated / paper / live."
+}

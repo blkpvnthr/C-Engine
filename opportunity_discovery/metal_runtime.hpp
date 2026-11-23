@@ -107,6 +107,18 @@ public:
         const std::vector<float>& values, std::uint32_t observations,
         std::uint32_t assets, float lambda, float minimum_variance);
 
+    // Monte-Carlo portfolio scenario returns (Milestone 4, §19). Consumes the
+    // compiled metal/monte-carlo.metal kernels gme::correlate_normals +
+    // gme::portfolio_scenario_pnl. Normals are supplied by the HOST (seeded) so a
+    // CPU oracle can reproduce results exactly: correlated = normals @ cholesky^T
+    // (lower-triangular L, row-major assets*assets), then per-scenario portfolio
+    // return = weights . correlated. Returns one portfolio return per scenario.
+    // return_model: 0 = linear (raw), 1 = lognormal (exp(raw)-1).
+    [[nodiscard]] std::vector<float> portfolio_scenario_returns(
+        const std::vector<float>& normals, const std::vector<float>& cholesky,
+        const std::vector<float>& weights, std::uint32_t scenarios,
+        std::uint32_t assets, std::uint32_t return_model);
+
     // Opportunity screening (one GPU thread per symbol). Evaluates the mandatory
     // shared entry contract on device via metal/opportunity_screening.metal and
     // returns one ScreeningOutput per input, bit-for-bit matching the CPU oracle

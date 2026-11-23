@@ -1,0 +1,52 @@
+{
+  "report": "microstructure_execution_comparison",
+  "milestone": "M4 addendum \u2014 microstructure-informed vs baseline execution",
+  "data_source": "SYNTHETIC order-book fill model (seeded) \u2014 LABELED, NOT real data",
+  "scope_honesty": "Methodology + relative-behavior comparison only. NOT a claim of real execution improvement. Genuine historical-replay comparison on real SIP observations is DEFERRED (data/session-gated).",
+  "trials": 5000,
+  "policies": {
+    "existing_market": {
+      "fill_rate": 1.0,
+      "avg_cost_bps": 6.0466,
+      "avg_time_to_fill_s": 0.05,
+      "unfilled_opportunity_cost_bps": 0.0,
+      "implementation_shortfall_bps": 6.0466
+    },
+    "immediate": {
+      "fill_rate": 1.0,
+      "avg_cost_bps": 6.0466,
+      "avg_time_to_fill_s": 0.05,
+      "unfilled_opportunity_cost_bps": 0.0,
+      "implementation_shortfall_bps": 6.0466
+    },
+    "marketable_limit": {
+      "fill_rate": 1.0,
+      "avg_cost_bps": 5.0493,
+      "avg_time_to_fill_s": 0.3,
+      "unfilled_opportunity_cost_bps": 0.0,
+      "implementation_shortfall_bps": 5.0493
+    },
+    "passive_limit": {
+      "fill_rate": 0.7422,
+      "avg_cost_bps": -3.9127,
+      "avg_time_to_fill_s": 3.0,
+      "unfilled_opportunity_cost_bps": 1.8243,
+      "implementation_shortfall_bps": -2.4337
+    },
+    "bounded_reprice": {
+      "fill_rate": 1.0,
+      "avg_cost_bps": 0.4217,
+      "avg_time_to_fill_s": 3.144,
+      "unfilled_opportunity_cost_bps": 0.0,
+      "implementation_shortfall_bps": 0.4217
+    },
+    "order_slicing": {
+      "fill_rate": 1.0,
+      "avg_cost_bps": 1.7488,
+      "avg_time_to_fill_s": 4.0,
+      "unfilled_opportunity_cost_bps": 0.0,
+      "implementation_shortfall_bps": 1.7488
+    }
+  },
+  "note": "Microstructure-informed policy selection (spread/liquidity/urgency) vs a fixed-market baseline on the same synthetic model. Incremental value on genuine SIP data is deferred; new signals remain research/shadow until validated."
+}

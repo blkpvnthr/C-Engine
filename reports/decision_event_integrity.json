@@ -1,27 +1,20 @@
 {
   "report": "decision_event_integrity",
-  "milestone": "M2 execution certification (directive §8)",
-  "branch": "feature/m2-execution-certification",
+  "milestone": "M4 §21 — execution decision evidence",
   "schema_version": "decision-events-1.0.0",
-  "event_contract_full_lifecycle": [
-    "REGIME_TRANSITION", "STRATEGY_RECOMMENDATION", "REJECTED_OPPORTUNITY",
-    "RANKING_COMPONENTS", "ARBITRATION_DECISION", "RISK_APPROVAL", "RISK_REJECTION",
-    "ORDER_INTENT", "BROKER_ACK", "PARTIAL_FILL", "COMPLETE_FILL",
-    "EXIT_DECISION", "REALIZED_OUTCOME"
-  ],
-  "added_in_this_package": [
-    "execution-lifecycle emitters: record_order_intent, record_risk_decision, record_broker_ack, record_fill, record_exit_decision, record_realized_outcome",
-    "events_from_rows() + DecisionEventSink.rehydrate() for missing-event recovery",
-    "make_decision_audit_handler() mapping OrderManager audit events -> decision events, attributed by correlation_id -> decision_id"
-  ],
-  "integrity_properties_verified": {
-    "nonblocking": "emit is O(1) and never raises (double try/except).",
-    "bounded_overflow": "deque(maxlen); oldest evicted; dropped counter accurate (capacity=3, 10 emits -> size 3, dropped 7, newest retained).",
-    "persistence_failure_resilience": "journal.append raising on every call never blocks emission; event still buffered.",
-    "missing_event_recovery": "rows persisted to the authoritative journal can be rehydrated into a fresh sink; unknown event types skipped, not fabricated.",
-    "traceability": "recommendation decision_id + correlation_id link ORDER_INTENT -> RISK_APPROVAL/REJECTION -> BROKER_ACK -> PARTIAL_FILL/COMPLETE_FILL -> REALIZED_OUTCOME."
-  },
-  "financially_critical_recoverability": "Order lifecycle is independently captured by the authoritative audit journal (OrderManager on_audit) regardless of the bounded decision-event buffer, so financial events remain recoverable even after decision-buffer overflow.",
-  "tests": {"test_decision_event_integrity.py": 8, "test_decision_events.py": 5},
-  "verdict": "DECISION-EVENT EVIDENCE COMPLETE AND RECOVERABLE. Foundation ready for the later Parquet/DuckDB ML/RL platform (not built here)."
+  "added_event_types": ["EXECUTION_PLAN", "EXECUTION_PLAN_REJECTED", "MICROSTRUCTURE_SNAPSHOT",
+                        "TRANSACTION_COST_ANALYSIS", "POSITION_MANAGEMENT", "PROFIT_PROTECTION"],
+  "added_emitters": ["record_execution_plan", "record_microstructure",
+                     "record_transaction_cost_analysis", "record_position_management"],
+  "captured": ["execution-plan construction (+ rejected)", "market conditions + liquidity at decision",
+               "quote/trade timestamps + staleness", "estimated costs + components", "policy selection",
+               "financial authorization (risk approval/rejection)", "order submission + broker ack",
+               "partial + complete fills", "realized transaction costs (TCA)",
+               "position-management + profit-protection decisions (shadow flag)", "mandatory exits",
+               "replacement outcomes"],
+  "traceability": "execution_plan_id + portfolio_decision_id + correlation_id link plan -> reservation -> order intent -> risk -> ack -> fills -> TCA. events_from_rows round-trips all M4 event types.",
+  "recoverability": "Nonblocking bounded sink; financial events also recoverable from the authoritative journal.",
+  "ml_readiness": "Flat-serializable rows + microstructure fill-probability feature contract prepared for the later Parquet/DuckDB supervised/bandit/offline-RL platform (not built here).",
+  "tests": {"tests/test_execution_decision_events.py": 8, "tests/test_decision_event_integrity.py": "existing"},
+  "verdict": "Execution outcomes traceable to strategy + portfolio decisions; evidence recoverable."
 }

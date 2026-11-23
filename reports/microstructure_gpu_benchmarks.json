@@ -1,0 +1,11 @@
+{
+  "report": "microstructure_gpu_benchmarks",
+  "milestone": "M4 addendum \u2014 microstructure CPU/GPU crossover",
+  "ingest_us_per_event_p50": 6.875,
+  "ingest_us_per_event_p95": 8.208,
+  "features_us_per_call_p50": 1267.562,
+  "features_us_per_call_p95": 1708.041,
+  "computation_path": "CPU (incremental rolling state)",
+  "gpu_decision": "L1 microstructure is per-event incremental rolling state (O(1)/O(window) updates at microsecond cost); it is latency-sensitive and applied only to actionable symbols. Dispatching these tiny per-event updates to the GPU would add dispatch latency far exceeding the compute, so CPU is the validated path. GPU remains reserved for batched numerical workloads (covariance, Monte-Carlo) where it is justified; a future batched cross-sectional microstructure pass over the full universe could revisit this.",
+  "device_note": "Latency-sensitive protective execution is kept independent of any GPU workload (addendum / \u00a725)."
+}

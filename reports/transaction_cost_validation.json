@@ -1,0 +1,10 @@
+{
+  "report": "transaction_cost_validation",
+  "milestone": "M4 §7/§18",
+  "module": "cengine/transaction_cost.py",
+  "estimator": "TransactionCostEstimator: component-separated expected cost (spread crossing + market impact via Kyle's lambda or sqrt participation + fees); deterministic conservative fallback when microstructure unavailable; basis labeled.",
+  "analysis": "analyze_execution: realized implementation shortfall vs decision price, side-aware realized slippage vs arrival, adverse price movement, ack/fill latencies, unfilled quantity — from genuine ManagedOrder fills + timestamps; no fabricated counterfactual fills.",
+  "separation": "Expected vs realized kept strictly separate; no double-counting (execution-time model distinct from the optimizer's pre-trade ranking bps).",
+  "tests": {"tests/test_transaction_cost.py": 9},
+  "verdict": "Expected costs explicitly qualified; realized TCA operational + side-aware."
+}

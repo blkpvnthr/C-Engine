@@ -1,4 +1,4 @@
-# GPU Portfolio Analytics (Milestone 3, §5/§20)
+# GPU Portfolio Analytics (Milestone 3 §5/§20, extended in Milestone 4 §19)
 
 `cengine/portfolio_analytics.py` (`PortfolioAnalytics`) computes the portfolio risk
 inputs, operationally **consuming** the existing Metal covariance kernels.
@@ -45,12 +45,38 @@ GPU kernel remains available + parity-validated and genuinely consumed when enab
 Covariance is sized to the **candidate set** (instruments that can enter the
 portfolio), never the full discovery universe.
 
-## Deferred (honest)
+## Milestone 4 — Monte-Carlo integration (§19)
 
-The Monte-Carlo and reductions Metal kernels remain **compiled-but-unbound** (no
-pybind binding; the generic `MetalRuntime.dispatch()` is C++-only). GPU scenario /
-tail-risk consumption and a parallel-reduction covariance kernel (which could move
-the crossover down) are tracked future increments — not claimed as consumed.
+The Monte-Carlo scenario path is now **bound and consumed**. `MetalRuntime.
+portfolio_scenario_returns(normals, cholesky, weights, scenarios, assets,
+return_model)` chains `gme::correlate_normals` + `gme::portfolio_scenario_pnl`.
+Normals are **host-seeded** so a CPU oracle reproduces results exactly
+(`correlated = normals @ cholesky^T`; `portfolio_return = weights · correlated`);
+on-device parity is **< 2e-7** (Apple M5 Max). `PortfolioAnalytics.scenario_losses`
+consumes it (VaR/ES, `source = "metal_monte_carlo"`) with numpy fallback; these are
+Gaussian **simulations under explicit assumptions, not calibrated forecasts**.
+Operationally-consumed kernels are now **10** (8 + `correlate_normals` +
+`portfolio_scenario_pnl`).
+
+## Milestone 4 — covariance optimization conclusion (§19)
+
+`tools/gpu_portfolio_m4.py` → `reports/gpu_covariance_optimization.json` benchmarks
+the current kernel vs numpy/BLAS across candidate sizes. The correctness-first
+one-thread-per-cell kernel is not faster than BLAS at realistic candidate-set sizes
+(≤ a few hundred names), so covariance stays on CPU per the measured crossover. A
+tiled/threadgroup-reduction covariance kernel is the documented optimization path,
+**deferred with measured justification** (it would not change the operational decision
+at realistic sizes); the existing kernel remains consumed + parity-validated.
+
+## Reductions — compiled-but-unbound (measured justification, §19)
+
+The two-stage reduction kernels remain compiled + pipeline-callable but **not bound**
+(`reports/gpu_reduction_integration.json`): the portfolio/execution workloads operate
+on small candidate arrays and trivial numpy-quantile tail risk, so binding them would
+be an artificial/redundant operational call (explicitly disallowed by §19). Deferred
+until a genuine large-N reduction workload exists.
 
 Evidence: `reports/gpu_portfolio_benchmarks.json`,
+`reports/gpu_covariance_optimization.json`, `reports/gpu_monte_carlo_validation.json`,
+`reports/gpu_reduction_integration.json`,
 `reports/portfolio_architecture_validation.json`.

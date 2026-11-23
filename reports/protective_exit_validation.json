@@ -1,5 +1,5 @@
 {
-  "acceptance_item": "M2 §7/§19 + M3 §12 - financial invariants / independent protective exit",
+  "acceptance_item": "M2 §7/§19 + M3 §12 + M4 §15 - financial invariants / independent protective exit",
   "invariant": "unrealized_return < -0.005 triggers a mandatory protective exit",
   "independence": [
     "historical warm-up",
@@ -13,8 +13,20 @@
     "strategy maturity / execution authorization",
     "strategy recommendations and arbitration",
     "economic ranking",
-    "execution bridge state (active, BLOCKED, or conflicting)"
+    "execution bridge state (active, BLOCKED, or conflicting)",
+    "execution planner / execution policies",
+    "L1 microstructure intelligence (stale, crossed, or absent)",
+    "transaction-cost estimates",
+    "discretionary profit-protection policies"
   ],
+  "m4_execution_independence_verified": {
+    "fires_with_no_execution_planner": true,
+    "fires_despite_planner_and_microstructure_present": true,
+    "fires_when_microstructure_stale_or_crossed": true,
+    "exit_is_broker_compatible_market_order": "protective_exit uses MARKET (not a planner limit order)",
+    "no_discretionary_policy_delays_mandatory_exit": true,
+    "exit_arbiter_ranks_mandatory_above_shadow_profit_protection": true
+  },
   "mechanism": "trade.py routes the protective exit path from authoritative native market state directly into the RiskEngine/OrderManager, bypassing elective discovery/intelligence/optimization. Exits are never gated by the exposure authorizer and are never arbitrated.",
   "bridge_independence_verified": {
     "fires_with_no_strategy_engine": true,
@@ -40,8 +52,9 @@
   "offline_verification": {
     "tests/test_protective_exit.py": 14,
     "tests/test_protective_exit_independence.py": 5,
-    "tests/test_portfolio_exit_independence.py": 4
+    "tests/test_portfolio_exit_independence.py": 4,
+    "tests/test_execution_exit_independence.py": 4
   },
   "no_live_orders_during_testing": true,
-  "status": "PRESERVED + independence re-verified against the execution bridge AND the portfolio optimizer"
+  "status": "PRESERVED + independence re-verified against the execution bridge, portfolio optimizer, execution planner, and L1 microstructure"
 }
