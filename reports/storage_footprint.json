@@ -1,0 +1,120 @@
+{
+  "report": "storage_footprint",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Read-only disk/footprint observation; writes fail closed on low disk/over cap and NEVER affect the order path.",
+  "health": "OK",
+  "root": "/private/tmp/claude-501/-Users-blkpvnthr-C-engine/53fd7934-239d-401c-ba69-50a041e1f724/scratchpad/lh_reports",
+  "free_disk_gib": 2995.294,
+  "used_lakehouse_gib": 0.0004,
+  "accepts_writes": true,
+  "datasets": [
+    {
+      "layer": "bronze",
+      "dataset": "engine_decisions",
+      "files": 1,
+      "mib": 0.008,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "bronze",
+      "dataset": "fill_events",
+      "files": 2,
+      "mib": 0.016,
+      "partitions": 2,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "bronze",
+      "dataset": "market_bars",
+      "files": 11,
+      "mib": 0.284,
+      "partitions": 11,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "bronze",
+      "dataset": "portfolio_decisions",
+      "files": 1,
+      "mib": 0.009,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "bronze",
+      "dataset": "universe_membership",
+      "files": 2,
+      "mib": 0.004,
+      "partitions": 1,
+      "max_files_in_partition": 2
+    },
+    {
+      "layer": "silver",
+      "dataset": "fills",
+      "files": 2,
+      "mib": 0.008,
+      "partitions": 2,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "silver",
+      "dataset": "market_regimes",
+      "files": 1,
+      "mib": 0.003,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "silver",
+      "dataset": "portfolio_decisions",
+      "files": 1,
+      "mib": 0.005,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "silver",
+      "dataset": "strategy_recommendations",
+      "files": 1,
+      "mib": 0.005,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "silver",
+      "dataset": "strategy_rejections",
+      "files": 1,
+      "mib": 0.003,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "gold",
+      "dataset": "offline_rl",
+      "files": 1,
+      "mib": 0.005,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "gold",
+      "dataset": "position_outcomes",
+      "files": 1,
+      "mib": 0.006,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    },
+    {
+      "layer": "gold",
+      "dataset": "supervised",
+      "files": 1,
+      "mib": 0.004,
+      "partitions": 1,
+      "max_files_in_partition": 1
+    }
+  ],
+  "recommendations": [],
+  "verdict": "Storage health OK."
+}

@@ -1,0 +1,12 @@
+{
+  "report": "offline_rl_dataset",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Logged transitions from executed portfolio decisions + realized outcomes. action_probability_if_known is NULL (behavior policy deterministic/unknown \u2014 never invented). Reward = realized net return for CLOSED positions only; unexecuted actions get no fabricated reward; mandatory exits are environment dynamics, NOT agent actions; costs are not double-counted.",
+  "transitions": 1,
+  "non_null_action_probabilities": 0,
+  "transitions_with_reward": 1,
+  "terminal_transitions": 1,
+  "verdict": "Offline-RL transitions built without fabricated probabilities or rewards. Training is deferred to M6."
+}

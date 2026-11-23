@@ -1,0 +1,30 @@
+{
+  "report": "point_in_time_integrity",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Point-in-time correctness via DuckDB ASOF joins on availability_timestamp_ns (<= decision time).",
+  "mechanism": "event_timestamp_ns (market event) vs availability_timestamp_ns (usable-for-decision) distinction in the canonical envelope.",
+  "asof_feature_before_decision": {
+    "direction": "up",
+    "confidence": "0.8",
+    "availability_timestamp_ns": 1700000000000000000
+  },
+  "freshness": {
+    "dataset": "market_regimes",
+    "available": true,
+    "symbols": 1,
+    "rows": 1,
+    "latest_ns": 1700000000000000000,
+    "staleness_s": 95404600.19240499
+  },
+  "quality_point_in_time_check": {
+    "check": "point_in_time_availability",
+    "dataset": "engine_decisions",
+    "passed": true,
+    "detail": "0 rows with availability < event time",
+    "count": 0
+  },
+  "survivorship_handling": "historical ingestion records the as-of universe snapshot (bronze/universe_membership).",
+  "verdict": "No look-ahead: features resolve only to information available at the decision timestamp."
+}

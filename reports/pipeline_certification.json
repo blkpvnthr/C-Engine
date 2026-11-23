@@ -1,0 +1,36 @@
+{
+  "report": "pipeline_certification",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "End-to-end batch pipeline over genuine + representative data; idempotent + resumable via content-hashed parts and high-water checkpoints.",
+  "stages_ok": {
+    "silver": true,
+    "gold": true,
+    "quality": true,
+    "attribution": true,
+    "maintenance": true,
+    "storage": true,
+    "warehouse_views": true
+  },
+  "quality_failed": 0,
+  "duration_s": 0.135,
+  "rerun_silver_idempotent": true,
+  "reproducibility": {
+    "deterministic_event_id": true,
+    "reproducible_dataset_version": "1e19570a6b48ee4b5389470c"
+  },
+  "definition_of_done": {
+    "local_only_no_cloud": true,
+    "parquet_pyarrow_duckdb": true,
+    "point_in_time_integrity": true,
+    "no_fabricated_labels_or_rewards": true,
+    "nonblocking_capture": true,
+    "protective_exit_independent": true,
+    "journal_separate_authoritative": true,
+    "no_model_training_in_m5": true,
+    "tests_green": "744 passing",
+    "ruff_clean": true
+  },
+  "verdict": "M5 local adaptive ML/RL data platform CERTIFIED (analytical). Model training/live RL deferred to M6."
+}

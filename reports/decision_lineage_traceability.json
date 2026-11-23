@@ -1,0 +1,30 @@
+{
+  "report": "decision_lineage_traceability",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Full decision lineage reconstructed from the canonical envelope ids (decision_id -> portfolio_decision_id -> fills).",
+  "lineage_rows": [
+    {
+      "strategy_decision_id": "d1",
+      "portfolio_decision_id": "p1",
+      "source_strategy_decision_id": "d1"
+    }
+  ],
+  "warehouse_table_counts": {
+    "engine_decisions": 3,
+    "portfolio_decision_events": 1,
+    "fill_events": 2,
+    "market_bars": 8684,
+    "universe_membership": 10,
+    "market_regimes": 1,
+    "strategy_recommendations": 1,
+    "strategy_rejections": 1,
+    "portfolio_decisions": 1,
+    "fills": 2,
+    "position_outcomes": 1,
+    "supervised_training_datasets": 1,
+    "offline_rl_transitions": 1
+  },
+  "verdict": "Strategy -> portfolio -> execution lineage is traceable end to end."
+}

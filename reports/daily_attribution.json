@@ -1,0 +1,28 @@
+{
+  "report": "daily_attribution",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Descriptive attribution; causal attribution is explicitly UNCERTAIN without sufficient evidence.",
+  "closed_positions": 1,
+  "winners": 1,
+  "win_rate": 1.0,
+  "avg_net_return": 0.01,
+  "loss_source_taxonomy": [
+    "POOR_OPPORTUNITY_SELECTION",
+    "REGIME_MISMATCH",
+    "ENTRY_TIMING",
+    "POSITION_SIZING",
+    "EXPOSURE_CONCENTRATION",
+    "EXECUTION_COST",
+    "ADVERSE_SELECTION",
+    "EXIT_TIMING",
+    "DATA_QUALITY"
+  ],
+  "quality_distinction": {
+    "prediction_quality": "label vs realized (supervised datasets)",
+    "strategy_quality": "net return by family/regime",
+    "execution_quality": "implementation shortfall / slippage (TCA)"
+  },
+  "verdict": "Daily attribution + loss-source taxonomy produced."
+}

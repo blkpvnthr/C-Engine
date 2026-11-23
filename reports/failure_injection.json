@@ -1,0 +1,14 @@
+{
+  "report": "failure_injection",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Fault tolerance: interrupted-write recovery, disk-full fail-closed, malformed-record quarantine. Analytical capture never raises into the engine that feeds the protective exit.",
+  "orphan_tmp_recovered": 1,
+  "disk_full_dropped_accounted": 1,
+  "disk_full_losses_recorded": 1,
+  "disk_full_written": 0,
+  "malformed_quarantined": 1,
+  "exit_independence": "capture buffers are bounded + drop-oldest; flush runs in a thread executor OFF the event loop and is NOT in the FIRST_COMPLETED set, so it can neither block nor trigger shutdown or the mandatory protective exit.",
+  "verdict": "All injected failures degrade gracefully with explicit accounting."
+}

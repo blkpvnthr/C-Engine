@@ -1,0 +1,13 @@
+{
+  "report": "compaction_maintenance",
+  "milestone": "M5",
+  "branch": "feature/local-adaptive-data-platform",
+  "generated": "2026-11-22",
+  "scope_honesty": "Compaction merges small parts per partition, dedup by event_id, write-then-delete ordering; retention keep-forever by default.",
+  "engine_decisions_parts_before": 21,
+  "engine_decisions_parts_after": 1,
+  "compacted_partitions": 1,
+  "rows_in": 23,
+  "rows_out": 23,
+  "verdict": "Compaction reduces file count while preserving deduplicated rows."
+}
