@@ -16,10 +16,16 @@ from cengine.lakehouse.envelope import (
     EventEnvelope,
     envelope_from_decision_row,
 )
+from cengine.lakehouse.maintenance import LakehouseMaintenance
+from cengine.lakehouse.pipeline import LakehousePipeline
+from cengine.lakehouse.storage_monitor import StorageMonitor
 
 __all__ = [
     "ENVELOPE_SCHEMA_VERSION",
     "EventEnvelope",
     "LakehouseConfig",
+    "LakehouseMaintenance",
+    "LakehousePipeline",
+    "StorageMonitor",
     "envelope_from_decision_row",
 ]

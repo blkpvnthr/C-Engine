@@ -35,12 +35,14 @@ class DailyAttribution:
             return None
         return str(base / "**" / "*.parquet").replace("'", "''")
 
-    def attribute(self, *, trade_date: Optional[str] = None) -> dict:
+    def attribute(self, *, trade_date: Optional[str] = None,
+                  now_ns: Optional[int] = None) -> dict:
         out = self._glob("gold", "position_outcomes")
         tca = self._glob("silver", "transaction_costs")
         con = duckdb.connect()
         report: dict = {"report": "daily_attribution", "version": ATTRIBUTION_VERSION,
-                        "generated_ns": time.time_ns(), "trade_date": trade_date,
+                        "generated_ns": now_ns if now_ns is not None else time.time_ns(),
+                        "trade_date": trade_date,
                         "quality_distinction": {
                             "prediction_quality": "label vs realized (supervised datasets)",
                             "strategy_quality": "net return by family/regime",
