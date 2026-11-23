@@ -62,6 +62,7 @@ class MarketScanner:
         sleep_fn=None,
         now_fn=None,
         log_fn: Optional[Callable[[str], None]] = None,
+        decision_sink: Any = None,
     ) -> None:
         self.executor = executor
         self.broker = getattr(executor, "broker", None)
@@ -115,6 +116,8 @@ class MarketScanner:
         # rank tick never polls the broker directly (decoupled from the heartbeat).
         self._pos_cache: tuple = ((), (), 0.0)
         self._last_pos_refresh: float = 0.0
+        # Optional decision-event sink for universe-selection persistence (§9).
+        self._decision_sink = decision_sink
 
         # Dynamic universe rotation (spec: manager = selection authority, this
         # scanner's publisher stays the sole writer). Gated OFF by default so the
@@ -141,12 +144,20 @@ class MarketScanner:
                 Path(state_env) if state_env
                 else universe.PROJECT_ROOT / "data" / "dynamic_universe" / "state.json"
             )
+            emitter = None
+            if self._decision_sink is not None:
+                from cengine.dynamic_universe.events import UniverseDecisionRecorder
+
+                emitter = UniverseDecisionRecorder(
+                    self._decision_sink, model_version="deterministic-v1"
+                )
             mgr = DynamicUniverseManager(
                 baseline=baseline,
                 config=cfg,
                 ranking_source=self._rotation_ranking,
                 protection_source=self._rotation_protection,
                 references=self.config.market_refs,
+                event_emitter=emitter,
                 state_path=state_path,
                 now_fn=self._now,
                 log_fn=self._log,

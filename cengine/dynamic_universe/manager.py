@@ -68,7 +68,11 @@ class ActiveUniverseSnapshot:
 
 class DecisionEmitter(Protocol):
     def __call__(
-        self, result: RotationResult, layers: UniverseLayers, now_s: float
+        self,
+        result: RotationResult,
+        layers: UniverseLayers,
+        scores: dict,
+        now_s: float,
     ) -> None: ...
 
 
@@ -229,7 +233,11 @@ class DynamicUniverseManager:
 
         if self._emit is not None and self._layers is not None:
             try:
-                self._emit(result, self._layers, now)
+                scores = {
+                    universe.normalize_symbol(r.symbol): r.score
+                    for r in (baseline_ranked + opportunities)
+                }
+                self._emit(result, self._layers, scores, now)
             except Exception as exc:  # noqa: BLE001 - telemetry must never break rotation
                 logger.warning("dynamic-universe: event emit failed: %s", exc)
 

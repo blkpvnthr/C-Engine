@@ -1577,7 +1577,10 @@ class MarketEngine:
             membership_discovery_fn = self._membership_discovery_fn
 
             def factory(executor: Any, config: Any) -> Any:
-                scanner = MarketScanner(executor, config, stream_client=bridge_client)
+                scanner = MarketScanner(
+                    executor, config, stream_client=bridge_client,
+                    decision_sink=self._decision_sink,
+                )
                 bridge_client.bind(
                     on_trade=scanner.ofe.ingest_trade,
                     on_quote=scanner.ofe.ingest_quote,

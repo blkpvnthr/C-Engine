@@ -172,6 +172,36 @@ def test_stalled_manager_surfaces_error_and_falls_back(tmp_path):
     assert published == {"NVDA", "AMD"}                       # safe fallback, no stale window
 
 
+def test_rotation_emits_decision_events_to_sink(tmp_path, monkeypatch):
+    from cengine.decision_events import DecisionEventSink, DecisionEventType
+
+    bp = tmp_path / "baseline_universe.txt"
+    bp.write_text(", ".join(f"'{s}'" for s in BASE5) + "\n", encoding="utf-8")
+    monkeypatch.setenv("CENGINE_DYNAMIC_UNIVERSE_ROTATION", "1")
+    monkeypatch.setenv("CENGINE_BASELINE_UNIVERSE_PATH", str(bp))
+    monkeypatch.setenv("CENGINE_DYNAMIC_UNIVERSE_STATE", str(tmp_path / "state.json"))
+
+    disc = ["NVDA", "AMD"]
+    sink = DecisionEventSink()
+    cfg = MarketScanConfig(max_subscriptions=30, target_universe_size=10)
+    exec_stub = SimpleNamespace(broker=_FakeBroker(), config=SimpleNamespace(paper=True))
+    s = MarketScanner(
+        exec_stub, cfg,
+        universe_path=tmp_path / "universe.txt",
+        context_path=tmp_path / "live_context.json",
+        stream_client=_FakeStream(),
+        feature_provider=_strong_feats(disc),
+        discovery_fn=lambda **k: SimpleNamespace(symbols=disc, equities=[], etfs=[],
+                                                 error=None, source_counts={}),
+        decision_sink=sink,
+    )
+    assert s._universe_manager is not None
+    s._discovered = disc
+    asyncio.run(s._rank_tick(1000.0))
+    kinds = {r.event_type for r in sink.peek()}
+    assert DecisionEventType.UNIVERSE_ROTATION in kinds       # persisted, not fabricated
+
+
 def test_rotation_disabled_by_default(tmp_path):
     # No env flag -> legacy behavior, no manager, universe.txt = eligible only.
     disc = ["NVDA", "AMD"]

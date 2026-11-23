@@ -93,16 +93,18 @@ def test_maybe_rotate_rate_limits_but_heartbeat_reads_snapshot(tmp_path):
 def test_event_emitter_called(tmp_path):
     seen = {}
 
-    def emit(result, layers, now_s):
+    def emit(result, layers, scores, now_s):
         seen["active"] = result.active
         seen["now"] = now_s
         seen["opp"] = layers.opportunity
+        seen["scores"] = scores
 
     mgr = _manager(tmp_path, ranking=[RankedSymbol("NVDA", 0.9)], emitter=emit, now=42.0)
     res = mgr.rotate_once()
     assert seen["active"] == res.active
     assert seen["now"] == 42.0
     assert "NVDA" in seen["opp"]
+    assert seen["scores"].get("NVDA") == 0.9
 
 
 def test_dashboard_stats_shape(tmp_path):
