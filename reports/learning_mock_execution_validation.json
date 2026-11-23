@@ -1,0 +1,14 @@
+{
+  "report": "learning_mock_execution_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "full learning path validated via tests + CLI; shadow inference wired into trade.py; models submit NO orders (recommendation-only).",
+  "tests": {
+    "tests/test_learning_platform.py": 19,
+    "tests/test_offline_rl.py": 7,
+    "tests/test_evaluation.py": "see suite"
+  },
+  "trade_py_wired": true,
+  "non_ordering_startup": true
+}

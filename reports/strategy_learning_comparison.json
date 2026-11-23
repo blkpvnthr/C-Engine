@@ -1,0 +1,12 @@
+{
+  "report": "strategy_learning_comparison",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "pooled forward-return model vs sklearn/constant baselines (REAL bars)",
+  "champion_rank_ic": 0.00259953739616394,
+  "baseline_rank_ic": 0.01787857129771352,
+  "constant_rank_ic": -0.0002344824196833375,
+  "champion_beats_baseline": false,
+  "note": "per-strategy-family models require genuine strategy outcomes (insufficient)"
+}

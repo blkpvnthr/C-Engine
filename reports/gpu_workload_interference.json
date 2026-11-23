@@ -1,0 +1,9 @@
+{
+  "report": "gpu_workload_interference",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "concurrent GPU workloads: train while infer (measured).",
+  "concurrent_matmul_50x_s": 0.0006,
+  "note": "MLX schedules on a shared Metal queue; no native-runtime command queue is shared automatically (measured, not assumed)."
+}

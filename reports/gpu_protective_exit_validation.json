@@ -1,0 +1,12 @@
+{
+  "report": "gpu_protective_exit_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "REAL AAPL bars; mandatory -0.5% exit as ENVIRONMENT DYNAMICS, independent of any model/policy.",
+  "trades": 2296,
+  "protective_exits": 458,
+  "min_protective_exit_reward": -0.005800000000000116,
+  "exit_floor_respected": true,
+  "independent_of_models": true
+}

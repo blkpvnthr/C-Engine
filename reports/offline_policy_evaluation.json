@@ -1,0 +1,10 @@
+{
+  "report": "offline_policy_evaluation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "OPE infra on synthetic fixtures; IPS/DR GATED OFF (behavior probs unknown). Direct method + FQE only.",
+  "ips_available": false,
+  "reason_ips_unavailable": "behavior_policy_probabilities_unknown",
+  "fqe_value_estimate": 0.34543246030807495
+}

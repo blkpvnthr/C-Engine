@@ -1,0 +1,8 @@
+{
+  "report": "mlx_contextual_bandit_benchmarks",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "GPU-enabled neural bandit path; synthetic fixture timing.",
+  "note": "batched context->reward scoring runs on MLX GPU for large batches; small batches on CPU per DevicePolicy (measured)."
+}

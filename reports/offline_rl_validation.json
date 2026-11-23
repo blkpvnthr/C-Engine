@@ -1,0 +1,14 @@
+{
+  "report": "offline_rl_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "LABELED SYNTHETIC transitions (\u00a725); no genuine execution outcomes. mandatory exits excluded from action space as environment dynamics.",
+  "bc_trained": true,
+  "bc_device": "gpu",
+  "bc_promotable": false,
+  "fqe_value_estimate": 0.34543246030807495,
+  "fqe_promotable": false,
+  "action_probability_fabricated": false,
+  "verdict": "offline-RL infra validated on synthetic fixtures; NOT RL-ready (data)"
+}

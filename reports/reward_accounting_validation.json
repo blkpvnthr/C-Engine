@@ -1,0 +1,9 @@
+{
+  "report": "reward_accounting_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "reward integrity: realized net return only for closed positions; no fabricated rewards/probabilities; mandatory exits are env dynamics; costs not double-counted.",
+  "synthetic_fixture": true,
+  "verdict": "reward construction rules enforced"
+}

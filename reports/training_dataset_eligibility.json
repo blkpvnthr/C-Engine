@@ -1,0 +1,65 @@
+{
+  "report": "training_dataset_eligibility",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "honest per-task sufficiency over REAL lakehouse datasets; bars are NOT treated as independent outcomes.",
+  "tasks": [
+    {
+      "task": "forward_return_prediction",
+      "eligibility": "validation_eligible",
+      "source": "bronze/market_bars",
+      "reasons": [
+        "rows=262586"
+      ]
+    },
+    {
+      "task": "strategy_net_return",
+      "eligibility": "insufficient_data",
+      "source": "gold/supervised",
+      "reasons": [
+        "dataset_not_materialized"
+      ]
+    },
+    {
+      "task": "probability_positive_return",
+      "eligibility": "insufficient_data",
+      "source": "gold/supervised",
+      "reasons": [
+        "dataset_not_materialized"
+      ]
+    },
+    {
+      "task": "regime_transition",
+      "eligibility": "insufficient_data",
+      "source": "silver/market_regimes",
+      "reasons": [
+        "dataset_not_materialized"
+      ]
+    },
+    {
+      "task": "execution_quality",
+      "eligibility": "insufficient_data",
+      "source": "silver/transaction_costs",
+      "reasons": [
+        "dataset_not_materialized"
+      ]
+    },
+    {
+      "task": "policy_bandit",
+      "eligibility": "insufficient_data",
+      "source": "gold/offline_rl",
+      "reasons": [
+        "dataset_not_materialized"
+      ]
+    },
+    {
+      "task": "offline_rl_execution",
+      "eligibility": "insufficient_data",
+      "source": "gold/offline_rl",
+      "reasons": [
+        "dataset_not_materialized"
+      ]
+    }
+  ]
+}

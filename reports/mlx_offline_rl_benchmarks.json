@@ -1,0 +1,8 @@
+{
+  "report": "mlx_offline_rl_benchmarks",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "GPU-enabled BC/FQE/CQL/IQL; synthetic fixture timing.",
+  "note": "policy/value/Q nets train on MLX GPU for sufficiently large batches; CPU fallback measured + documented."
+}

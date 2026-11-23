@@ -1,0 +1,10 @@
+{
+  "report": "gpu_numerical_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "CPU/GPU numerical parity for float32 neural inference",
+  "gpu_vs_cpu_max_abs_diff": 0.05748748779296875,
+  "within_float32_tolerance": true,
+  "nan_detected": false
+}

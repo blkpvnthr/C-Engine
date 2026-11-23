@@ -1,0 +1,12 @@
+{
+  "report": "contextual_bandit_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "LABELED SYNTHETIC contextual env (no genuine reward data; \u00a725). research-only; NO IPS (behavior probs unknown/never fabricated).",
+  "linucb_fitted": true,
+  "greedy_accuracy_vs_best_action": 0.975,
+  "off_policy_ips_supported": false,
+  "ips_unavailable_reason": "behavior-policy action probabilities are unknown (gold.action_probability_if_known is always NULL and never fabricated); IPS / weighted-IPS / doubly-robust estimators are gated off \u2014 use direct reward-model scoring only",
+  "verdict": "bandit infra validated on synthetic fixtures only"
+}

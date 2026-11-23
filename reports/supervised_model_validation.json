@@ -1,0 +1,38 @@
+{
+  "report": "supervised_model_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "REAL market bars; THEORETICAL forward return (not realized strategy return under the -0.5% exit). OOS chronological split.",
+  "n_train": 138549,
+  "n_oos": 46183,
+  "champion_device": "gpu",
+  "champion_oos": {
+    "mse": 1.1412943679187763e-05,
+    "rmse": 0.003378304852908891,
+    "mae": 0.0018355677479967069,
+    "r2": -0.04307480974823541,
+    "directional_accuracy": 0.5011800879111361,
+    "rank_ic": 0.00259953739616394,
+    "n": 46183
+  },
+  "baseline_oos": {
+    "mse": 1.0962348994034034e-05,
+    "rmse": 0.003310943822240727,
+    "mae": 0.0018059972156497658,
+    "r2": -0.0018931498100220878,
+    "directional_accuracy": 0.5190438039971418,
+    "rank_ic": 0.01787857129771352,
+    "n": 46183
+  },
+  "constant_floor_oos": {
+    "mse": 1.0954482144589379e-05,
+    "rmse": 0.0033097556019424422,
+    "mae": 0.0018056474701765679,
+    "r2": -0.0011741668098022018,
+    "directional_accuracy": 0.5258211896152264,
+    "rank_ic": -0.0002344824196833375,
+    "n": 46183
+  },
+  "verdict": "GPU training works; predictive edge is MARGINAL and NOT claimed profitable"
+}

@@ -1,0 +1,13 @@
+{
+  "report": "model_calibration_validation",
+  "milestone": "M6",
+  "branch": "feature/adaptive-ml-rl-intelligence",
+  "generated": "2026-11-22",
+  "scope_honesty": "P(forward return>0) on REAL bars; model confidence is distinct from heuristic ranking confidence.",
+  "calibration": {
+    "brier": 0.24901565405798762,
+    "log_loss": 0.6911895774593849,
+    "ece": 0.019858585107275666,
+    "mce": 0.2305137813091278
+  }
+}
