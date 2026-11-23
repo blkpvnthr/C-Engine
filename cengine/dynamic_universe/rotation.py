@@ -120,6 +120,24 @@ class UniverseRotationScheduler:
         for s in references_list:
             _add(s, "reference")
 
+        # ---- Step 4b: hysteresis / minimum residence — retain incumbents that
+        # entered the active window too recently to demote (anti-churn, spec §8).
+        # An incumbent that is no longer eligible is NOT held (do not trap an
+        # invalid/deteriorated symbol); emergency demotion uses the tracker's
+        # force path upstream.
+        eligible_now = {
+            norm(r.symbol)
+            for r in list(baseline) + list(opportunities)
+            if r.eligible
+        }
+        for sym in (norm(x) for x in previous_active):
+            if len(active) >= cap:
+                break
+            if sym in seen or sym not in eligible_now:
+                continue
+            if not tracker.can_demote(sym, now_s):
+                _add(sym, "residence_hold")
+
         # ---- Step 5a: baseline needing revisit (starvation resistance) ----
         stale_baseline: list[str] = []
         baseline_by_sym = {norm(r.symbol): r for r in baseline}

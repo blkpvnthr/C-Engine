@@ -113,6 +113,35 @@ def test_add_remove_delta_vs_previous():
     assert set(res.removed) == set(prev) - set(res.active)
 
 
+def test_min_residence_prevents_churn_then_allows_rotation():
+    # cap 5, 5 baseline. Cycle 1 fills with baseline (marked active @ t=0).
+    # Cycle 2 @ t=60 (< 180 residence): strong opps must NOT displace incumbents.
+    # Cycle 3 @ t=200 (> residence): opps may now rotate in.
+    cfg = UniverseRotationConfig(active_universe_size=5, opportunity_target_slots=5,
+                                 candidate_min_residence_seconds=180.0,
+                                 baseline_max_revisit_seconds=1e9)  # disable revisit here
+    sched = UniverseRotationScheduler(cfg)
+    tracker = LifecycleTracker(cfg)
+    base5 = ["B0", "B1", "B2", "B3", "B4"]
+    strong = _ranked([f"O{i}" for i in range(5)], base_score=0.99)
+
+    r1 = sched.rotate(baseline=_ranked(base5, base_score=0.5), opportunities=[],
+                      protected=[], references=[], previous_active=[],
+                      tracker=tracker, now_s=0.0)
+    assert set(r1.active) == set(base5)
+
+    r2 = sched.rotate(baseline=_ranked(base5, base_score=0.5), opportunities=strong,
+                      protected=[], references=[], previous_active=r1.active,
+                      tracker=tracker, now_s=60.0)
+    assert set(r2.active) == set(base5)                   # churn prevented
+    assert not any(o.symbol in r2.active for o in strong)
+
+    r3 = sched.rotate(baseline=_ranked(base5, base_score=0.01), opportunities=strong,
+                      protected=[], references=[], previous_active=r2.active,
+                      tracker=tracker, now_s=200.0)
+    assert any(o.symbol in r3.active for o in strong)     # rotation allowed now
+
+
 def test_property_cap_and_uniqueness_over_many_pools():
     sched, _ = _sched(active_universe_size=30)
     for seed in range(200):
