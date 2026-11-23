@@ -822,6 +822,8 @@ class MarketEngine:
             )
             if os.path.exists(universe_path):
                 try:
+                    from market_scan.config import MarketScanConfig
+
                     manager = CanonicalUniverseManager(
                         universe_path, source_feed=config.alpaca_feed
                     )
@@ -830,15 +832,17 @@ class MarketEngine:
                         if self._bridge_client is not None
                         else None
                     )
+                    # Feed-aware subscription budget (SIP 250 / IEX 30), honoring the
+                    # MARKET_SCAN_MAX_SUBSCRIPTIONS override via the single from_env
+                    # source of truth, instead of a hardcoded 30 literal that silently
+                    # capped market-wide SIP discovery at 30 symbols (P0.2 / §10).
                     self.universe_sync = UniverseSubscriptionSync(
                         stream=self.stream,
                         universe_manager=manager,
                         positions=self.portfolio,
                         open_orders_fn=self.order_manager.open_orders,
                         discovery_symbols_fn=discovery_fn,
-                        max_symbols=int(
-                            os.environ.get("MARKET_SCAN_MAX_SUBSCRIPTIONS", "30")
-                        ),
+                        max_symbols=MarketScanConfig.from_env().max_subscriptions,
                         interval_s=float(
                             os.environ.get("CENGINE_UNIVERSE_SYNC_SECONDS", "5")
                         ),
