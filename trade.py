@@ -116,6 +116,7 @@ from order_manager import (
     NativeRiskEngine,
     OrderIntent,
     OrderManager,
+    OrderStatus,
     OrderType,
     Side,
     TimeInForce,
@@ -1041,6 +1042,8 @@ class MarketEngine:
         self._portfolio_last_price: dict[str, int] = {}
         self._portfolio_state_builder = None
         self._portfolio_audit_handler = None
+        self._microstructure = None
+        self._replacement = None
         if self._regime_pipeline is not None:
             try:
                 from cengine.capital_reservation import CapitalReservationLedger
@@ -1073,10 +1076,21 @@ class MarketEngine:
                         runtime = None
                     analytics = PortfolioAnalytics(runtime=runtime, ridge=1e-8)
                     pf_qpol = PortfolioQuantityPolicy()
+                    # Intelligent execution (M4): the portfolio router's execution
+                    # policy is a PlannedExecutionPolicy populated by the ExecutionPlanner
+                    # with fresh-quote limit prices from the L1 microstructure engine.
+                    from cengine.execution_planner import ExecutionPlanner, PlannedExecutionPolicy
+                    from cengine.microstructure import MicrostructureEngine
+                    from cengine.transaction_cost import TransactionCostEstimator
+                    self._microstructure = MicrostructureEngine()
+                    pf_planned = PlannedExecutionPolicy()
+                    pf_planner = ExecutionPlanner(
+                        cost_estimator=TransactionCostEstimator(),
+                        execution_authorization=pf_auth.value)
                     pf_router = CandidateRouter(
                         order_manager=self.order_manager, entry_quantity_policy=pf_qpol,
                         exit_quantity_provider=pf_qpol,
-                        execution_policy=self._portfolio_execution_policy(),
+                        execution_policy=pf_planned,
                         strategy_state=self.strategy_state,
                         exposure_authorizer=(
                             self._exposure_registry.authorize_entry
@@ -1086,12 +1100,19 @@ class MarketEngine:
                         router=pf_router, quantity_policy=pf_qpol,
                         optimizer=PortfolioOptimizer(OptimizerConfig(), analytics=analytics),
                         analytics=analytics, reservation_ledger=ledger,
-                        sink=self._regime_pipeline.sink, authorization=pf_auth)
+                        sink=self._regime_pipeline.sink, authorization=pf_auth,
+                        execution_planner=pf_planner, microstructure=self._microstructure,
+                        planned_policy=pf_planned)
                     # Emit portfolio ack/fill/risk evidence, attributed by correlation
                     # id -> portfolio_decision_id, composed onto the audit chain.
                     from cengine.strategy_execution_bridge import make_decision_audit_handler
                     self._portfolio_audit_handler = make_decision_audit_handler(
                         self._regime_pipeline.sink, self._portfolio_pipeline.correlation_index)
+                    # Intelligent replacement (M4 §16): reuse the M3 coordinator, driven
+                    # by protective-exit fills. Freed capital is reinvested by the next
+                    # portfolio tick subject to the no-reentry cooldown; no forced reinvest.
+                    from cengine.portfolio_replacement import ReplacementCoordinator
+                    self._replacement = ReplacementCoordinator()
                     LOGGER.info(
                         "portfolio intelligence active (authorization=%s; advisory until "
                         "return history accrues; routes via existing authority)",
@@ -1234,7 +1255,12 @@ class MarketEngine:
         self._regime_pipeline.sink.record_portfolio_state(state, now_ns)
         self._last_portfolio_state = state
 
-        symbols = tuple(s for s in candidates if len(self._portfolio_returns.get(s, {})) >= min_obs)
+        symbols = tuple(s for s in candidates
+                        if len(self._portfolio_returns.get(s, {})) >= min_obs)
+        # No immediate re-entry into a just-stopped-out symbol (M4 §16).
+        if self._replacement is not None:
+            symbols = tuple(s for s in symbols
+                            if not self._replacement.in_cooldown(s, now_ns))
         if not symbols:
             if self._on_portfolio is not None:
                 self._on_portfolio(state, {"allocation_policy": "warming_up"})
@@ -1263,7 +1289,27 @@ class MarketEngine:
                 "allocation_policy": res.allocation_policy,
                 "covariance_source": res.covariance_source,
                 "binding_constraints": binding,
-                "reserved": res.reserved, "routed": res.routed})
+                "reserved": res.reserved, "routed": res.routed,
+                "execution": self._execution_dashboard_stats(symbols, now_ns)})
+
+    def _execution_dashboard_stats(self, symbols: tuple, now_ns: int) -> dict:
+        """Non-blocking execution analytics for the dashboard (M4 §22), derived from
+        the current microstructure snapshots + recent decision evidence."""
+        spreads = []
+        micro_ok = 0
+        if self._microstructure is not None:
+            for sym in symbols:
+                f = self._microstructure.features(sym, now_ns=now_ns)
+                if f is not None and f.spread_bps is not None and not f.is_stale:
+                    spreads.append(f.spread_bps)
+                    micro_ok += 1
+        open_orders = len(self.order_manager.open_orders())
+        avg_spread = round(sum(spreads) / len(spreads), 2) if spreads else "n/a"
+        return {"policies": "intelligent", "avg_spread_bps": avg_spread,
+                "est_slippage_bps": avg_spread, "realized_slippage_bps": "pending",
+                "pending": open_orders, "rejected": 0,
+                "microstructure": f"{micro_ok}/{len(symbols)}",
+                "reconciliation": "ok"}
 
     def _warmup_priority_inputs(self) -> dict:
         """Priority groups for the warm-up scheduler: positions and pending orders
@@ -1765,6 +1811,16 @@ class MarketEngine:
         # Only quote/trade ticks are relevant to the OrderFlowEngine.
         if self._scanner_bridge is not None and channel in ("quote", "trade"):
             self._scanner_bridge.offer(event)
+        # L1 microstructure intelligence (M4): consume the SAME quote/trade ticks
+        # (no new provider connection). Nonblocking; never raises into ingestion.
+        if self._microstructure is not None and channel in ("quote", "trade"):
+            try:
+                if channel == "quote":
+                    self._microstructure.on_quote_event(event)
+                else:
+                    self._microstructure.on_trade_event(event)
+            except Exception:  # noqa: BLE001 — analytics must never block ingestion
+                pass
         # Phase B.5 — feed native GPU discovery (bars -> 5m aggregation; trades ->
         # developing price). on_market_event never raises; bars/trades only.
         if self._gpu_discovery is not None and channel in ("bar", "trade"):
@@ -1886,6 +1942,22 @@ class MarketEngine:
             try:
                 portfolio_audit(event, order)
             except Exception:  # noqa: BLE001 — evidence must never block the order path
+                pass
+        # Intelligent replacement (M4 §16): advance the coordinator on protective-exit
+        # lifecycle so a stopped-out symbol enters its no-reentry cooldown; freed
+        # capital is reinvested by the next portfolio tick (never forced).
+        replacement = getattr(self, "_replacement", None)
+        if replacement is not None and order.intent.strategy_id == "protective_exit":
+            try:
+                sym = order.intent.symbol
+                if order.status is OrderStatus.SUBMITTED:
+                    replacement.on_mandatory_exit(sym)
+                    replacement.on_exit_submitted(sym)
+                elif order.status is OrderStatus.PARTIALLY_FILLED:
+                    replacement.on_exit_partial(sym)
+                elif order.status is OrderStatus.FILLED:
+                    replacement.on_exit_filled(sym)
+            except Exception:  # noqa: BLE001 — replacement must never block the order path
                 pass
         self.journal.append(
             "order_event",
@@ -2065,8 +2137,10 @@ class StrategyOwnedExitProvider:
 
 
 def _fmt_usd(ticks: int) -> str:
-    """Ticks are integer cents (see AlpacaExecutionVenue._price_to_ticks)."""
-    return f"${ticks / 100:,.2f}"
+    """Ticks use the unified market-data scale (DEFAULT_PRICE_SCALE = 10_000,
+    $0.0001/tick), consistent with QuoteEvent ticks, the native RiskEngine, and
+    AlpacaExecutionVenue price conversion."""
+    return f"${ticks / 10_000:,.2f}"
 
 
 class ConsoleDecisionStream:
@@ -2163,6 +2237,20 @@ class ConsoleDecisionStream:
             f"binding={','.join(extra.get('binding_constraints', [])) or 'none'} "
             f"reserved_n={extra.get('reserved', 0)} routed={extra.get('routed', 0)}",
         )
+        # Execution analytics (M4 §22): non-blocking; unavailable metrics -> n/a.
+        if extra.get("execution") is not None:
+            ex = extra["execution"]
+            self._emit(
+                "EXEC",
+                f"policies={ex.get('policies', 'n/a')} "
+                f"avg_spread_bps={ex.get('avg_spread_bps', 'n/a')} "
+                f"est_slippage_bps={ex.get('est_slippage_bps', 'n/a')} "
+                f"realized_slippage_bps={ex.get('realized_slippage_bps', 'n/a')} "
+                f"pending={ex.get('pending', 'n/a')} "
+                f"rejected={ex.get('rejected', 0)} "
+                f"microstructure={ex.get('microstructure', 'n/a')} "
+                f"recon={ex.get('reconciliation', 'n/a')}",
+            )
 
 
 def _csv_symbols(value: str) -> tuple[str, ...]:

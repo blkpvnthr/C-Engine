@@ -221,22 +221,41 @@ class PortfolioAnalytics:
     def scenario_losses(self, weights: np.ndarray, cov: np.ndarray, *,
                         scenarios: int = 4096, seed: int = 12345,
                         horizon_scale: float = 1.0) -> dict:
-        """Deterministic Gaussian Monte-Carlo portfolio losses from the covariance.
+        """Seeded Gaussian Monte-Carlo portfolio losses from the covariance -> VaR/ES.
 
-        CPU/numpy (labeled): a seeded multivariate-normal draw of portfolio returns
-        -> VaR/ES. The GPU monte-carlo kernels remain compiled-but-unbound; GPU
-        scenario consumption is a tracked future increment (requires pybind bindings).
+        Host-generated normals (seeded, reproducible) feed either the GPU Monte-Carlo
+        kernels (gme::correlate_normals + gme::portfolio_scenario_pnl, consumed via
+        the native MetalRuntime) or a numpy fallback — numerically equivalent. These
+        are SIMULATED scenarios under explicit Gaussian assumptions, NOT calibrated
+        market forecasts.
         """
         w = np.asarray(weights, dtype=float)
+        n = cov.shape[0]
         rng = np.random.default_rng(seed)
-        chol = np.linalg.cholesky(cov + 1e-12 * np.eye(cov.shape[0]))
-        normals = rng.standard_normal(size=(scenarios, cov.shape[0]))
-        sims = normals @ chol.T * np.sqrt(horizon_scale)
-        port = sims @ w
+        chol = np.linalg.cholesky(cov + 1e-12 * np.eye(n))  # lower-triangular
+        normals = (rng.standard_normal(size=(scenarios, n)) * np.sqrt(horizon_scale))
+        source = "cpu_numpy"
+        port = None
+        if self.gpu_available and hasattr(self._runtime, "portfolio_scenario_returns"):
+            try:
+                raw = self._runtime.portfolio_scenario_returns(
+                    normals.astype(np.float32).flatten().tolist(),
+                    chol.astype(np.float32).flatten().tolist(),
+                    w.astype(np.float32).tolist(), int(scenarios), int(n), 0)
+                port = np.asarray(raw, dtype=float)
+                if not np.all(np.isfinite(port)):
+                    port = None
+                else:
+                    source = "metal_monte_carlo"
+            except Exception:  # noqa: BLE001 — GPU failure never blocks risk analysis
+                port = None
+        if port is None:
+            port = (normals @ chol.T) @ w
         losses = -port
         var95 = float(np.quantile(losses, 0.95))
         var99 = float(np.quantile(losses, 0.99))
         es95 = float(losses[losses >= var95].mean()) if np.any(losses >= var95) else var95
         return {"scenarios": scenarios, "var_95": var95, "var_99": var99,
                 "expected_shortfall_95": es95, "mean_loss": float(losses.mean()),
-                "worst_loss": float(losses.max()), "source": "cpu_numpy"}
+                "worst_loss": float(losses.max()), "source": source,
+                "assumption": "gaussian_simulation_not_a_forecast"}

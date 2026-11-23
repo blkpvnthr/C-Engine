@@ -43,6 +43,13 @@ class DecisionEventType(str, Enum):
     PORTFOLIO_CONSTRAINT_BINDING = "portfolio_constraint_binding"
     CAPITAL_RESERVATION = "capital_reservation"
     REPLACEMENT_DECISION = "replacement_decision"
+    # --- intelligent execution (Milestone 4, §21) ---
+    EXECUTION_PLAN = "execution_plan"
+    EXECUTION_PLAN_REJECTED = "execution_plan_rejected"
+    MICROSTRUCTURE_SNAPSHOT = "microstructure_snapshot"
+    TRANSACTION_COST_ANALYSIS = "transaction_cost_analysis"
+    POSITION_MANAGEMENT = "position_management"
+    PROFIT_PROTECTION = "profit_protection"
 
 
 @dataclass
@@ -285,6 +292,74 @@ class DecisionEventSink:
             payload={"replacement_symbol": decision.replacement_symbol,
                      "authorized": decision.authorized, "reason": decision.reason,
                      "considered": list(decision.considered)}))
+
+    # -- intelligent-execution emitters (Milestone 4, §21) -------------------
+    def record_execution_plan(self, plan, now_ns: int) -> None:
+        rejected = plan.rejection_reason is not None
+        self.emit(DecisionEvent(
+            event_type=(DecisionEventType.EXECUTION_PLAN_REJECTED if rejected
+                        else DecisionEventType.EXECUTION_PLAN),
+            timestamp_ns=now_ns, decision_id=plan.execution_plan_id,
+            symbol_id=plan.symbol_id, feature_version=plan.market_observation_version,
+            payload={"strategy_decision_id": plan.strategy_decision_id,
+                     "portfolio_decision_id": plan.portfolio_decision_id,
+                     "side": plan.side, "requested_quantity": plan.requested_quantity,
+                     "execution_policy": plan.execution_policy, "urgency": plan.urgency,
+                     "limit_price_ticks": plan.limit_price_ticks,
+                     "decision_price_ticks": plan.decision_price_ticks,
+                     "observed_bid_ticks": plan.observed_bid_ticks,
+                     "observed_ask_ticks": plan.observed_ask_ticks,
+                     "spread_bps": plan.spread_bps,
+                     "estimated_transaction_cost_bps": plan.estimated_transaction_cost_bps,
+                     "estimated_slippage_bps": plan.estimated_slippage_bps,
+                     "cost_components": plan.cost_components,
+                     "capital_reservation_id": plan.capital_reservation_id,
+                     "execution_authorization": plan.execution_authorization,
+                     "rejection_reason": plan.rejection_reason}))
+
+    def record_microstructure(self, features, now_ns: int) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.MICROSTRUCTURE_SNAPSHOT, timestamp_ns=now_ns,
+            symbol_id=features.symbol, feature_version=features.feature_version,
+            payload={"spread_bps": features.spread_bps,
+                     "quote_imbalance": features.quote_imbalance,
+                     "order_flow_imbalance": features.order_flow_imbalance,
+                     "microprice_displacement_bps": features.microprice_displacement_bps,
+                     "kyle_lambda": features.kyle_lambda,
+                     "amihud_illiquidity": features.amihud_illiquidity,
+                     "trade_arrival_intensity": features.trade_arrival_intensity,
+                     "adverse_selection_bps": features.adverse_selection_bps,
+                     "is_stale": features.is_stale, "crossed_or_locked": features.crossed_or_locked,
+                     "quality": features.quality, "confidence": features.confidence}))
+
+    def record_transaction_cost_analysis(self, outcome, now_ns: int, *,
+                                         decision_id: Optional[str] = None) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.TRANSACTION_COST_ANALYSIS, timestamp_ns=now_ns,
+            decision_id=decision_id, symbol_id=outcome.symbol,
+            payload={"side": outcome.side,
+                     "implementation_shortfall_bps": outcome.implementation_shortfall_bps,
+                     "realized_slippage_bps": outcome.realized_slippage_bps,
+                     "expected_slippage_bps": outcome.expected_slippage_bps,
+                     "adverse_price_movement_bps": outcome.adverse_price_movement_bps,
+                     "quoted_spread_bps": outcome.quoted_spread_bps,
+                     "filled_quantity": outcome.filled_quantity,
+                     "unfilled_quantity": outcome.unfilled_quantity,
+                     "acknowledgement_latency_ns": outcome.acknowledgement_latency_ns,
+                     "fill_latency_ns": outcome.fill_latency_ns,
+                     "cancellation_count": outcome.cancellation_count,
+                     "repricing_count": outcome.repricing_count,
+                     "average_fill_price_ticks": outcome.average_fill_price_ticks}))
+
+    def record_position_management(self, action, now_ns: int) -> None:
+        event = (DecisionEventType.PROFIT_PROTECTION
+                 if action.policy else DecisionEventType.POSITION_MANAGEMENT)
+        self.emit(DecisionEvent(
+            event_type=event, timestamp_ns=now_ns, symbol_id=action.symbol,
+            payload={"priority": int(action.priority), "action_type": action.action_type.value,
+                     "reason": action.reason, "policy": action.policy,
+                     "maturity": action.maturity.value, "shadow_only": action.shadow_only,
+                     "quantity": action.quantity}))
 
     # -- draining for later Parquet/DuckDB ingestion -------------------------
     def drain(self) -> list:

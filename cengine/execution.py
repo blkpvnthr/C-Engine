@@ -17,6 +17,7 @@ from cengine.portfolio import (
     BrokerPosition,
     PositionBook,
 )
+from market_data.alpaca_stream import DEFAULT_PRICE_SCALE as PRICE_SCALE
 from order_manager import ExecutionAck, ExecutionUpdate, OrderIntent, OrderStatus, Side
 
 PAPER_URL = "https://paper-api.alpaca.markets"
@@ -229,15 +230,19 @@ class AlpacaExecutionVenue:
 
     @staticmethod
     def _ticks_to_price(ticks: int) -> str:
+        # Internal ticks use the market-data scale (DEFAULT_PRICE_SCALE = 10_000,
+        # $0.0001/tick), consistent with QuoteEvent ticks + the native RiskEngine.
+        # Formatted to penny precision (Alpaca's increment for >= $1 equities).
         if ticks <= 0:
             raise ValueError("price ticks must be positive")
-        return f"{ticks / 100:.2f}"
+        return f"{ticks / PRICE_SCALE:.2f}"
 
     @staticmethod
     def _price_to_ticks(price: Any) -> int:
         from decimal import ROUND_HALF_UP, Decimal
 
-        return int((Decimal(str(price)) * 100).to_integral_value(rounding=ROUND_HALF_UP))
+        return int((Decimal(str(price)) * PRICE_SCALE).to_integral_value(
+            rounding=ROUND_HALF_UP))
 
     async def _request(
         self, method: str, path: str, payload: Optional[dict[str, Any]] = None

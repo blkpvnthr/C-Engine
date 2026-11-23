@@ -76,9 +76,17 @@ class PortfolioPipeline:
                  sink: Optional[DecisionEventSink] = None,
                  authorization: ExecutionAuthorization = ExecutionAuthorization.NONE,
                  min_observations: int = 20,
-                 correlation_index: Optional[dict] = None) -> None:
+                 correlation_index: Optional[dict] = None,
+                 execution_planner=None, microstructure=None,
+                 planned_policy=None) -> None:
         self._router = router
         self._quantity = quantity_policy
+        # Optional intelligent-execution layer (Milestone 4): when supplied, each
+        # routed recommendation produces an ExecutionPlan with a fresh-quote limit
+        # price (via planned_policy, which the router's execution_policy must be).
+        self._planner = execution_planner
+        self._microstructure = microstructure
+        self._planned_policy = planned_policy
         # correlation_id -> portfolio_decision_id, so an OrderManager audit handler
         # can attribute ack/fill/risk events back to the portfolio decision (§18).
         self.correlation_index = correlation_index if correlation_index is not None else {}
@@ -173,6 +181,11 @@ class PortfolioPipeline:
                 continue
             result.reserved += 1
 
+            # Build + emit the ExecutionPlan as decision evidence BEFORE the
+            # authorization gate (§21/§24: advisory mode still produces plan +
+            # microstructure evidence; it simply routes nothing).
+            self._build_and_emit_plan(rec, px, now_ns)
+
             if self.authorization is ExecutionAuthorization.NONE:
                 result.dispositions.append((rec.symbol_id, "advisory_authorization_none"))
                 self.ledger.mark_canceled(rec.portfolio_decision_id)  # release (not routed)
@@ -186,6 +199,27 @@ class PortfolioPipeline:
                 self.ledger.mark_canceled(rec.portfolio_decision_id)
                 result.skipped += 1
         return result
+
+    def _build_and_emit_plan(self, rec, price_ticks: int, now_ns: int):
+        """Build an ExecutionPlan (fresh-quote limit price + cost estimate), emit the
+        microstructure + execution-plan decision evidence, and register the plan on
+        the planned execution policy the router uses. No-op when no planner is
+        configured (preserves M3 MARKET behavior). Returns the plan or None."""
+        if self._planner is None or self._planned_policy is None:
+            return None
+        features = (self._microstructure.features(rec.symbol_id, now_ns=now_ns)
+                    if self._microstructure is not None else None)
+        if features is not None:
+            self.sink.record_microstructure(features, now_ns)
+        plan = self._planner.plan(
+            symbol=rec.symbol_id, side=Side.BUY, quantity=rec.requested_quantity,
+            now_ns=now_ns, features=features, decision_price_ticks=price_ticks,
+            portfolio_decision_id=rec.portfolio_decision_id,
+            capital_reservation_id=rec.portfolio_decision_id,
+            portfolio_version=getattr(rec, "portfolio_version", None))
+        self.sink.record_execution_plan(plan, now_ns)
+        self._planned_policy.set_plan(plan)
+        return plan
 
     async def _route(self, rec, price_ticks: int, now_ns: int) -> str:
         from order_manager import ExecutionRejected, RiskRejected
