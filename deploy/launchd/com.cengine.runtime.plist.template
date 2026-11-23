@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  C-Engine continuous runtime LaunchAgent (addendum §2).
+  This is a TEMPLATE: __REPO__ and __PYTHON__ are substituted by scripts/install_runtime_service.sh.
+  It keeps `python -m cengine.runtime run` alive 24/7 (RunAtLoad + KeepAlive), restarting on crash.
+  Continuous operation is NOT continuous execution: elective orders remain confined to
+  REGULAR_SESSION and require a separately-authorized trading-engine runner (absent by default),
+  so running this agent alone never places live orders.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cengine.runtime</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>-m</string>
+        <string>cengine.runtime</string>
+        <string>run</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PYTHONUNBUFFERED</key>
+        <string>1</string>
+        <!-- acquisition stays dry-run and no live trading runner is wired by default -->
+        <key>CENGINE_RUNTIME_ENABLE_FETCH</key>
+        <string>0</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO__/data/runtime/logs/runtime.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO__/data/runtime/logs/runtime.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

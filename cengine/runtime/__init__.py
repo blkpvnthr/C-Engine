@@ -16,6 +16,18 @@ from cengine.runtime.calendar import (
     next_transition,
     session_phase,
 )
+from cengine.runtime.continuous import (
+    CONTINUOUS_VERSION,
+    ContinuousAcquisitionService,
+    ContinuousGovernanceService,
+    ContinuousOptimizationService,
+)
+from cengine.runtime.service import (
+    SERVICE_VERSION,
+    ContinuousRuntimeConfig,
+    ContinuousRuntimeService,
+    TickPlan,
+)
 from cengine.runtime.state_machine import (
     STATE_MACHINE_VERSION,
     OperatingState,
@@ -36,9 +48,16 @@ from cengine.runtime.supervisor import (
 
 __all__ = [
     "CALENDAR_VERSION",
+    "CONTINUOUS_VERSION",
+    "SERVICE_VERSION",
     "STATE_MACHINE_VERSION",
     "SUPERVISOR_VERSION",
     "CalendarSummary",
+    "ContinuousAcquisitionService",
+    "ContinuousGovernanceService",
+    "ContinuousOptimizationService",
+    "ContinuousRuntimeConfig",
+    "ContinuousRuntimeService",
     "OperatingState",
     "OperatingStateMachine",
     "Priority",
@@ -46,6 +65,7 @@ __all__ = [
     "SessionPhase",
     "SingleInstanceError",
     "SingleInstanceLock",
+    "TickPlan",
     "derive_state",
     "execution_permitted",
     "is_regular_session",
