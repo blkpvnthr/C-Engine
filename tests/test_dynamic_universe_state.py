@@ -1,6 +1,5 @@
 from pathlib import Path
 
-import universe
 from cengine.dynamic_universe.baseline import BaselineRegistry
 from cengine.dynamic_universe.config import UniverseRotationConfig
 from cengine.dynamic_universe.lifecycle import LifecycleState, LifecycleTracker
@@ -46,12 +45,7 @@ def test_corrupt_state_file_is_fresh(tmp_path):
 def test_manager_restart_recovers_residence(tmp_path):
     bp = tmp_path / "baseline_universe.txt"
     bp.write_text(", ".join(f"'{s}'" for s in BASE5) + "\n", encoding="utf-8")
-    uni = tmp_path / "universe.txt"
     sp = tmp_path / "state.json"
-
-    def write(active):
-        universe.write_canonical_universe(list(active), uni, min_symbols=1)
-        return list(active)
 
     strong = [RankedSymbol(f"O{i}", 0.99) for i in range(10)]
     cfg = UniverseRotationConfig(active_universe_size=5, opportunity_target_slots=5,
@@ -61,7 +55,7 @@ def test_manager_restart_recovers_residence(tmp_path):
     mgr1 = DynamicUniverseManager(
         baseline=BaselineRegistry(bp), config=cfg,
         ranking_source=lambda: [], protection_source=lambda: [],
-        active_writer=write, state_path=sp, now_fn=lambda: 0.0,
+        state_path=sp, now_fn=lambda: 0.0,
     )
     r1 = mgr1.rotate_once(now_s=0.0)          # baseline fills; incumbents entered @ 0
     assert set(r1.active) == set(BASE5)
@@ -70,7 +64,7 @@ def test_manager_restart_recovers_residence(tmp_path):
     mgr2 = DynamicUniverseManager(
         baseline=BaselineRegistry(bp), config=cfg,
         ranking_source=lambda: strong, protection_source=lambda: [],
-        active_writer=write, state_path=sp, now_fn=lambda: 60.0,
+        state_path=sp, now_fn=lambda: 60.0,
     )
     assert set(mgr2._previous_active) == set(BASE5)   # restored
     r2 = mgr2.rotate_once(now_s=60.0)                 # within residence of t=0

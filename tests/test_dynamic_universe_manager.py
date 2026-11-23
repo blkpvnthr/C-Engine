@@ -1,9 +1,8 @@
 from pathlib import Path
 
-import universe
 from cengine.dynamic_universe.baseline import BaselineRegistry
 from cengine.dynamic_universe.config import UniverseRotationConfig
-from cengine.dynamic_universe.manager import DynamicUniverseManager
+from cengine.dynamic_universe.manager import ActiveUniverseSnapshot, DynamicUniverseManager
 from cengine.dynamic_universe.rotation import RankedSymbol
 
 BASE5 = ["AAA", "BBB", "CCC", "DDD", "EEE"]
@@ -15,63 +14,52 @@ def _baseline(tmp_path: Path, syms=BASE5) -> BaselineRegistry:
     return BaselineRegistry(p)
 
 
-def _writer(tmp_path: Path):
-    uni = tmp_path / "universe.txt"
-
-    def write(active):
-        universe.write_canonical_universe(list(active), uni, min_symbols=1)
-        return list(active)
-
-    return uni, write
-
-
-def _manager(tmp_path, *, ranking=(), protection=(), references=(), cfg=None, state=None):
-    uni, write = _writer(tmp_path)
-    mgr = DynamicUniverseManager(
+def _manager(tmp_path, *, ranking=(), protection=(), references=(), cfg=None, state=None,
+             emitter=None, now=1000.0):
+    return DynamicUniverseManager(
         baseline=_baseline(tmp_path),
         config=cfg or UniverseRotationConfig(active_universe_size=6,
                                              opportunity_target_slots=3),
         ranking_source=lambda: list(ranking() if callable(ranking) else ranking),
         protection_source=lambda: list(protection() if callable(protection) else protection),
         references=references,
-        active_writer=write,
+        event_emitter=emitter,
         state_path=state,
-        now_fn=lambda: 1000.0,
+        now_fn=lambda: now,
     )
-    return mgr, uni
 
 
-def test_rotate_writes_active_universe(tmp_path):
+def test_rotate_produces_immutable_snapshot(tmp_path):
     opps = [RankedSymbol("NVDA", 0.9), RankedSymbol("TSLA", 0.8)]
-    mgr, uni = _manager(tmp_path, ranking=opps)
+    mgr = _manager(tmp_path, ranking=opps)
+    assert mgr.current_active() is None                 # fail-closed before first rotation
     res = mgr.rotate_once(now_s=0.0)
-    assert len(res.active) == 6           # cap: 2 opps + 4 baseline
-    written = universe.load_canonical_universe(uni)
-    assert set(written) == set(res.active)
-    assert "NVDA" in res.active and "TSLA" in res.active
-    assert len(res.active_baseline) == 4  # 4 of the 5 baseline fill the window
-    assert len(res.active_opportunity) == 2
+    snap = mgr.current_active()
+    assert isinstance(snap, ActiveUniverseSnapshot)
+    assert snap.active == res.active
+    assert snap.generation == 1
+    assert len(snap.active) == 6                         # 2 opps + 4 baseline
+    assert "NVDA" in snap.active and "TSLA" in snap.active
+    # manager writes NO files: universe.txt must not be created by the manager.
+    assert not (tmp_path / "universe.txt").exists()
 
 
-def test_protection_reserved_in_active_and_file(tmp_path):
-    held = ["ZZZ"]                          # not baseline, not opp
+def test_protection_reserved_in_snapshot(tmp_path):
+    held = ["ZZZ"]
     opps = [RankedSymbol(f"O{i}", 0.99) for i in range(10)]
-    mgr, uni = _manager(tmp_path, ranking=opps, protection=held)
+    mgr = _manager(tmp_path, ranking=opps, protection=held)
     res = mgr.rotate_once(now_s=0.0)
     assert "ZZZ" in res.active
-    assert "ZZZ" in universe.load_canonical_universe(uni)
+    assert "ZZZ" in mgr.current_active().protected
     assert len(res.active) == 6
 
 
-def test_baseline_never_written_out_of_existence(tmp_path):
-    # Even with a flood of strong opportunities, the BaselineRegistry membership
-    # is untouched and baseline symbols remain eligible (master always ⊇ baseline).
+def test_baseline_membership_never_lost(tmp_path):
     opps = [RankedSymbol(f"O{i}", 0.99) for i in range(50)]
-    mgr, uni = _manager(tmp_path, ranking=opps)
+    mgr = _manager(tmp_path, ranking=opps)
     for t in range(0, 2000, 100):
         mgr.rotate_once(now_s=float(t))
-    assert set(mgr._baseline.symbols()) == set(BASE5)   # baseline membership intact
-    # master always contains the full baseline
+    assert set(mgr._baseline.symbols()) == set(BASE5)
     assert set(BASE5).issubset(set(mgr.layers.master))
 
 
@@ -79,18 +67,27 @@ def test_ranking_source_failure_falls_back_to_baseline(tmp_path):
     def boom():
         raise RuntimeError("scanner down")
 
-    uni, write = _writer(tmp_path)
     mgr = DynamicUniverseManager(
         baseline=_baseline(tmp_path),
         config=UniverseRotationConfig(active_universe_size=6),
         ranking_source=boom,
         protection_source=lambda: [],
-        active_writer=write,
         now_fn=lambda: 0.0,
     )
-    res = mgr.rotate_once(now_s=0.0)       # must not raise
+    res = mgr.rotate_once(now_s=0.0)                     # must not raise
     assert set(res.active) == set(BASE5)
-    assert set(universe.load_canonical_universe(uni)) == set(BASE5)
+    assert set(mgr.current_active().active) == set(BASE5)
+
+
+def test_maybe_rotate_rate_limits_but_heartbeat_reads_snapshot(tmp_path):
+    cfg = UniverseRotationConfig(active_universe_size=6, refresh_interval_seconds=60.0)
+    mgr = _manager(tmp_path, ranking=[RankedSymbol("NVDA", 0.9)], cfg=cfg)
+    s0 = mgr.maybe_rotate(now_s=0.0)                     # first -> rotates
+    assert s0.generation == 1
+    s1 = mgr.maybe_rotate(now_s=30.0)                    # < interval -> cached
+    assert s1.generation == 1
+    s2 = mgr.maybe_rotate(now_s=61.0)                    # >= interval -> rotates
+    assert s2.generation == 2
 
 
 def test_event_emitter_called(tmp_path):
@@ -98,28 +95,19 @@ def test_event_emitter_called(tmp_path):
 
     def emit(result, layers, now_s):
         seen["active"] = result.active
-        seen["layers"] = layers
         seen["now"] = now_s
+        seen["opp"] = layers.opportunity
 
-    uni, write = _writer(tmp_path)
-    mgr = DynamicUniverseManager(
-        baseline=_baseline(tmp_path),
-        config=UniverseRotationConfig(active_universe_size=6),
-        ranking_source=lambda: [RankedSymbol("NVDA", 0.9)],
-        protection_source=lambda: [],
-        active_writer=write,
-        event_emitter=emit,
-        now_fn=lambda: 42.0,
-    )
+    mgr = _manager(tmp_path, ranking=[RankedSymbol("NVDA", 0.9)], emitter=emit, now=42.0)
     res = mgr.rotate_once()
     assert seen["active"] == res.active
     assert seen["now"] == 42.0
-    assert "NVDA" in seen["layers"].opportunity
+    assert "NVDA" in seen["opp"]
 
 
 def test_dashboard_stats_shape(tmp_path):
-    mgr, _ = _manager(tmp_path, ranking=[RankedSymbol("NVDA", 0.9)])
-    assert mgr.dashboard_stats()["coverage"] == "PENDING"   # before first rotation
+    mgr = _manager(tmp_path, ranking=[RankedSymbol("NVDA", 0.9)])
+    assert mgr.dashboard_stats()["coverage"] == "PENDING"
     mgr.rotate_once(now_s=0.0)
     stats = mgr.dashboard_stats()
     assert stats["baseline"] == 5

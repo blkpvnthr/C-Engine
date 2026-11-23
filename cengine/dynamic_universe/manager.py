@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, Protocol, Sequence
 
@@ -42,15 +44,32 @@ RankingSource = Callable[[], Sequence[RankedSymbol]]
 ProtectionSource = Callable[[], Sequence[str]]
 
 
+@dataclass(frozen=True)
+class ActiveUniverseSnapshot:
+    """Immutable active-universe membership with a monotonic generation id.
+
+    The ``DynamicUniverseManager`` is the sole authority that produces these; the
+    existing ``UniversePublisher`` is the sole writer that consumes ``.active``
+    and publishes it to universe.txt + live_context.json from THIS one snapshot,
+    so both artifacts always share identical membership (spec §6 step 12,
+    integration authority-separation).
+    """
+
+    active: tuple[str, ...]
+    generation: int
+    created_s: float
+    degraded: bool
+    protected: tuple[str, ...]
+    active_baseline: tuple[str, ...]
+    active_opportunity: tuple[str, ...]
+    stale_baseline: tuple[str, ...]
+    reasons: dict[str, str]
+
+
 class DecisionEmitter(Protocol):
     def __call__(
         self, result: RotationResult, layers: UniverseLayers, now_s: float
     ) -> None: ...
-
-
-def default_active_writer(active: Sequence[str]) -> list[str]:
-    """Write the active window to universe.txt (atomic, fail-closed safe)."""
-    return universe.write_canonical_universe(list(active), universe.UNIVERSE_TXT, min_symbols=1)
 
 
 class DynamicUniverseManager:
@@ -62,7 +81,6 @@ class DynamicUniverseManager:
         ranking_source: RankingSource,
         protection_source: ProtectionSource,
         references: Sequence[str] = (),
-        active_writer: Callable[[Sequence[str]], Any] = default_active_writer,
         event_emitter: Optional[DecisionEmitter] = None,
         state_path: Optional[str | Path] = None,
         now_fn: Callable[[], float] = time.time,
@@ -73,12 +91,12 @@ class DynamicUniverseManager:
         self._ranking_source = ranking_source
         self._protection_source = protection_source
         self._references = tuple(universe.normalize_symbol(s) for s in references if universe.normalize_symbol(s))
-        self._active_writer = active_writer
         self._emit = event_emitter
         self._state_path = Path(state_path) if state_path else None
         self._now_fn = now_fn
         self._log = log_fn or (lambda m: logger.info(m))
         self._scheduler = UniverseRotationScheduler(config)
+        self._lock = threading.RLock()
 
         if self._state_path is not None:
             self._tracker, self._previous_active, self._version = load_state(
@@ -94,9 +112,34 @@ class DynamicUniverseManager:
         self._last_result: Optional[RotationResult] = None
         self._last_rotation_s: float = 0.0
         self._layers: Optional[UniverseLayers] = None
+        self._snapshot: Optional[ActiveUniverseSnapshot] = None
 
     # ------------------------------------------------------------------ one pass
     def rotate_once(self, now_s: Optional[float] = None) -> RotationResult:
+        with self._lock:
+            return self._rotate_locked(now_s)
+
+    def maybe_rotate(self, now_s: Optional[float] = None) -> Optional[ActiveUniverseSnapshot]:
+        """Rotate only if ``refresh_interval_seconds`` has elapsed; else return the
+        cached snapshot. Lets the ~3s publish heartbeat pull the current membership
+        without forcing a rotation every tick (spec §6 / heartbeat contract)."""
+        with self._lock:
+            now = float(now_s) if now_s is not None else float(self._now_fn())
+            due = (
+                self._snapshot is None
+                or (now - self._last_rotation_s) >= self._cfg.refresh_interval_seconds
+            )
+            if due:
+                self._rotate_locked(now)
+            return self._snapshot
+
+    def current_active(self) -> Optional[ActiveUniverseSnapshot]:
+        """The latest immutable active snapshot, or None before the first rotation
+        (publishers must treat None as fail-closed: do not publish membership)."""
+        with self._lock:
+            return self._snapshot
+
+    def _rotate_locked(self, now_s: Optional[float] = None) -> RotationResult:
         now = float(now_s) if now_s is not None else float(self._now_fn())
 
         baseline_syms = self._baseline.symbols()
@@ -136,14 +179,10 @@ class DynamicUniverseManager:
             now_s=now,
         )
 
-        # Sole writer of universe.txt active membership. Never write an empty
-        # window (keeps the fail-closed loader importable).
-        if result.active:
-            try:
-                self._active_writer(result.active)
-            except Exception as exc:  # noqa: BLE001 - never crash the rotation loop
-                logger.error("dynamic-universe: active-universe write failed: %s", exc)
-
+        # The manager is the SELECTION authority only; it never writes files.
+        # It publishes an immutable snapshot that the existing UniversePublisher
+        # (sole writer) consumes. An empty active window yields no snapshot update
+        # (fail-closed: the publisher keeps the last-good file importable).
         self._previous_active = result.active
         self._version += 1
         self._last_result = result
@@ -156,6 +195,18 @@ class DynamicUniverseManager:
             active=result.active,
             version=self._version,
         )
+        if result.active:
+            self._snapshot = ActiveUniverseSnapshot(
+                active=result.active,
+                generation=self._version,
+                created_s=now,
+                degraded=result.degraded,
+                protected=result.protected,
+                active_baseline=result.active_baseline,
+                active_opportunity=result.active_opportunity,
+                stale_baseline=result.stale_baseline,
+                reasons=dict(result.reasons),
+            )
 
         if result.added or result.removed or result.degraded:
             self._log(
