@@ -277,6 +277,13 @@ def main() -> int:
     for name in ("screen_market", "technical_features", "market_breadth",
                  "compact_entry_candidates", "rank_candidates"):
         reg.mark_operationally_consumed(name)
+    # Milestone 3 (§5/§20): the covariance kernels are now operationally consumed by
+    # the portfolio analytics path (cengine.portfolio_analytics.PortfolioAnalytics ->
+    # PortfolioOptimizer -> PortfolioPipeline, wired into trade.py's portfolio tick).
+    # column_means + covariance_matrix are the sample-covariance consumer; EWMA is
+    # consumed when an ewma_lambda is configured.
+    for name in ("column_means", "covariance_matrix", "ewma_covariance_matrix"):
+        reg.mark_operationally_consumed(name)
     inventory = json.loads(reg.to_json())
     cov = reg.coverage()
     tele = rt.telemetry()

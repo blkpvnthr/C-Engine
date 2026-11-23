@@ -36,6 +36,13 @@ class DecisionEventType(str, Enum):
     COMPLETE_FILL = "complete_fill"
     EXIT_DECISION = "exit_decision"
     REALIZED_OUTCOME = "realized_outcome"
+    # --- portfolio intelligence (Milestone 3, §18) ---
+    PORTFOLIO_STATE = "portfolio_state"
+    PORTFOLIO_OPTIMIZATION = "portfolio_optimization"
+    PORTFOLIO_RECOMMENDATION = "portfolio_recommendation"
+    PORTFOLIO_CONSTRAINT_BINDING = "portfolio_constraint_binding"
+    CAPITAL_RESERVATION = "capital_reservation"
+    REPLACEMENT_DECISION = "replacement_decision"
 
 
 @dataclass
@@ -215,6 +222,69 @@ class DecisionEventSink:
             payload={"correlation_id": correlation_id,
                      "realized_return": realized_return, "holding_ns": holding_ns,
                      "realized_pnl_ticks": realized_pnl_ticks}))
+
+    # -- portfolio emitters (Milestone 3, §18) -------------------------------
+    def record_portfolio_state(self, state, now_ns: int) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.PORTFOLIO_STATE, timestamp_ns=now_ns,
+            payload={"portfolio_version": state.portfolio_version,
+                     "equity_ticks": state.account_equity_ticks,
+                     "available_cash_ticks": state.available_cash_ticks,
+                     "buying_power_ticks": state.buying_power_ticks,
+                     "reserved_capital_ticks": state.reserved_capital_ticks,
+                     "gross_exposure_ticks": state.gross_exposure_ticks,
+                     "net_exposure_ticks": state.net_exposure_ticks,
+                     "effective_exposure_ticks": state.effective_exposure_ticks,
+                     "drawdown_bps": state.drawdown_bps,
+                     "reconciliation_status": state.reconciliation_status.value}))
+
+    def record_portfolio_optimization(self, *, now_ns: int, policy: str,
+                                      covariance_source: str, covariance_version: str,
+                                      return_basis: str, binding: list,
+                                      candidate_count: int) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.PORTFOLIO_OPTIMIZATION, timestamp_ns=now_ns,
+            payload={"allocation_policy": policy, "covariance_source": covariance_source,
+                     "covariance_version": covariance_version, "return_basis": return_basis,
+                     "binding_constraints": list(binding), "candidate_count": candidate_count}))
+
+    def record_portfolio_recommendation(self, rec, now_ns: int) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.PORTFOLIO_RECOMMENDATION, timestamp_ns=now_ns,
+            decision_id=rec.portfolio_decision_id, symbol_id=rec.symbol_id,
+            strategy_family=rec.strategy_family, regime_version=rec.regime_version,
+            feature_version=rec.feature_version,
+            payload={"source_strategy_decision_id": rec.source_strategy_decision_id,
+                     "target_weight": rec.target_weight, "current_weight": rec.current_weight,
+                     "requested_quantity": rec.requested_quantity,
+                     "requested_notional_ticks": rec.requested_notional_ticks,
+                     "capital_required_ticks": rec.capital_required_ticks,
+                     "expected_risk_contribution": rec.expected_risk_contribution,
+                     "estimated_transaction_cost": rec.estimated_transaction_cost,
+                     "expected_incremental_net_return": rec.expected_incremental_net_return,
+                     "allocation_policy": rec.allocation_policy,
+                     "return_basis": rec.return_basis,
+                     "constraint_status": rec.constraint_status,
+                     "binding_constraints": list(rec.binding_constraints),
+                     "eligibility": rec.eligibility.value,
+                     "rejection_reason": rec.rejection_reason}))
+
+    def record_capital_reservation(self, *, decision_id: str, symbol_id: str,
+                                   notional_ticks: int, accepted: bool, reason: str,
+                                   now_ns: int) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.CAPITAL_RESERVATION, timestamp_ns=now_ns,
+            decision_id=decision_id, symbol_id=symbol_id,
+            payload={"notional_ticks": notional_ticks, "accepted": accepted,
+                     "reason": reason}))
+
+    def record_replacement_decision(self, decision, now_ns: int) -> None:
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.REPLACEMENT_DECISION, timestamp_ns=now_ns,
+            symbol_id=decision.exited_symbol,
+            payload={"replacement_symbol": decision.replacement_symbol,
+                     "authorized": decision.authorized, "reason": decision.reason,
+                     "considered": list(decision.considered)}))
 
     # -- draining for later Parquet/DuckDB ingestion -------------------------
     def drain(self) -> list:
