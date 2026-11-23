@@ -1,0 +1,4461 @@
+{
+  "title": "C-Engine M7 Certification",
+  "version": "certification-contracts-1.0.0",
+  "as_of_ns": 1795416764928342000,
+  "rollup_verdict": "not_certified",
+  "counts": {
+    "certified": 52,
+    "not_certified": 18,
+    "insufficient_data": 4,
+    "quarantine": 0,
+    "not_applicable": 0,
+    "blocked": 0
+  },
+  "metadata": {
+    "symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "SPY",
+      "QQQ"
+    ],
+    "quick": false,
+    "holdout_manifest": {
+      "version": "certification-holdout-1.0.0",
+      "policy": {
+        "train_frac": 0.6,
+        "validation_frac": 0.2,
+        "embargo_days": 3
+      },
+      "manifest_fingerprint": "c421bf6a7e26e35f",
+      "symbols": [
+        {
+          "symbol": "AAPL",
+          "train": [
+            1577836800000000000,
+            1708268364000000000
+          ],
+          "validation": [
+            1708527564000000000,
+            1751745552000000000
+          ],
+          "holdout": [
+            1752004752000000000,
+            1795222740000000000
+          ],
+          "embargo_days": 3,
+          "fingerprint": "a4da992b0e123c05"
+        },
+        {
+          "symbol": "MSFT",
+          "train": [
+            1577836980000000000,
+            1708268436000000000
+          ],
+          "validation": [
+            1708527636000000000,
+            1751745588000000000
+          ],
+          "holdout": [
+            1752004788000000000,
+            1795222740000000000
+          ],
+          "embargo_days": 3,
+          "fingerprint": "a4f9d9682d579971"
+        },
+        {
+          "symbol": "NVDA",
+          "train": [
+            1577837880000000000,
+            1708268796000000000
+          ],
+          "validation": [
+            1708527996000000000,
+            1751745768000000000
+          ],
+          "holdout": [
+            1752004968000000000,
+            1795222740000000000
+          ],
+          "embargo_days": 3,
+          "fingerprint": "29facd81c7fe9e40"
+        },
+        {
+          "symbol": "SPY",
+          "train": [
+            1577836860000000000,
+            1708268388000000000
+          ],
+          "validation": [
+            1708527588000000000,
+            1751745564000000000
+          ],
+          "holdout": [
+            1752004764000000000,
+            1795222740000000000
+          ],
+          "embargo_days": 3,
+          "fingerprint": "b2bd2d889de64b40"
+        },
+        {
+          "symbol": "QQQ",
+          "train": [
+            1577837100000000000,
+            1708268484000000000
+          ],
+          "validation": [
+            1708527684000000000,
+            1751745612000000000
+          ],
+          "holdout": [
+            1752004812000000000,
+            1795222740000000000
+          ],
+          "embargo_days": 3,
+          "fingerprint": "f029bd4402f11f2b"
+        }
+      ]
+    },
+    "holdout_access_audit": {
+      "total_accesses": 5,
+      "granted": 5,
+      "symbols_touched": 5,
+      "symbols_touched_more_than_once": {},
+      "reasons": [
+        "economic_certification_scoring"
+      ]
+    }
+  },
+  "audits": [
+    {
+      "component": "amps_v4_regime",
+      "status": "unit_tested",
+      "module": "amps_v4_regime.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.adaptive_subscription_controller",
+      "status": "operationally_consumed",
+      "module": "cengine/adaptive_subscription_controller.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.capital_reservation",
+      "status": "operationally_consumed",
+      "module": "cengine/capital_reservation.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.decision_events",
+      "status": "operationally_consumed",
+      "module": "cengine/decision_events.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.engine_state",
+      "status": "operationally_consumed",
+      "module": "cengine/engine_state.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.event_bus",
+      "status": "operationally_consumed",
+      "module": "cengine/event_bus.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.execution",
+      "status": "unit_tested",
+      "module": "cengine/execution.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.execution_planner",
+      "status": "operationally_consumed",
+      "module": "cengine/execution_planner.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.execution_policy",
+      "status": "operationally_consumed",
+      "module": "cengine/execution_policy.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.exposure_registry",
+      "status": "operationally_consumed",
+      "module": "cengine/exposure_registry.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.gpu_discovery",
+      "status": "unit_tested",
+      "module": "cengine/gpu_discovery.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.gpu_scanner_bridge",
+      "status": "operationally_consumed",
+      "module": "cengine/gpu_scanner_bridge.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.gpu_worker",
+      "status": "unit_tested",
+      "module": "cengine/gpu_worker.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.historical_warmup",
+      "status": "operationally_consumed",
+      "module": "cengine/historical_warmup.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.integrity",
+      "status": "operationally_consumed",
+      "module": "cengine/integrity.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.journal",
+      "status": "operationally_consumed",
+      "module": "cengine/journal.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.lakehouse.attribution",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/attribution.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.bronze",
+      "status": "operationally_consumed",
+      "module": "cengine/lakehouse/bronze.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.lakehouse.feature_store",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/feature_store.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.gold",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/gold.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.governance",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/governance.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.historical",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/historical.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.pipeline",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/pipeline.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.quality",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/quality.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.silver",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/silver.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.lakehouse.warehouse",
+      "status": "unit_tested",
+      "module": "cengine/lakehouse/warehouse.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.calibration.calibration",
+      "status": "unit_tested",
+      "module": "cengine/learning/calibration/calibration.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.contextual_bandits.linucb",
+      "status": "unit_tested",
+      "module": "cengine/learning/contextual_bandits/linucb.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.contextual_bandits.neural_bandit",
+      "status": "unit_tested",
+      "module": "cengine/learning/contextual_bandits/neural_bandit.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.datasets.certification",
+      "status": "unit_tested",
+      "module": "cengine/learning/datasets/certification.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.environment.replay",
+      "status": "unit_tested",
+      "module": "cengine/learning/environment/replay.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.evaluation.economic",
+      "status": "unit_tested",
+      "module": "cengine/learning/evaluation/economic.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.evaluation.ope",
+      "status": "unit_tested",
+      "module": "cengine/learning/evaluation/ope.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.features.builder",
+      "status": "unit_tested",
+      "module": "cengine/learning/features/builder.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.inference.service",
+      "status": "operationally_consumed",
+      "module": "cengine/learning/inference/service.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.learning.monitoring.drift",
+      "status": "unit_tested",
+      "module": "cengine/learning/monitoring/drift.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.offline_rl.bc",
+      "status": "unit_tested",
+      "module": "cengine/learning/offline_rl/bc.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.offline_rl.cql_iql",
+      "status": "unit_tested",
+      "module": "cengine/learning/offline_rl/cql_iql.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.offline_rl.fqe",
+      "status": "unit_tested",
+      "module": "cengine/learning/offline_rl/fqe.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.offline_rl.transitions",
+      "status": "unit_tested",
+      "module": "cengine/learning/offline_rl/transitions.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.orchestration.champion_challenger",
+      "status": "unit_tested",
+      "module": "cengine/learning/orchestration/champion_challenger.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.learning.orchestration.daily_cycle",
+      "status": "operationally_consumed",
+      "module": "cengine/learning/orchestration/daily_cycle.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.learning.regime_models.transition_model",
+      "status": "unit_tested",
+      "module": "cengine/learning/regime_models/transition_model.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.membership",
+      "status": "operationally_consumed",
+      "module": "cengine/membership.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.metal_backend",
+      "status": "operationally_consumed",
+      "module": "cengine/metal_backend.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.metal_buffers",
+      "status": "unit_tested",
+      "module": "cengine/metal_buffers.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.metal_covariance",
+      "status": "unit_tested",
+      "module": "cengine/metal_covariance.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.metal_cpu_ref",
+      "status": "unit_tested",
+      "module": "cengine/metal_cpu_ref.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.metal_indicators",
+      "status": "unit_tested",
+      "module": "cengine/metal_indicators.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.metal_portfolio",
+      "status": "unit_tested",
+      "module": "cengine/metal_portfolio.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.metal_runtime",
+      "status": "unit_tested",
+      "module": "cengine/metal_runtime.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.metal_validation",
+      "status": "operationally_consumed",
+      "module": "cengine/metal_validation.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.metrics",
+      "status": "operationally_consumed",
+      "module": "cengine/metrics.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.microstructure",
+      "status": "operationally_consumed",
+      "module": "cengine/microstructure.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.native_execution",
+      "status": "unit_tested",
+      "module": "cengine/native_execution.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.nosql_journal",
+      "status": "operationally_consumed",
+      "module": "cengine/nosql_journal.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.operational_discovery",
+      "status": "operationally_consumed",
+      "module": "cengine/operational_discovery.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.optimization.attribution",
+      "status": "unit_tested",
+      "module": "cengine/optimization/attribution.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.controller",
+      "status": "unit_tested",
+      "module": "cengine/optimization/controller.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.data_sufficiency",
+      "status": "unit_tested",
+      "module": "cengine/optimization/data_sufficiency.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.economic",
+      "status": "unit_tested",
+      "module": "cengine/optimization/economic.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.exits.adaptive",
+      "status": "unit_tested",
+      "module": "cengine/optimization/exits/adaptive.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.exits.counterfactual",
+      "status": "unit_tested",
+      "module": "cengine/optimization/exits/counterfactual.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.exits.experiment_matrix",
+      "status": "unit_tested",
+      "module": "cengine/optimization/exits/experiment_matrix.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.experiments",
+      "status": "unit_tested",
+      "module": "cengine/optimization/experiments.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.hypotheses",
+      "status": "unit_tested",
+      "module": "cengine/optimization/hypotheses.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.memory",
+      "status": "unit_tested",
+      "module": "cengine/optimization/memory.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.orchestration",
+      "status": "unit_tested",
+      "module": "cengine/optimization/orchestration.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.search",
+      "status": "unit_tested",
+      "module": "cengine/optimization/search.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.optimization.validation",
+      "status": "unit_tested",
+      "module": "cengine/optimization/validation.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.portfolio",
+      "status": "operationally_consumed",
+      "module": "cengine/portfolio.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.portfolio_analytics",
+      "status": "operationally_consumed",
+      "module": "cengine/portfolio_analytics.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.portfolio_constraints",
+      "status": "unit_tested",
+      "module": "cengine/portfolio_constraints.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.portfolio_optimization",
+      "status": "unit_tested",
+      "module": "cengine/portfolio_optimization.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.portfolio_optimizer",
+      "status": "operationally_consumed",
+      "module": "cengine/portfolio_optimizer.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.portfolio_pipeline",
+      "status": "operationally_consumed",
+      "module": "cengine/portfolio_pipeline.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.portfolio_replacement",
+      "status": "operationally_consumed",
+      "module": "cengine/portfolio_replacement.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.portfolio_state",
+      "status": "operationally_consumed",
+      "module": "cengine/portfolio_state.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.position_management",
+      "status": "unit_tested",
+      "module": "cengine/position_management.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.regime_engine",
+      "status": "unit_tested",
+      "module": "cengine/regime_engine.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.regime_strategy_pipeline",
+      "status": "operationally_consumed",
+      "module": "cengine/regime_strategy_pipeline.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.reservations",
+      "status": "unit_tested",
+      "module": "cengine/reservations.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.runtime.calendar",
+      "status": "operationally_consumed",
+      "module": "cengine/runtime/calendar.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "cengine/runtime"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.runtime.state_machine",
+      "status": "operationally_consumed",
+      "module": "cengine/runtime/state_machine.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "cengine/runtime"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.runtime.supervisor",
+      "status": "operationally_consumed",
+      "module": "cengine/runtime/supervisor.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "cengine/runtime"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.safety",
+      "status": "operationally_consumed",
+      "module": "cengine/safety.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.strategy_arbitration",
+      "status": "unit_tested",
+      "module": "cengine/strategy_arbitration.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.strategy_execution_bridge",
+      "status": "operationally_consumed",
+      "module": "cengine/strategy_execution_bridge.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.strategy_families",
+      "status": "unit_tested",
+      "module": "cengine/strategy_families.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "cengine.strategy_maturity",
+      "status": "operationally_consumed",
+      "module": "cengine/strategy_maturity.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.strategy_state",
+      "status": "operationally_consumed",
+      "module": "cengine/strategy_state.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.transaction_cost",
+      "status": "operationally_consumed",
+      "module": "cengine/transaction_cost.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "cengine.warmup_scheduler",
+      "status": "operationally_consumed",
+      "module": "cengine/warmup_scheduler.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "indicators",
+      "status": "unit_tested",
+      "module": "indicators.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "liquidity",
+      "status": "unit_tested",
+      "module": "liquidity.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "market_data.create_daily_market_file",
+      "status": "implemented",
+      "module": "market_data/create_daily_market_file.py",
+      "evidence": "imports cleanly; tested=False; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "no unit-test import found",
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 1
+    },
+    {
+      "component": "market_data.feed",
+      "status": "operationally_consumed",
+      "module": "market_data/feed.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "market_data.market_data_store",
+      "status": "operationally_consumed",
+      "module": "market_data/market_data_store.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "native_adapters",
+      "status": "unit_tested",
+      "module": "native_adapters.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "order_flow_engine",
+      "status": "unit_tested",
+      "module": "order_flow_engine.py",
+      "evidence": "imports cleanly; tested=True; consumed=False",
+      "consumed_by": [],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 2
+    },
+    {
+      "component": "order_manager",
+      "status": "operationally_consumed",
+      "module": "order_manager.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "protective_exit.py",
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "protective_exit",
+      "status": "operationally_consumed",
+      "module": "protective_exit.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    },
+    {
+      "component": "strategies",
+      "status": "operationally_consumed",
+      "module": "strategies.py",
+      "evidence": "imports cleanly; tested=True; consumed=True",
+      "consumed_by": [
+        "trade.py"
+      ],
+      "gaps": [
+        "empirical rungs (historical/paper/live) pending cert runs"
+      ],
+      "notes": "",
+      "status_rank": 3
+    }
+  ],
+  "results": [
+    {
+      "check": "engineering_audit.platform",
+      "component": "platform",
+      "verdict": "certified",
+      "summary": "103 modules audited, 0 BLOCKED",
+      "metrics": {
+        "audit_version": "m7a-engineering-audit-1.0.0",
+        "total_modules": 103,
+        "blocked": []
+      },
+      "sample_size": 103,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416767148048000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.execution",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 4 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 4,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767147987000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.protective_exit",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "all 2 modules import; 2 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 2,
+        "blocked": 0,
+        "unit_tested_or_consumed": 2,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 2,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767147993000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.strategies",
+      "component": "strategies",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 4 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 4,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767147998000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.regime",
+      "component": "regime",
+      "verdict": "certified",
+      "summary": "all 3 modules import; 3 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 3,
+        "blocked": 0,
+        "unit_tested_or_consumed": 3,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 3,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148001000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.portfolio",
+      "component": "portfolio",
+      "verdict": "certified",
+      "summary": "all 11 modules import; 11 unit-tested, 8 operationally consumed",
+      "metrics": {
+        "modules": 11,
+        "blocked": 0,
+        "unit_tested_or_consumed": 11,
+        "operationally_consumed": 8,
+        "blocked_modules": []
+      },
+      "sample_size": 11,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148007000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.risk_native",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "all 9 modules import; 9 unit-tested, 2 operationally consumed",
+      "metrics": {
+        "modules": 9,
+        "blocked": 0,
+        "unit_tested_or_consumed": 9,
+        "operationally_consumed": 2,
+        "blocked_modules": []
+      },
+      "sample_size": 9,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148012000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.discovery_gpu",
+      "component": "discovery_gpu",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 3 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 3,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148015000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.lakehouse",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "all 11 modules import; 11 unit-tested, 2 operationally consumed",
+      "metrics": {
+        "modules": 11,
+        "blocked": 0,
+        "unit_tested_or_consumed": 11,
+        "operationally_consumed": 2,
+        "blocked_modules": []
+      },
+      "sample_size": 11,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148020000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.learning_ml",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "all 7 modules import; 7 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 7,
+        "blocked": 0,
+        "unit_tested_or_consumed": 7,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 7,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148024000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.learning_bandit_rl",
+      "component": "learning_bandit_rl",
+      "verdict": "certified",
+      "summary": "all 9 modules import; 9 unit-tested, 1 operationally consumed",
+      "metrics": {
+        "modules": 9,
+        "blocked": 0,
+        "unit_tested_or_consumed": 9,
+        "operationally_consumed": 1,
+        "blocked_modules": []
+      },
+      "sample_size": 9,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148028000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.autonomous_opt",
+      "component": "autonomous_opt",
+      "verdict": "certified",
+      "summary": "all 13 modules import; 13 unit-tested, 0 operationally consumed",
+      "metrics": {
+        "modules": 13,
+        "blocked": 0,
+        "unit_tested_or_consumed": 13,
+        "operationally_consumed": 0,
+        "blocked_modules": []
+      },
+      "sample_size": 13,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148033000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.continuous_runtime",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "all 3 modules import; 3 unit-tested, 3 operationally consumed",
+      "metrics": {
+        "modules": 3,
+        "blocked": 0,
+        "unit_tested_or_consumed": 3,
+        "operationally_consumed": 3,
+        "blocked_modules": []
+      },
+      "sample_size": 3,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148036000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.infra_safety",
+      "component": "infra_safety",
+      "verdict": "certified",
+      "summary": "all 11 modules import; 11 unit-tested, 11 operationally consumed",
+      "metrics": {
+        "modules": 11,
+        "blocked": 0,
+        "unit_tested_or_consumed": 11,
+        "operationally_consumed": 11,
+        "blocked_modules": []
+      },
+      "sample_size": 11,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148040000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "engineering_audit.market_data",
+      "component": "market_data",
+      "verdict": "certified",
+      "summary": "all 3 modules import; 2 unit-tested, 2 operationally consumed",
+      "metrics": {
+        "modules": 3,
+        "blocked": 0,
+        "unit_tested_or_consumed": 2,
+        "operationally_consumed": 2,
+        "blocked_modules": []
+      },
+      "sample_size": 3,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "static engineering audit; empirical status granted only by cert runs",
+      "as_of_ns": 1795416767148042000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.inventory",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "12,217,591 bars across 2 timeframes; 1Min=6,764,426/5sym; 5Min=5,453,165/31sym",
+      "metrics": {
+        "timeframes": {
+          "1Min": {
+            "bars": 6764426,
+            "symbols": 5,
+            "start": "2019-12-31",
+            "end": "2026-11-20"
+          },
+          "5Min": {
+            "bars": 5453165,
+            "symbols": 31,
+            "start": "2019-12-31",
+            "end": "2026-11-20"
+          }
+        },
+        "file_count": 47619
+      },
+      "sample_size": 12217591,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "certification floor = 100,000 bars",
+      "as_of_ns": 1795416773892626000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.duplicates",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "no duplicate (symbol,timeframe,timestamp) bars",
+      "metrics": {
+        "duplicate_key_groups": 0,
+        "tolerance": 0.0
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416776848393000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.monotonic",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "timestamps strictly increasing within every partition",
+      "metrics": {
+        "non_increasing_steps": 0
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416780350150000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.ohlc_validity",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "all bars satisfy OHLC ordering, positivity and non-negative volume",
+      "metrics": {
+        "ohlc_order_violations": 0,
+        "nonpositive_price": 0,
+        "negative_volume": 0
+      },
+      "sample_size": 12217591,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416783952306000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.point_in_time",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "no look-ahead; availability timestamps present on all bars",
+      "metrics": {
+        "lookahead_bars": 0,
+        "null_availability": 0
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "point-in-time guard: a bar may never be available before its own timestamp",
+      "as_of_ns": 1795416787035046000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.price_scale",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "uniform price_scale=10000",
+      "metrics": {
+        "distinct_price_scales": [
+          10000
+        ]
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416789904715000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.session_coverage",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "all 36 series >= 90% trading-day coverage (worst 100.0%)",
+      "metrics": {
+        "worst_coverage": 1.0,
+        "below_threshold": [],
+        "per_symbol": [
+          {
+            "symbol": "AMD",
+            "timeframe": "5Min",
+            "present_days": 99,
+            "expected_days": 99,
+            "coverage": 1.0,
+            "bars_per_day": 186.6,
+            "span": "2026-05-01..2026-09-22"
+          },
+          {
+            "symbol": "DOG",
+            "timeframe": "5Min",
+            "present_days": 1752,
+            "expected_days": 1732,
+            "coverage": 1.0115,
+            "bars_per_day": 95.5,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLP",
+            "timeframe": "5Min",
+            "present_days": 1761,
+            "expected_days": 1732,
+            "coverage": 1.0167,
+            "bars_per_day": 93.1,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLV",
+            "timeframe": "5Min",
+            "present_days": 1763,
+            "expected_days": 1732,
+            "coverage": 1.0179,
+            "bars_per_day": 95.7,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "MSFT",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 186.4,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "META",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 185.6,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "SPY",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 187.8,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "TSLA",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 188.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "AAPL",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 187.2,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "QQQ",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 188.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "GOOGL",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 187.6,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "AMZN",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 185.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "NVDA",
+            "timeframe": "5Min",
+            "present_days": 145,
+            "expected_days": 142,
+            "coverage": 1.0211,
+            "bars_per_day": 188.0,
+            "span": "2026-05-01..2026-11-21"
+          },
+          {
+            "symbol": "SOXX",
+            "timeframe": "5Min",
+            "present_days": 1769,
+            "expected_days": 1732,
+            "coverage": 1.0214,
+            "bars_per_day": 112.3,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLK",
+            "timeframe": "5Min",
+            "present_days": 1781,
+            "expected_days": 1732,
+            "coverage": 1.0283,
+            "bars_per_day": 113.2,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SH",
+            "timeframe": "5Min",
+            "present_days": 1781,
+            "expected_days": 1732,
+            "coverage": 1.0283,
+            "bars_per_day": 126.5,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "DIA",
+            "timeframe": "5Min",
+            "present_days": 1783,
+            "expected_days": 1732,
+            "coverage": 1.0294,
+            "bars_per_day": 130.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "PSQ",
+            "timeframe": "5Min",
+            "present_days": 1784,
+            "expected_days": 1732,
+            "coverage": 1.03,
+            "bars_per_day": 126.0,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "SMH",
+            "timeframe": "5Min",
+            "present_days": 1786,
+            "expected_days": 1732,
+            "coverage": 1.0312,
+            "bars_per_day": 115.5,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "XLE",
+            "timeframe": "5Min",
+            "present_days": 1793,
+            "expected_days": 1732,
+            "coverage": 1.0352,
+            "bars_per_day": 134.0,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "XLF",
+            "timeframe": "5Min",
+            "present_days": 1794,
+            "expected_days": 1732,
+            "coverage": 1.0358,
+            "bars_per_day": 136.6,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "GLD",
+            "timeframe": "5Min",
+            "present_days": 1794,
+            "expected_days": 1732,
+            "coverage": 1.0358,
+            "bars_per_day": 144.4,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "TLT",
+            "timeframe": "5Min",
+            "present_days": 1794,
+            "expected_days": 1732,
+            "coverage": 1.0358,
+            "bars_per_day": 148.6,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "SOXL",
+            "timeframe": "5Min",
+            "present_days": 1795,
+            "expected_days": 1732,
+            "coverage": 1.0364,
+            "bars_per_day": 169.8,
+            "span": "2020-01-02..2026-11-21"
+          },
+          {
+            "symbol": "SDS",
+            "timeframe": "5Min",
+            "present_days": 1795,
+            "expected_days": 1732,
+            "coverage": 1.0364,
+            "bars_per_day": 140.1,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SOXS",
+            "timeframe": "5Min",
+            "present_days": 1797,
+            "expected_days": 1732,
+            "coverage": 1.0375,
+            "bars_per_day": 167.7,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "UPRO",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 158.4,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "AAPL",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 749.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "IWM",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 173.6,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "QQQ",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 820.7,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "TQQQ",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 181.3,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "NVDA",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 756.6,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SQQQ",
+            "timeframe": "5Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 181.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "MSFT",
+            "timeframe": "1Min",
+            "present_days": 1798,
+            "expected_days": 1732,
+            "coverage": 1.0381,
+            "bars_per_day": 632.4,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "SPY",
+            "timeframe": "1Min",
+            "present_days": 1799,
+            "expected_days": 1732,
+            "coverage": 1.0387,
+            "bars_per_day": 802.5,
+            "span": "2020-01-01..2026-11-21"
+          },
+          {
+            "symbol": "PLTR",
+            "timeframe": "5Min",
+            "present_days": 1609,
+            "expected_days": 1544,
+            "coverage": 1.0421,
+            "bars_per_day": 176.3,
+            "span": "2020-09-30..2026-11-21"
+          }
+        ]
+      },
+      "sample_size": 36,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "coverage measured at trading-day granularity vs NYSE calendar",
+      "as_of_ns": 1795416793140200000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "data_integrity.timeframe_alignment",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "AAPL: 99.99% of 8419 5m buckets reconcile from 1m (high/low/close); volume match 8418/8419",
+      "metrics": {
+        "symbol": "AAPL",
+        "buckets": 8419,
+        "high_ok": 8418,
+        "low_ok": 8418,
+        "close_ok": 8418,
+        "volume_ok": 8418,
+        "price_consistency": 0.9999
+      },
+      "sample_size": 8419,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "bounded spot-check over ~20 recent trading days",
+      "as_of_ns": 1795416803747518000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.module",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "native extension exposes all authoritative types",
+      "metrics": {
+        "required": [
+          "RiskEngine",
+          "DiscoveryEngine",
+          "MetalRuntime",
+          "RiskRequest",
+          "evaluate_emergency_exit",
+          "clamp_emergency_threshold"
+        ],
+        "missing": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804617894000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.risk_gate",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "native RiskEngine operational: 10-share order accepted; 50k-share order rejected (RiskRejectReason.QUANTITY_LIMIT_EXCEEDED)",
+      "metrics": {
+        "small_accepted": true,
+        "oversized_rejected": true,
+        "oversized_reason": "RiskRejectReason.QUANTITY_LIMIT_EXCEEDED"
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "native RiskEngine is the sole financial authority for every order",
+      "as_of_ns": 1795416804618196000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.metal_runtime",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "Metal device 'Apple M5 Max'; compiled SMA kernel executes correctly",
+      "metrics": {
+        "device": "Apple M5 Max",
+        "kernel_sma_ok": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804753922000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.gpu_cpu_parity",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "GPU reproduces the CPU reference exactly (EMA match=True, APO match=True) \u2014 acceleration is correctness-preserving",
+      "metrics": {
+        "ema_exact_match": true,
+        "apo_exact_match": true,
+        "sample": {
+          "gpu_ema": [
+            10000,
+            10020,
+            10026,
+            10060,
+            10108,
+            10136,
+            10188,
+            10226,
+            10264,
+            10311
+          ],
+          "cpu_ema": [
+            10000,
+            10020,
+            10026,
+            10060,
+            10108,
+            10136,
+            10188,
+            10226,
+            10264,
+            10311
+          ]
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756531000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "native.cpu_fallback",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "documented CPU fallback: 4 CPU reference kernels + DevicePolicy override \u2014 platform degrades safely without a GPU",
+      "metrics": {
+        "cpu_reference_kernels": [
+          "ema_ticks",
+          "apo_ticks",
+          "column_means",
+          "covariance_matrix"
+        ],
+        "device_policy": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "GPU/Metal is an acceleration layer; risk + protective exit never depend on it",
+      "as_of_ns": 1795416804756569000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.worker_isolation",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "learning fault isolated; essential protection/execution workers never auto-killed; protection independent of learning",
+      "metrics": {
+        "learning_isolated": true,
+        "protection_untouched": true,
+        "protection_independent": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756597000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.gpu_unavailable",
+      "component": "risk_native",
+      "verdict": "certified",
+      "summary": "forced-CPU policy resolves off-GPU and CPU kernels compute (safe degradation)",
+      "metrics": {
+        "cpu_compute_ok": true,
+        "device_policy_forces_cpu": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756605000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.empty_lakehouse",
+      "component": "lakehouse",
+      "verdict": "certified",
+      "summary": "missing lakehouse degrades certification to INSUFFICIENT_DATA (no crash)",
+      "metrics": {
+        "degraded_gracefully": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804756618000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.protective_exit_isolation",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "protective-exit scan isolates a per-symbol broker/venue failure and never raises (the monitor must never die)",
+      "metrics": {
+        "did_not_raise": true,
+        "submitted": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804757549000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.single_instance",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "second trade instance blocked while lock held; lock reusable after release",
+      "metrics": {
+        "second_blocked": true,
+        "reacquired_after_release": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804759299000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "failure_injection.durable_checkpoint",
+      "component": "continuous_runtime",
+      "verdict": "certified",
+      "summary": "atomic checkpoint survives a write/read round-trip; missing file -> None",
+      "metrics": {
+        "roundtrip_ok": true,
+        "missing_returns_none": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804760050000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.contract_math",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "long/short unrealized return symmetric at \u22120.6%; triggers at <= -0.500% (at=-0.0050 fires, above=-0.0040 holds)",
+      "metrics": {
+        "long_ret": -0.006,
+        "short_ret": -0.006,
+        "at_threshold": -0.005,
+        "above_threshold": -0.004,
+        "threshold": -0.005
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804760076000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.independence",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "protective-exit coordinator imports no ML/GPU/lakehouse/scanner module \u2014 protection is independent of learning & discovery",
+      "metrics": {
+        "forbidden_imports_found": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416804760345000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.emergency_candidate",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "native \u22123% emergency candidate pure & inactive-by-default; clamp never widens risk (result \u2265 current) across 5 cases",
+      "metrics": {
+        "breach_at_-4pct": true,
+        "holds_at_-2pct": true,
+        "clamp_never_widens_risk": true,
+        "candidate_threshold": -0.03,
+        "active_in_live": false
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "the \u22123% emergency is a RESEARCH CANDIDATE and is not wired into the live path",
+      "as_of_ns": 1795416804760359000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.AAPL",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "AAPL: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 35326,
+        "full_in_region": 35326
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416810131360000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.MSFT",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "MSFT: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 33721,
+        "full_in_region": 33721
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416814926507000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.NVDA",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "NVDA: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 50626,
+        "full_in_region": 50626
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416820119263000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.SPY",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "SPY: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 19492,
+        "full_in_region": 19492
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416825180454000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "entry_contract.QQQ",
+      "component": "strategy",
+      "verdict": "certified",
+      "summary": "QQQ: entries deterministic=True, look-ahead-free(causal)=True; 3000 entries",
+      "metrics": {
+        "deterministic": true,
+        "causal": true,
+        "n_entries": 3000,
+        "prefix_matches": 27159,
+        "full_in_region": 27159
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a726 entry contract: reproducible + causal (no future information)",
+      "as_of_ns": 1795416830306065000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.planner",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "execution planner produces an executable, deterministic plan (executable=True)",
+      "metrics": {
+        "executable": true,
+        "deterministic": true,
+        "policy": ""
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830324372000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.cost_model",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "transaction-cost estimator conservative-by-default: total 15.5bps (spread 10.0 + impact 5.0 + fee 0.5)",
+      "metrics": {
+        "total_cost_bps": 15.5,
+        "spread_bps": 10.0,
+        "impact_bps": 5.0,
+        "fee_bps": 0.5
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830324389000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.conservative_fills",
+      "component": "execution",
+      "verdict": "certified",
+      "summary": "certification fill model: stop-before-target within a bar, gap-through at the open, costs on both sides (no favorable-fill assumption)",
+      "metrics": {
+        "stop_before_target": true,
+        "gap_through_at_open": true,
+        "cost_applied": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830325766000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "execution.realized_quality",
+      "component": "execution",
+      "verdict": "insufficient_data",
+      "summary": "realized slippage / fill-ratio / cancel-reprice require executed (paper or live) orders \u2014 none available during certification",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "not estimated as if real; see paper-trading framework",
+      "as_of_ns": 1795416830325783000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.infrastructure",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "learning + autonomous-optimization stack imports cleanly",
+      "metrics": {
+        "modules": [
+          "cengine.learning.datasets.eligibility",
+          "cengine.learning.evaluation.economic",
+          "cengine.learning.inference.service",
+          "cengine.learning.contextual_bandits.linucb",
+          "cengine.learning.offline_rl.cql_iql",
+          "cengine.optimization.controller"
+        ],
+        "missing": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416830349847000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.data_eligibility",
+      "component": "learning_ml",
+      "verdict": "insufficient_data",
+      "summary": "eligibility by state {'validation_eligible': 1, 'insufficient_data': 6}; strategy-relevant validation-eligible tasks: NONE (only the theoretical forward_return target is eligible; no realized-outcome layers materialized)",
+      "metrics": {
+        "by_state": {
+          "validation_eligible": 1,
+          "insufficient_data": 6
+        },
+        "tasks": [
+          {
+            "task": "forward_return_prediction",
+            "eligibility": "validation_eligible"
+          },
+          {
+            "task": "strategy_net_return",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "probability_positive_return",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "regime_transition",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "execution_quality",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "policy_bandit",
+            "eligibility": "insufficient_data"
+          },
+          {
+            "task": "offline_rl_execution",
+            "eligibility": "insufficient_data"
+          }
+        ]
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "strategy-relevant supervised/bandit/RL learning cannot be economically certified without realized outcomes (no live sessions during certification)",
+      "as_of_ns": 1795416847068017000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.provenance_discipline",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "synthetic & historical-replay results cannot claim profitability; only genuine realized ('real') outcomes can",
+      "metrics": {
+        "synthetic_claim_blocked": true,
+        "historical_replay_claim_blocked": true,
+        "real_claim_allowed": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416847068796000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.recommendation_only",
+      "component": "learning_ml",
+      "verdict": "certified",
+      "summary": "no learning module routes orders (imports no order-manager / execution-venue / submit path) \u2014 a learning fault can never place a trade",
+      "metrics": {
+        "offenders": []
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795416847085478000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.autonomous_opt_safety",
+      "component": "autonomous_opt",
+      "verdict": "certified",
+      "summary": "optimization config refuses risk expansion, locks the \u22120.5% production exit, and refuses to loosen the \u22123% emergency (tightening allowed)",
+      "metrics": {
+        "default_valid": true,
+        "risk_expansion_blocked": true,
+        "production_exit_locked": true,
+        "emergency_loosen_blocked": true,
+        "emergency_tighten_allowed": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "the governed loop retains the incumbent \u2014 it certified NO economic improvement, the correct falsification-first outcome",
+      "as_of_ns": 1795416847085629000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "learning.bandit_rl",
+      "component": "learning_bandit_rl",
+      "verdict": "insufficient_data",
+      "summary": "contextual-bandit / offline-RL policies require logged action-propensity + realized-reward data from live/paper sessions \u2014 none available",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "implemented + unit-tested (engineering), but economically INSUFFICIENT_DATA; no fabricated behavior probabilities or rewards",
+      "as_of_ns": 1795416847085636000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.AAPL",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "AAPL holdout n=3000 expectancy=-0.00114 PF=0.60 Sharpe=-0.20 DD=97.0% -> not_certified; fails: ['expectancy_not_positive:-0.001136', 'profit_factor_below:0.598<1.1', 'sharpe_not_positive:-0.201', 'drawdown_exceeds:0.970>0.25', 'does_not_beat_buy_and_hold', 'does_not_beat_random_placebo']",
+      "metrics": {
+        "symbol": "AAPL",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -3.40755089098223,
+            "net_expectancy": -0.0011358502969940766,
+            "sharpe": -0.20116870527622085,
+            "sortino": -0.28714823680210216,
+            "profit_factor": 0.5976468719004049,
+            "win_rate": 0.34833333333333333,
+            "max_drawdown": 0.9700734015978053,
+            "avg_win": 0.004843544886583383,
+            "avg_loss": -0.004331997594609649
+          },
+          "score": -4.523364409778391,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9700734015978053"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.7490886996534893,
+              "net_expectancy": -0.0005830295665511631,
+              "sharpe": -0.08553120534289832,
+              "sortino": -0.11853912662424354,
+              "profit_factor": 0.7823028078290915,
+              "win_rate": 0.42233333333333334,
+              "max_drawdown": 0.8794095530337942,
+              "avg_win": 0.004960863534750053,
+              "avg_loss": -0.004636181649268207
+            },
+            "score": -2.6900859068240397,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.8794095530337942"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": 0.6413718626834981,
+              "net_expectancy": 0.6413718626834981,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": Infinity,
+              "win_rate": 1.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.6413718626834981,
+              "avg_loss": 0.0
+            },
+            "score": 0.6413718626834981,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2979,
+            "metrics": {
+              "net_return": -2.7384021628334025,
+              "net_expectancy": -0.0009192353685241365,
+              "sharpe": -0.17631777094155418,
+              "sortino": -0.2531797370018026,
+              "profit_factor": 0.6233770691471622,
+              "win_rate": 0.37865055387714,
+              "max_drawdown": 0.9389913292233654,
+              "avg_win": 0.00401820596069045,
+              "avg_loss": -0.003928113715014709
+            },
+            "score": -3.805947417415177,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9389913292233654"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.001136",
+            "profit_factor_below:0.598<1.1",
+            "sharpe_not_positive:-0.201",
+            "drawdown_exceeds:0.970>0.25",
+            "does_not_beat_buy_and_hold",
+            "does_not_beat_random_placebo"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": false,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416875687954000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.MSFT",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "MSFT holdout n=3000 expectancy=-0.00123 PF=0.57 Sharpe=-0.21 DD=98.1% -> not_certified; fails: ['expectancy_not_positive:-0.001228', 'profit_factor_below:0.569<1.1', 'sharpe_not_positive:-0.211', 'drawdown_exceeds:0.981>0.25', 'does_not_beat_buy_and_hold', 'does_not_beat_random_placebo']",
+      "metrics": {
+        "symbol": "MSFT",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -3.6829496156601946,
+            "net_expectancy": -0.0012276498718867316,
+            "sharpe": -0.21064058862266227,
+            "sortino": -0.3073471249852195,
+            "profit_factor": 0.5694454886417614,
+            "win_rate": 0.3396666666666667,
+            "max_drawdown": 0.9809997057632208,
+            "avg_win": 0.0047801949206457035,
+            "avg_loss": -0.004318005169004625
+          },
+          "score": -4.819781886500527,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9809997057632208"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -3.4651595419486863,
+              "net_expectancy": -0.001155053180649562,
+              "sharpe": -0.14998181210874278,
+              "sortino": -0.18858648735659747,
+              "profit_factor": 0.6295633600204849,
+              "win_rate": 0.41,
+              "max_drawdown": 0.9817439580365179,
+              "avg_win": 0.004787884132787902,
+              "avg_loss": -0.005284890974733223
+            },
+            "score": -4.543839189150869,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9817439580365179"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": -0.015775123358896016,
+              "net_expectancy": -0.015775123358896016,
+              "sharpe": 0.0,
+              "sortino": -1.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": -0.015775123358896016
+            },
+            "score": -0.523662685038344,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2985,
+            "metrics": {
+              "net_return": -3.2317243037334418,
+              "net_expectancy": -0.0010826547081184059,
+              "sharpe": -0.1886139891850145,
+              "sortino": -0.2780728185797132,
+              "profit_factor": 0.6002526259187768,
+              "win_rate": 0.36482412060301506,
+              "max_drawdown": 0.963805017614868,
+              "avg_win": 0.004456099438497377,
+              "avg_loss": -0.004263932801823357
+            },
+            "score": -4.336697697039078,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.963805017614868"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.001228",
+            "profit_factor_below:0.569<1.1",
+            "sharpe_not_positive:-0.211",
+            "drawdown_exceeds:0.981>0.25",
+            "does_not_beat_buy_and_hold",
+            "does_not_beat_random_placebo"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": false,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416888693678000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.NVDA",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "NVDA holdout n=3000 expectancy=-0.00118 PF=0.64 Sharpe=-0.17 DD=97.4% -> not_certified; fails: ['expectancy_not_positive:-0.001177', 'profit_factor_below:0.641<1.1', 'sharpe_not_positive:-0.172', 'drawdown_exceeds:0.974>0.25', 'does_not_beat_buy_and_hold']",
+      "metrics": {
+        "symbol": "NVDA",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -3.530206064617023,
+            "net_expectancy": -0.001176735354872341,
+            "sharpe": -0.17244982617504556,
+            "sortino": -0.2696102942386189,
+            "profit_factor": 0.6411174802121887,
+            "win_rate": 0.31033333333333335,
+            "max_drawdown": 0.973834911554558,
+            "avg_win": 0.0067738517620103775,
+            "avg_loss": -0.004754307421483171
+          },
+          "score": -4.641223277001632,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.973834911554558"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.8953317797725977,
+              "net_expectancy": -0.0006317772599241993,
+              "sharpe": -0.06769361995333413,
+              "sortino": -0.09267931761488768,
+              "profit_factor": 0.8221391904510373,
+              "win_rate": 0.43266666666666664,
+              "max_drawdown": 0.8793523008079425,
+              "avg_win": 0.006749562737813219,
+              "avg_loss": -0.006261024802264485
+            },
+            "score": -2.8241542517891163,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.8793523008079425"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": -0.18916310769038208,
+              "net_expectancy": -0.18916310769038208,
+              "sharpe": 0.0,
+              "sortino": -1.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": -0.18916310769038208
+            },
+            "score": -0.7837446615355731,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2985,
+            "metrics": {
+              "net_return": -3.9103797748835443,
+              "net_expectancy": -0.0013100099748353583,
+              "sharpe": -0.20600177947703766,
+              "sortino": -0.2960892222589594,
+              "profit_factor": 0.5754550700731319,
+              "win_rate": 0.32763819095477387,
+              "max_drawdown": 0.9827478384335185,
+              "avg_win": 0.005419607626560505,
+              "avg_loss": -0.004589315412884761
+            },
+            "score": -5.043466882152985,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9827478384335185"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.001177",
+            "profit_factor_below:0.641<1.1",
+            "sharpe_not_positive:-0.172",
+            "drawdown_exceeds:0.974>0.25",
+            "does_not_beat_buy_and_hold"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": true,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416901808698000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.SPY",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "SPY holdout n=3000 expectancy=-0.00083 PF=0.55 Sharpe=-0.22 DD=91.8% -> not_certified; fails: ['expectancy_not_positive:-0.000826', 'profit_factor_below:0.553<1.1', 'sharpe_not_positive:-0.224', 'drawdown_exceeds:0.918>0.25', 'does_not_beat_buy_and_hold']",
+      "metrics": {
+        "symbol": "SPY",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -2.4790926350712392,
+            "net_expectancy": -0.000826364211690413,
+            "sharpe": -0.22421241406724274,
+            "sortino": -0.2883192037665259,
+            "profit_factor": 0.552922168792186,
+            "win_rate": 0.38433333333333336,
+            "max_drawdown": 0.9183315917568301,
+            "avg_win": 0.002659159056189111,
+            "avg_loss": -0.0030022214547142847
+          },
+          "score": -3.5430849394386894,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9183315917568301"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.8372117998340989,
+              "net_expectancy": -0.000612403933278033,
+              "sharpe": -0.15283649541246577,
+              "sortino": -0.19515781063730223,
+              "profit_factor": 0.6439045994994462,
+              "win_rate": 0.4116666666666667,
+              "max_drawdown": 0.845461751352178,
+              "avg_win": 0.0026899699698245483,
+              "avg_loss": -0.002923130148763408
+            },
+            "score": -2.78171402157931,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.845461751352178"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": 0.12327400907775861,
+              "net_expectancy": 0.12327400907775861,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": Infinity,
+              "win_rate": 1.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.12327400907775861,
+              "avg_loss": 0.0
+            },
+            "score": 0.12327400907775861,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2988,
+            "metrics": {
+              "net_return": -2.51014343195843,
+              "net_expectancy": -0.0008400747764251774,
+              "sharpe": -0.2844129552785936,
+              "sortino": -0.3403707295714958,
+              "profit_factor": 0.4533206664983388,
+              "win_rate": 0.35642570281124497,
+              "max_drawdown": 0.9208460820584834,
+              "avg_win": 0.0019544375263985253,
+              "avg_loss": -0.0023877375962417366
+            },
+            "score": -3.6023687476007824,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9208460820584834"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.000826",
+            "profit_factor_below:0.553<1.1",
+            "sharpe_not_positive:-0.224",
+            "drawdown_exceeds:0.918>0.25",
+            "does_not_beat_buy_and_hold"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": true,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416915259108000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.QQQ",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "QQQ holdout n=3000 expectancy=-0.00088 PF=0.60 Sharpe=-0.20 DD=94.2% -> not_certified; fails: ['expectancy_not_positive:-0.000884', 'profit_factor_below:0.596<1.1', 'sharpe_not_positive:-0.204', 'drawdown_exceeds:0.942>0.25', 'does_not_beat_buy_and_hold', 'does_not_beat_random_placebo']",
+      "metrics": {
+        "symbol": "QQQ",
+        "window": "holdout",
+        "n_entries": 3000,
+        "incumbent": {
+          "label": "incumbent_exit_00",
+          "data_label": "historical_replay",
+          "n": 3000,
+          "metrics": {
+            "net_return": -2.6524166209957656,
+            "net_expectancy": -0.0008841388736652552,
+            "sharpe": -0.20368228762667648,
+            "sortino": -0.26946707439331846,
+            "profit_factor": 0.5958500121464047,
+            "win_rate": 0.3883333333333333,
+            "max_drawdown": 0.9418078526064662,
+            "avg_win": 0.0033566819852115545,
+            "avg_loss": -0.003576540127393583
+          },
+          "score": -3.7307462808625877,
+          "net_return_ci": null,
+          "gates_passed": false,
+          "gate_failures": [
+            "drawdown_exceeds_limit:0.9418078526064662"
+          ],
+          "version": "optimization-economic-eval-1.0.0"
+        },
+        "baselines": {
+          "hold_to_horizon": {
+            "label": "hold_to_horizon",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": -1.598208282652321,
+              "net_expectancy": -0.0005327360942174403,
+              "sharpe": -0.10514587322394828,
+              "sortino": -0.13810612727629393,
+              "profit_factor": 0.7406918156684006,
+              "win_rate": 0.44166666666666665,
+              "max_drawdown": 0.8757379292757813,
+              "avg_win": 0.003445393423580224,
+              "avg_loss": -0.003679614667997682
+            },
+            "score": -2.544839082900248,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.8757379292757813"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "buy_and_hold": {
+            "label": "buy_and_hold",
+            "data_label": "historical_replay",
+            "n": 1,
+            "metrics": {
+              "net_return": 0.11750707283331692,
+              "net_expectancy": 0.11750707283331692,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": Infinity,
+              "win_rate": 1.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.11750707283331692,
+              "avg_loss": 0.0
+            },
+            "score": 0.11750707283331692,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "insufficient_sample:1<30"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "random_placebo": {
+            "label": "random_placebo",
+            "data_label": "historical_replay",
+            "n": 2986,
+            "metrics": {
+              "net_return": -2.561826140365853,
+              "net_expectancy": -0.0008579457938264745,
+              "sharpe": -0.21712753765395795,
+              "sortino": -0.27957739909828494,
+              "profit_factor": 0.5547245296037482,
+              "win_rate": 0.3787675820495646,
+              "max_drawdown": 0.9246037013565783,
+              "avg_win": 0.002821861194690096,
+              "avg_loss": -0.0031015370089274128
+            },
+            "score": -3.6277693097760375,
+            "net_return_ci": null,
+            "gates_passed": false,
+            "gate_failures": [
+              "drawdown_exceeds_limit:0.9246037013565783"
+            ],
+            "version": "optimization-economic-eval-1.0.0"
+          },
+          "always_flat": {
+            "label": "always_flat",
+            "data_label": "historical_replay",
+            "n": 3000,
+            "metrics": {
+              "net_return": 0.0,
+              "net_expectancy": 0.0,
+              "sharpe": 0.0,
+              "sortino": 0.0,
+              "profit_factor": 0.0,
+              "win_rate": 0.0,
+              "max_drawdown": -0.0,
+              "avg_win": 0.0,
+              "avg_loss": 0.0
+            },
+            "score": 0.0,
+            "net_return_ci": null,
+            "gates_passed": true,
+            "gate_failures": [],
+            "version": "optimization-economic-eval-1.0.0"
+          }
+        },
+        "gate_result": {
+          "passed": false,
+          "insufficient": false,
+          "failures": [
+            "expectancy_not_positive:-0.000884",
+            "profit_factor_below:0.596<1.1",
+            "sharpe_not_positive:-0.204",
+            "drawdown_exceeds:0.942>0.25",
+            "does_not_beat_buy_and_hold",
+            "does_not_beat_random_placebo"
+          ],
+          "gate_fingerprint": "22136c42daa0c109"
+        },
+        "beats": {
+          "hold_to_horizon": false,
+          "buy_and_hold": false,
+          "random_placebo": false,
+          "always_flat": false
+        },
+        "note": "historical-replay on genuine 1m bars; conservative fills; stop-before-target; costs both sides; NOT live performance"
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "OOS sealed-holdout economic certification of the \u22120.5% incumbent entry+exit",
+      "as_of_ns": 1795416928592029000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "strategy_economics.portfolio",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "0/5 symbols clear the frozen economic gates on the sealed holdout",
+      "metrics": {
+        "symbols_scored": 5,
+        "symbols_passed": 0,
+        "holdout_access_audit": {
+          "total_accesses": 5,
+          "granted": 5,
+          "symbols_touched": 5,
+          "symbols_touched_more_than_once": {},
+          "reasons": [
+            "economic_certification_scoring"
+          ]
+        }
+      },
+      "sample_size": 5,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [
+        "22136c42daa0c109"
+      ],
+      "notes": "",
+      "as_of_ns": 1795416928592098000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "protective_exit.recovery_reproduction",
+      "component": "protective_exit",
+      "verdict": "certified",
+      "summary": "recovery ABOVE EXIT @60m = 95.7% (block-bootstrap 95% CI (0.95372, 0.95946)), n=20572 over 20572 exit events; recovery ABOVE ENTRY @60m = 47.7% (the harder, decision-relevant bar)",
+      "metrics": {
+        "symbols": [
+          "AAPL",
+          "MSFT",
+          "NVDA",
+          "SPY",
+          "QQQ"
+        ],
+        "total_exit_events": 20572,
+        "recovery_above_exit": {
+          "h_1m": {
+            "rate": 0.77771,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.77187,
+              0.78344
+            ]
+          },
+          "h_5m": {
+            "rate": 0.88377,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.8792,
+              0.88859
+            ]
+          },
+          "h_15m": {
+            "rate": 0.92553,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.9215,
+              0.92937
+            ]
+          },
+          "h_30m": {
+            "rate": 0.94191,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.93875,
+              0.94507
+            ]
+          },
+          "h_60m": {
+            "rate": 0.95669,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.95372,
+              0.95946
+            ]
+          }
+        },
+        "recovery_above_entry": {
+          "h_1m": {
+            "rate": 0.09037,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.08589,
+              0.09445
+            ]
+          },
+          "h_5m": {
+            "rate": 0.15419,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.14777,
+              0.16056
+            ]
+          },
+          "h_15m": {
+            "rate": 0.25778,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.24893,
+              0.26696
+            ]
+          },
+          "h_30m": {
+            "rate": 0.35782,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.34557,
+              0.36861
+            ]
+          },
+          "h_60m": {
+            "rate": 0.47662,
+            "n": 20572,
+            "ci95_block_bootstrap": [
+              0.46549,
+              0.48901
+            ]
+          }
+        },
+        "overlap_audit": {
+          "per_symbol_events": {
+            "AAPL": 4674,
+            "MSFT": 4226,
+            "NVDA": 5000,
+            "SPY": 2794,
+            "QQQ": 3878
+          },
+          "note": "events are spaced by entry_stride=60 bars; the 60-min horizon windows can overlap and cluster by regime, so the block-bootstrap CI (not a naive binomial) is the honest uncertainty; effective sample < naive n"
+        },
+        "note": "independent reimplementation on genuine 1m bars; recovery ABOVE EXIT is easy (exit sits below entry) and does NOT prove the \u22120.5% exit is wrong \u2014 downside avoided, capital reuse and opportunity cost are not captured here"
+      },
+      "sample_size": 20572,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "MEASUREMENT reproduction only; a high recovery-above-exit rate is NOT evidence the \u22120.5% exit is economically wrong (see strategy_economics, which shows the exit+entry has negative net expectancy on the sealed holdout)",
+      "as_of_ns": 1795416952683359000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.AAPL",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "AAPL: expectancy@0bps=-0.00033, @4bps=-0.00114; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -0.000328,
+            "profit_factor": 0.862,
+            "sharpe": -0.056
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000737,
+            "profit_factor": 0.716,
+            "sharpe": -0.128
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.001136,
+            "profit_factor": 0.598,
+            "sharpe": -0.201
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.001924,
+            "profit_factor": 0.421,
+            "sharpe": -0.348
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.003523,
+            "profit_factor": 0.207,
+            "sharpe": -0.691
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795416966729631000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.MSFT",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "MSFT: expectancy@0bps=-0.00041, @4bps=-0.00123; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -0.000408,
+            "profit_factor": 0.829,
+            "sharpe": -0.069
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000815,
+            "profit_factor": 0.688,
+            "sharpe": -0.138
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.001228,
+            "profit_factor": 0.569,
+            "sharpe": -0.211
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.00205,
+            "profit_factor": 0.391,
+            "sharpe": -0.361
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.00362,
+            "profit_factor": 0.194,
+            "sharpe": -0.676
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795416981498428000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.NVDA",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "NVDA: expectancy@0bps=-0.00038, @4bps=-0.00118; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -0.000379,
+            "profit_factor": 0.866,
+            "sharpe": -0.054
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000785,
+            "profit_factor": 0.743,
+            "sharpe": -0.114
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.001177,
+            "profit_factor": 0.641,
+            "sharpe": -0.172
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.002005,
+            "profit_factor": 0.466,
+            "sharpe": -0.307
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.003572,
+            "profit_factor": 0.258,
+            "sharpe": -0.587
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795416996346522000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.SPY",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "SPY: expectancy@0bps=-0.00001, @4bps=-0.00083; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -1e-05,
+            "profit_factor": 0.993,
+            "sharpe": -0.003
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.0004,
+            "profit_factor": 0.749,
+            "sharpe": -0.108
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.000826,
+            "profit_factor": 0.553,
+            "sharpe": -0.224
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.001647,
+            "profit_factor": 0.306,
+            "sharpe": -0.463
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.0033,
+            "profit_factor": 0.097,
+            "sharpe": -0.996
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795417010318177000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.QQQ",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "QQQ: expectancy@0bps=-0.00002, @4bps=-0.00088; break-even cost=None bps (no positive edge at realistic cost)",
+      "metrics": {
+        "cost_curve": [
+          {
+            "cost_bps": 0.0,
+            "net_expectancy": -1.8e-05,
+            "profit_factor": 0.99,
+            "sharpe": -0.004
+          },
+          {
+            "cost_bps": 2.0,
+            "net_expectancy": -0.000454,
+            "profit_factor": 0.768,
+            "sharpe": -0.102
+          },
+          {
+            "cost_bps": 4.0,
+            "net_expectancy": -0.000884,
+            "profit_factor": 0.596,
+            "sharpe": -0.204
+          },
+          {
+            "cost_bps": 8.0,
+            "net_expectancy": -0.001736,
+            "profit_factor": 0.36,
+            "sharpe": -0.414
+          },
+          {
+            "cost_bps": 16.0,
+            "net_expectancy": -0.003335,
+            "profit_factor": 0.143,
+            "sharpe": -0.851
+          }
+        ],
+        "break_even_cost_bps": null,
+        "negative_at_zero_cost": true
+      },
+      "sample_size": 3000,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a721 cost sensitivity on the sealed holdout; true market-impact capacity not modeled (reported separately as not-assessable)",
+      "as_of_ns": 1795417024525282000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.market_impact_capacity",
+      "component": "strategy",
+      "verdict": "insufficient_data",
+      "summary": "true size/impact capacity not assessable from L1 bars; only cost sensitivity is evidenced",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "capacity requires depth/impact modeling or live fills \u2014 not fabricated",
+      "as_of_ns": 1795417024525315000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "capital_sensitivity.portfolio",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "0/5 symbols retain positive expectancy at the realistic 4bps cost",
+      "metrics": {
+        "cost_robust": 0,
+        "scored": 5
+      },
+      "sample_size": 5,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795417024525321000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.AAPL",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "AAPL: covid_crash_2020=-0.00159(DD95%), bear_market_2022=-0.00137(DD99%), calm_2021=-0.00089(DD82%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1607,
+            "net_expectancy": -0.001586,
+            "profit_factor": 0.656,
+            "sharpe": -0.148,
+            "max_drawdown": 0.9462
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001369,
+            "profit_factor": 0.586,
+            "sharpe": -0.221,
+            "max_drawdown": 0.9851
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 1846,
+            "net_expectancy": -0.000894,
+            "profit_factor": 0.627,
+            "sharpe": -0.192,
+            "max_drawdown": 0.8159
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417042654029000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.MSFT",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "MSFT: covid_crash_2020=-0.00183(DD96%), bear_market_2022=-0.00156(DD99%), calm_2021=-0.00101(DD81%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1581,
+            "net_expectancy": -0.001834,
+            "profit_factor": 0.625,
+            "sharpe": -0.168,
+            "max_drawdown": 0.9574
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001556,
+            "profit_factor": 0.587,
+            "sharpe": -0.214,
+            "max_drawdown": 0.9922
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 1513,
+            "net_expectancy": -0.001006,
+            "profit_factor": 0.601,
+            "sharpe": -0.2,
+            "max_drawdown": 0.8103
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417059880174000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.NVDA",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "NVDA: covid_crash_2020=-0.00159(DD95%), bear_market_2022=-0.00156(DD99%), calm_2021=-0.00203(DD100%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1440,
+            "net_expectancy": -0.001594,
+            "profit_factor": 0.708,
+            "sharpe": -0.105,
+            "max_drawdown": 0.9468
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001558,
+            "profit_factor": 0.65,
+            "sharpe": -0.157,
+            "max_drawdown": 0.9926
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 2347,
+            "net_expectancy": -0.002032,
+            "profit_factor": 0.606,
+            "sharpe": -0.052,
+            "max_drawdown": 0.9999
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417077223687000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.SPY",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "SPY: covid_crash_2020=-0.00207(DD97%), bear_market_2022=-0.00132(DD98%), calm_2021=-0.00067(DD33%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1588,
+            "net_expectancy": -0.002072,
+            "profit_factor": 0.555,
+            "sharpe": -0.207,
+            "max_drawdown": 0.9714
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001324,
+            "profit_factor": 0.542,
+            "sharpe": -0.254,
+            "max_drawdown": 0.9819
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 541,
+            "net_expectancy": -0.000671,
+            "profit_factor": 0.577,
+            "sharpe": -0.215,
+            "max_drawdown": 0.3263
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417094599738000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "stress.QQQ",
+      "component": "strategy",
+      "verdict": "not_certified",
+      "summary": "QQQ: covid_crash_2020=-0.00224(DD98%), bear_market_2022=-0.00154(DD99%), calm_2021=-0.00071(DD55%)",
+      "metrics": {
+        "per_regime": {
+          "covid_crash_2020": {
+            "status": "COMPLETED",
+            "n": 1583,
+            "net_expectancy": -0.002239,
+            "profit_factor": 0.532,
+            "sharpe": -0.225,
+            "max_drawdown": 0.9794
+          },
+          "bear_market_2022": {
+            "status": "COMPLETED",
+            "n": 3000,
+            "net_expectancy": -0.001542,
+            "profit_factor": 0.543,
+            "sharpe": -0.254,
+            "max_drawdown": 0.9907
+          },
+          "calm_2021": {
+            "status": "COMPLETED",
+            "n": 1072,
+            "net_expectancy": -0.000709,
+            "profit_factor": 0.626,
+            "sharpe": -0.184,
+            "max_drawdown": 0.5542
+          }
+        }
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "\u00a722 stress on genuine crash/bear/calm windows at realistic cost",
+      "as_of_ns": 1795417112542681000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "portfolio.native_allocator",
+      "component": "portfolio",
+      "verdict": "certified",
+      "summary": "native risk-based allocator valid=True, deterministic=True, risk-contrib additive(sum=0.176756 vs vol=0.176756)=True, gross<=1=True",
+      "metrics": {
+        "weights": [
+          0.461538,
+          0.307692,
+          0.230769
+        ],
+        "portfolio_variance": 0.031242603381004555,
+        "portfolio_volatility": 0.17675577326074687,
+        "risk_contrib_sum": 0.17675577326074685,
+        "deterministic": true
+      },
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": null,
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "",
+      "as_of_ns": 1795417112550772000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "portfolio.diversification",
+      "component": "portfolio",
+      "verdict": "certified",
+      "summary": "5 symbols: mean pairwise daily-return correlation 0.36; effective breadth 2.06/5",
+      "metrics": {
+        "symbols": [
+          "AAPL",
+          "MSFT",
+          "NVDA",
+          "SPY",
+          "QQQ"
+        ],
+        "mean_pairwise_corr": 0.3562,
+        "effective_breadth": 2.062,
+        "corr_min": -0.045,
+        "corr_max": 0.927
+      },
+      "sample_size": 144,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "measurement of realized diversification; not an economic-edge claim",
+      "as_of_ns": 1795417134558815000,
+      "profitability_claim_allowed": false
+    },
+    {
+      "check": "portfolio.economics",
+      "component": "portfolio",
+      "verdict": "not_certified",
+      "summary": "no component strategy has positive net expectancy on the sealed holdout; a positive-Sharpe portfolio cannot be constructed from negative-edge components",
+      "metrics": {},
+      "sample_size": 0,
+      "effective_sample_size": null,
+      "data_label": "historical_replay",
+      "evidence_refs": [],
+      "gate_refs": [],
+      "notes": "portfolio economic certification is inherited-NOT_CERTIFIED, not fabricated",
+      "as_of_ns": 1795417134558859000,
+      "profitability_claim_allowed": false
+    }
+  ],
+  "domains": {
+    "engineering": "certified",
+    "data_integrity": "certified",
+    "native_metal": "certified",
+    "failure_injection": "certified",
+    "protective_exit": "certified",
+    "entry_contract": "certified",
+    "execution": "insufficient_data",
+    "learning": "insufficient_data",
+    "strategy_economics": "not_certified",
+    "recovery": "certified",
+    "capital_sensitivity": "not_certified",
+    "stress": "not_certified",
+    "portfolio": "not_certified"
+  },
+  "readiness": {
+    "readiness": "research_validated",
+    "infrastructure_sound": true,
+    "economic_edge_certified": false,
+    "paper_certified": false,
+    "live_eligible": false,
+    "rationale": [
+      "infrastructure sound across 8 domains",
+      "no certified economic edge \u2014 failed: ['strategy_economics', 'capital_sensitivity', 'stress', 'portfolio_economics']",
+      "=> infrastructure RESEARCH_VALIDATED; strategy has NO certified edge (NOT_READY for capital)"
+    ],
+    "domain_verdicts": {
+      "engineering": "certified",
+      "data_integrity": "certified",
+      "native_metal": "certified",
+      "failure_injection": "certified",
+      "protective_exit": "certified",
+      "entry_contract": "certified",
+      "execution": "insufficient_data",
+      "learning_safety": "certified",
+      "strategy_economics": "not_certified",
+      "capital_sensitivity": "not_certified",
+      "stress": "not_certified",
+      "portfolio_economics": "not_certified"
+    },
+    "version": "certification-readiness-1.0.0"
+  },
+  "paper": {
+    "check": "paper.certification",
+    "component": "paper_trading",
+    "verdict": "not_certified",
+    "summary": "paper certification cannot begin: no research-validated (OOS-certified) strategy edge exists to forward-test",
+    "metrics": {},
+    "sample_size": 0,
+    "effective_sample_size": null,
+    "data_label": null,
+    "evidence_refs": [],
+    "gate_refs": [],
+    "notes": "requires a certified sealed-holdout economic edge first",
+    "as_of_ns": 1795417134559184000,
+    "profitability_claim_allowed": false
+  },
+  "live": {
+    "check": "live.deployment_framework",
+    "component": "live_deployment",
+    "verdict": "not_applicable",
+    "summary": "staged live deployment INACTIVE (stage=inactive, active=False); live stages gated behind full certification chain + external human authorization",
+    "metrics": {
+      "stage": "inactive",
+      "active": false,
+      "infrastructure_sound": true,
+      "economic_edge_certified": false,
+      "paper_certified": false,
+      "pilot_authorizable": false
+    },
+    "sample_size": 0,
+    "effective_sample_size": null,
+    "data_label": null,
+    "evidence_refs": [],
+    "gate_refs": [],
+    "notes": "no autonomous live activation; \u22120.5% exit + native risk gate remain authority",
+    "as_of_ns": 1795417134559226000,
+    "profitability_claim_allowed": false
+  },
+  "timings": {
+    "engineering": 2.2,
+    "data_integrity": 37.5,
+    "native_metal": 0.2,
+    "failure_injection": 0.0,
+    "protective_exit": 0.0,
+    "entry_contract": 25.5,
+    "execution": 0.0,
+    "learning": 16.8,
+    "strategy_economics": 66.1,
+    "recovery": 24.1,
+    "capital_sensitivity": 71.8,
+    "stress": 88.0,
+    "portfolio": 22.0
+  },
+  "orchestration_version": "certification-orchestration-1.0.0"
+}
