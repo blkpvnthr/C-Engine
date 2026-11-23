@@ -9,3 +9,9 @@ Fixed M7 accounting bug (per-trade compound dd→80% true portfolio dd), built `
 Design spec + feature/dynamic-universe-rotation branch (M7 24c008f); 4-agent gap analysis: 80% infrastructure exists (UniverseSubscriptionSync, ranking, ML layers), extension fills: persist selection→M5 lakehouse→M6B contextual-bandit learner, baseline config-protected.
 ## 02:38 | feature/m8-autonomous-alpha-discovery
 P0 accounting audit: M7's ~97% DD was per-trade compounding artifact (corrected 80.3% capital-constrained); incumbent stop-out 46%+MAE-exceeds-stop (no directional edge); built portfolio_replay.py+accounting_audit.py+failure_attribution.py (cengine/alpha/ foundation).
+## 02:41 | feature/dynamic-universe-rotation
+Gap-analyzed 4 subsystems (80% dynamic-universe pre-exists), designed baseline-aware autonomous rotation spec + P1 plan, implemented Decision Core: baseline registry, 4-layer model, candidate lifecycle, rotation scheduler in cengine/dynamic_universe/.
+## 03:31 | feature/m8-autonomous-alpha-discovery
+P0 accounting audit committed: corrected M7's 97% DD compound artifact → 80.3% real capital-constrained portfolio DD; failure_attribution.py ID'd entry-quality root cause (46% stop-out rate, MAE −0.69% > MFE +0.58%); began §5 entry-qual ablation (features.py + entry_quality.py harness).
+## 02:45 | feature/dynamic-universe-rotation
+Impl Decision Core: baseline registry, 4-layer model, candidate lifecycle, priority scheduler; 26 tests pass; branched m7-tip; next: manager+integration plan.
