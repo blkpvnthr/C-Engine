@@ -100,11 +100,28 @@ New package **`cengine/dynamic_universe/`** (distinct from top-level `universe.p
 
 ### 2.2 Integration rules (correctness-critical)
 
-1. **Single writer of `universe.txt`.** Today the scanner's `UniversePublisher` writes both
-   `universe.txt` and `live_context.json`. To avoid competing writers, the scanner continues to
-   publish its **ranking** to `live_context.json` (the Opportunity source), and the
-   `DynamicUniverseManager` becomes the **sole writer of `universe.txt` active membership**. The
-   publisher's `universe.txt` write is gated/handed to the manager. Reuses `universe.write_canonical_universe` (atomic temp+rename).
+1. **Authority separation (selection vs. publication).** The fail-closed entry gate
+   (`market_scan/health.load_dynamic_universe`) requires `universe.txt` and `live_context.json` to
+   be written *together*, share identical membership, and keep a sub-15s mtime heartbeat (the scanner
+   heartbeats ~3s). Therefore the manager does **not** write files. Instead:
+   - **`DynamicUniverseManager` = sole SELECTION authority** — produces an *immutable*
+     `ActiveUniverseSnapshot` (monotonic generation id) for the active window (≤30,
+     protection-inclusive). Rotates at most every `refresh_interval_seconds` (60s).
+   - **`UniversePublisher` = sole WRITER** — unchanged as the single writer of both files and the
+     ~3s heartbeat. Each publish tick it consumes the manager's current snapshot as the published
+     membership (instead of the scanner's own top-N) and derives BOTH artifacts from that one
+     snapshot, so membership stays identical. Heartbeat cadence is independent of rotation cadence
+     (publishing the same snapshot repeatedly between rotations keeps mtime fresh).
+   - **Opportunity Finder (scanner)** keeps discovering/scoring/ranking; its ranking is fed to the
+     manager in-process (ranking source) and still populates `live_context.json`'s `ranked`.
+   - The scanner must **not** independently override the manager's membership when dynamic management
+     is enabled. `current_active() is None` (before the first valid rotation) is fail-closed: the
+     publisher does not publish manager-driven membership until a valid snapshot exists.
+   - Two independent atomic file replacements are **not** one transaction: a partial/failed
+     publication must never be reported healthy, and the heartbeat must not conceal a stalled manager
+     (publish staleness/generation is surfaced to the gate/dashboard).
+   - Gated behind `CENGINE_DYNAMIC_UNIVERSE_ROTATION` (default off); when disabled the legacy scanner
+     publishing path is unchanged.
 2. **Protection-inclusive active set.** The scheduler reserves protected symbols (open positions,
    pending entry/exit, incomplete executions, unresolved reconciliation) and mandatory references
    **first**, so `active ⊇ protected` and `|active| ≤ 30`. The existing owner then re-adds
