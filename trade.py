@@ -943,7 +943,7 @@ class MarketEngine:
         # CENGINE_HISTORICAL_WARMUP=0 disables.
         self._historical_warmup = None
         self._warmup_scheduler = None
-        if (self._gpu_discovery is not None and self._membership_registry is not None
+        if (self._gpu_discovery is not None
                 and feed in ("sip", "delayed_sip")
                 and os.environ.get("CENGINE_HISTORICAL_WARMUP", "1") != "0"):
             try:
@@ -962,17 +962,39 @@ class MarketEngine:
                     progress = os.path.join(
                         os.path.dirname(os.path.abspath(__file__)),
                         "data", "warmup_progress.json")
+                    if reg is not None:
+                        _warmup_universe_fn = reg.tradable_master_symbols
+                        _warmup_version = reg.snapshot_meta.membership_version
+                    else:
+                        # Pinned/diagnostic mode (CENGINE_SYMBOLS set — including the
+                        # universe.txt auto-seed in seed_engine_universe) disables
+                        # membership discovery, but the pinned SUBSCRIPTION universe still
+                        # needs native history warmed. Without it the 5m indicators only
+                        # warm slowly from the live stream (~1-2h) so no candidate can
+                        # ever qualify in a session. Warm the pinned set directly.
+                        _pinned_syms = [
+                            s.strip().upper()
+                            for s in os.environ.get("CENGINE_SYMBOLS", "").split(",")
+                            if s.strip()]
+
+                        def _warmup_universe_fn(_syms=_pinned_syms):
+                            return list(_syms)
+
+                        _warmup_version = 0
+                        if _pinned_syms:
+                            LOGGER.info("historical warm-up active for pinned universe "
+                                        "(%d symbols; membership discovery off)",
+                                        len(_pinned_syms))
                     self._warmup_scheduler = ContinuousWarmupScheduler(
                         self._historical_warmup,
-                        universe_fn=reg.tradable_master_symbols,
+                        universe_fn=_warmup_universe_fn,
                         priority_fn=self._warmup_priority_inputs,
                         batch_size=int(os.environ.get("CENGINE_WARMUP_BATCH", "100")),
                         state_path=progress,
                         max_attempts=int(os.environ.get("CENGINE_WARMUP_MAX_ATTEMPTS", "3")),
                         refresh_after_s=float(
                             os.environ.get("CENGINE_WARMUP_REFRESH_SECONDS", "21600")))
-                    self._warmup_scheduler.set_membership_version(
-                        reg.snapshot_meta.membership_version)
+                    self._warmup_scheduler.set_membership_version(_warmup_version)
             except Exception as exc:  # noqa: BLE001
                 LOGGER.warning("historical warm-up unavailable: %s", exc)
                 self._historical_warmup = None

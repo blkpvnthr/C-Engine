@@ -689,11 +689,15 @@ class StrategyCoordinator:
         )
 
     def on_position(self, strategy: StrategyName, symbol: str, quantity: int) -> None:
+        # Update the owning legacy strategy's internal position state. Strategies this
+        # coordinator does NOT manage (e.g. REGIME_INTELLIGENCE / PORTFOLIO bridge
+        # orders, whose positions are tracked by the native state + protective exit)
+        # are a no-op here — raising would crash the reconciliation loop on every fill
+        # of a non-legacy order (there were previously never any such fills).
         for instance in self._strategies:
             if instance.name is strategy:
                 instance.on_position(symbol, quantity)
                 return
-        raise KeyError(strategy)
 
 
 @dataclass(frozen=True, slots=True)
