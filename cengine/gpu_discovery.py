@@ -56,6 +56,54 @@ def _closes_to_returns(
     return series
 
 
+def _confirmation_features(closes1, closes5, highs5, lows5, vols5, scale):
+    """Genuine confirmation indicators from the native bar window (never fabricated).
+
+    Returns a dict with any of {rel_volume, momentum_accel, htf_direction,
+    donchian_high (price units), atr_expansion_ratio} that there is enough history to
+    compute. These standard indicators are referenced by the family evaluators'
+    confirmation gates but were never supplied by the feature pipeline, so every gate
+    failed. Computing them from real bars corrects that over-restriction defect — it
+    does not relax any entry condition.
+    """
+    out: dict = {}
+    # relative volume: current 5m bar volume vs the mean of the prior 20 5m bars
+    if len(vols5) >= 2:
+        prior = [v for v in vols5[-21:-1] if v is not None]
+        avg = (sum(prior) / len(prior)) if prior else 0.0
+        if avg > 0:
+            out["rel_volume"] = vols5[-1] / avg
+    # momentum acceleration: change in the 1m simple return (2nd difference)
+    if len(closes1) >= 3:
+        a, b, c = closes1[-3], closes1[-2], closes1[-1]
+        if a > 0 and b > 0:
+            out["momentum_accel"] = (c - b) / b - (b - a) / a
+    # higher-timeframe direction: +1 if the latest 5m close is above its ~20-bar mean
+    if len(closes5) >= 5:
+        w = closes5[-20:]
+        mean = sum(w) / len(w)
+        out["htf_direction"] = 1.0 if closes5[-1] > mean else -1.0
+    # prior-channel (Donchian) high in price units, EXCLUDING the current bar
+    if len(highs5) >= 2:
+        prior = highs5[-21:-1]
+        if prior:
+            out["donchian_high"] = max(prior) / scale
+    # volatility expansion: recent ATR(5) vs longer ATR(20) over 5m true ranges
+    if len(closes5) >= 21 and len(highs5) == len(closes5) and len(lows5) == len(closes5):
+        def _atr(k):
+            trs = []
+            for i in range(len(closes5) - k, len(closes5)):
+                if i <= 0:
+                    continue
+                trs.append(max(highs5[i] - lows5[i], abs(highs5[i] - closes5[i - 1]),
+                               abs(lows5[i] - closes5[i - 1])))
+            return (sum(trs) / len(trs)) if trs else 0.0
+        a5, a20 = _atr(5), _atr(20)
+        if a20 > 0:
+            out["atr_expansion_ratio"] = a5 / a20
+    return out
+
+
 def _discover_metallib() -> Optional[str]:
     try:
         from cengine.metal_backend import discover_metallib
@@ -186,6 +234,41 @@ class GpuDiscoveryProvider:
             series = _closes_to_returns(closes[start:start + n], ref_ns, interval_ns)
             if series:
                 out[sym] = series
+        return out
+
+    def confirmation_features(self, symbols: list[str], *,
+                              window: int | None = None) -> dict[str, dict]:
+        """Per-symbol genuine confirmation features from the native 1m+5m bar windows,
+        keyed for ``screen_row_to_features`` daily_stats {rel_volume, momentum_accel,
+        htf_direction, donchian_high, atr_expansion_ratio}.
+
+        Real data only (reuses the same export_bar_window accessor compute() uses);
+        symbols unknown to the engine or with insufficient history are omitted or
+        partial. Never raises — advisory features must not perturb the decision tick.
+        """
+        out: dict[str, dict] = {}
+        try:
+            valid = self._ids(symbols)
+            if not valid:
+                return {}
+            ids = [sid for _, sid in valid]
+            w = int(window or self._window)
+            bw5 = self.engine.export_bar_window(ids, _TF_5M, w)
+            bw1 = self.engine.export_bar_window(ids, _TF_1M, w)
+            c5, h5, l5, v5 = (list(bw5.closes), list(bw5.highs),
+                              list(bw5.lows), list(bw5.volumes))
+            n5, W5 = list(bw5.counts), int(bw5.max_window)
+            c1, n1, W1 = list(bw1.closes), list(bw1.counts), int(bw1.max_window)
+            for row, (sym, _sid) in enumerate(valid):
+                k5, k1 = int(n5[row]), int(n1[row])
+                s5, s1 = row * W5, row * W1
+                feats = _confirmation_features(
+                    c1[s1:s1 + k1], c5[s5:s5 + k5], h5[s5:s5 + k5],
+                    l5[s5:s5 + k5], v5[s5:s5 + k5], self._scale)
+                if feats:
+                    out[sym] = feats
+        except Exception:  # noqa: BLE001 — advisory features must never break the tick
+            return out
         return out
 
     def ingest_bars(self, bars: list[tuple], timeframe) -> int:

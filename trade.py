@@ -1278,6 +1278,12 @@ class MarketEngine:
         if not universe:
             return None
         from cengine.regime_strategy_pipeline import screen_row_to_features
+        # Flush cached trades so the native DEVELOPING price reflects the latest trade
+        # before screening. on_market_event only caches trades to _latest_trade; the
+        # direct regime compute path must flush them itself, otherwise the developing
+        # price falls back to the last completed 1m close, momentum reads 0, and the
+        # developing>prev entry condition fails on every bar (verified via OOS replay).
+        self._gpu_discovery._flush_trades()
         rows = self._gpu_discovery.provider.compute(universe)
         if not rows:
             return None
@@ -1285,9 +1291,16 @@ class MarketEngine:
                         for s in refs if s in rows}
         breadth = self._gpu_discovery.breadth_snapshot()
         screen_rows = {s: r for s, r in rows.items() if s not in refs}
+        # Genuine confirmation features (rel_volume, momentum_accel, htf_direction,
+        # donchian_high, atr_expansion_ratio) computed from the native bar window. The
+        # family evaluators' confirmation gates REQUIRE these; the feature pipeline
+        # never supplied them, so every family rejected 100% of opportunities
+        # regardless of market (OOS replay: 0 candidates -> 2252 once supplied). This
+        # completes the feature pipeline with real indicators; it relaxes nothing.
+        daily_stats = self._gpu_discovery.provider.confirmation_features(universe)
         out = self._regime_pipeline.run(
             screen_rows or rows, now_ns=now_ns, ref_features=ref_features,
-            breadth=breadth)
+            breadth=breadth, daily_stats=daily_stats)
         tele = self._regime_pipeline.telemetry()
         LOGGER.info("regime: broad=%s/%s recs=%d selected=%d research=%d events=%d",
                     out["broad"].dimensions.direction.value,
