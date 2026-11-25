@@ -193,7 +193,54 @@ class GoldBuilder:
                 "note": "mandatory exits are environment dynamics, not agent actions; "
                         "action probabilities + unexecuted rewards are never fabricated"}
 
+    def build_universe_selection(self) -> dict:
+        """Build the universe-selection bandit dataset (§9): one row per selection
+        decision with ``selected_action`` = the symbol and ``reward`` = realized
+        net return attributed to that symbol (NULL when no closed position exists —
+        never fabricated for unmonitored/unobserved securities). Context columns
+        (opportunity_score, is_baseline) let the LinUCB challenger train. Attribution
+        here is per-symbol/approximate; a stricter point-in-time join is applied by
+        the feature store when assembling training contexts."""
+        us = self._glob("silver", "universe_selection")
+        out = self._glob("gold", "position_outcomes")
+        if us is None:
+            return {"dataset": "universe_selection", "rows": 0,
+                    "reason": "no_universe_selection"}
+        con = duckdb.connect()
+        try:
+            if out:
+                join_out = (f"LEFT JOIN (SELECT symbol_id, AVG(net_return) AS net_return "
+                            f"FROM read_parquet('{out}', union_by_name=true) "
+                            f"GROUP BY symbol_id) o ON o.symbol_id = u.symbol_id")
+                reward = "o.net_return"
+            else:
+                join_out = ""
+                reward = "NULL"
+            sql = (
+                f"SELECT u.symbol_id, u.symbol_id AS selected_action, "
+                f"u.generation, u.is_baseline, "
+                f"CAST(u.opportunity_score AS DOUBLE) AS opportunity_score, "
+                f"COALESCE(CAST(u.opportunity_score AS DOUBLE), 0.0) AS current_weight, "
+                f"u.selection_reason, {reward} AS reward, "
+                f"CASE WHEN {reward} IS NOT NULL THEN true ELSE false END AS observed, "
+                f"'deterministic-rotation' AS behavior_policy_version, "
+                f"'{GOLD_SCHEMA_VERSION}' AS schema_version, "
+                f"u.availability_timestamp_ns AS event_timestamp_ns, "
+                f"'internal' AS source_feed "
+                f"FROM read_parquet('{us}', union_by_name=true) u {join_out}")
+            rows = con.sql(sql).to_arrow_table().to_pylist()
+        finally:
+            con.close()
+        written = sum(r.rows for r in self.writer.write_rows("gold", "universe_selection", rows)
+                      if r.ok)
+        with_reward = sum(1 for r in rows if r.get("reward") is not None)
+        return {"dataset": "universe_selection", "rows": written,
+                "with_reward": with_reward,
+                "note": "reward attributed only for symbols with a closed position; "
+                        "never fabricated for unobserved selections"}
+
     def run_all(self) -> dict:
         pos = self.build_position_outcomes()
         return {"position_outcomes": pos, "supervised": self.build_supervised(),
-                "offline_rl": self.build_offline_rl()}
+                "offline_rl": self.build_offline_rl(),
+                "universe_selection": self.build_universe_selection()}

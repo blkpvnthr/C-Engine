@@ -216,6 +216,16 @@ def default_task_specs() -> list:
             kind="offline_rl", requires_reward=True, requires_action_support=2,
             min_rows_training=5_000, min_rows_validation=20_000,
             note="sequential execution/holding decisions; conservative methods only"),
+        # Universe-selection contextual bandit (§9): needs logged selection
+        # decisions + per-symbol realized reward. Shadow-only; deterministic
+        # rotation stays the champion.
+        LearningTaskSpec(
+            task="universe_selection", source_layer="gold",
+            source_dataset="universe_selection", kind="bandit",
+            requires_reward=True, requires_action_support=2,
+            min_rows_research=300, min_rows_training=1_000, min_rows_validation=3_000,
+            note="per-candidate include/exclude; reward is realized net return "
+                 "attributed to selected symbols (NULL when unobserved, never faked)"),
     ]
 
 

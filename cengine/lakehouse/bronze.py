@@ -55,11 +55,18 @@ _EVENT_DATASET = {
     "training_result": "model_events",
     "model_promotion": "model_events",
     "model_rollback": "model_events",
+    # dynamic universe management (§9)
+    "universe_rotation": "universe_membership",
+    "universe_selection": "universe_selection",
+    "universe_promotion": "universe_selection",
+    "universe_demotion": "universe_selection",
+    "baseline_revisit": "universe_selection",
 }
 
 BRONZE_DATASETS = sorted(set(_EVENT_DATASET.values()) | {
     "market_bars", "market_trades", "market_quotes", "market_corrections",
     "instrument_metadata", "universe_membership", "subscription_events",
+    "universe_selection",
     "market_data_quality_events", "reconciliation_events", "system_health_events"})
 
 

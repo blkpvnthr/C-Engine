@@ -19,10 +19,13 @@ the ranking need not replicate the engine's exact DMI/VWAP/Bollinger math.
 from __future__ import annotations
 
 import logging
+import os
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Optional
 
 import amps_v4_regime
+import universe
 from market_scan import discovery as discovery_mod
 from market_scan import ranking as ranking_mod
 from market_scan.config import MarketScanConfig
@@ -59,6 +62,7 @@ class MarketScanner:
         sleep_fn=None,
         now_fn=None,
         log_fn: Optional[Callable[[str], None]] = None,
+        decision_sink: Any = None,
     ) -> None:
         self.executor = executor
         self.broker = getattr(executor, "broker", None)
@@ -112,6 +116,70 @@ class MarketScanner:
         # rank tick never polls the broker directly (decoupled from the heartbeat).
         self._pos_cache: tuple = ((), (), 0.0)
         self._last_pos_refresh: float = 0.0
+        # Optional decision-event sink for universe-selection persistence (§9).
+        self._decision_sink = decision_sink
+
+        # Dynamic universe rotation (spec: manager = selection authority, this
+        # scanner's publisher stays the sole writer). Gated OFF by default so the
+        # legacy publish path is unchanged unless explicitly enabled.
+        self._universe_manager = self._maybe_build_universe_manager()
+
+    def _maybe_build_universe_manager(self):
+        if os.environ.get("CENGINE_DYNAMIC_UNIVERSE_ROTATION", "0").strip().lower() \
+                not in ("1", "true", "yes"):
+            return None
+        try:
+            from cengine.dynamic_universe.baseline import BaselineRegistry
+            from cengine.dynamic_universe.config import UniverseRotationConfig
+            from cengine.dynamic_universe.manager import DynamicUniverseManager
+
+            cfg = UniverseRotationConfig.from_env()
+            # Keep the active window within the scanner's publish cap.
+            if cfg.active_universe_size != self.config.target_universe_size:
+                cfg = replace(cfg, active_universe_size=self.config.target_universe_size)
+            baseline_path = os.environ.get("CENGINE_BASELINE_UNIVERSE_PATH")
+            baseline = BaselineRegistry(baseline_path) if baseline_path else BaselineRegistry()
+            state_env = os.environ.get("CENGINE_DYNAMIC_UNIVERSE_STATE")
+            state_path = (
+                Path(state_env) if state_env
+                else universe.PROJECT_ROOT / "data" / "dynamic_universe" / "state.json"
+            )
+            emitter = None
+            if self._decision_sink is not None:
+                from cengine.dynamic_universe.events import UniverseDecisionRecorder
+
+                emitter = UniverseDecisionRecorder(
+                    self._decision_sink, model_version="deterministic-v1"
+                )
+            mgr = DynamicUniverseManager(
+                baseline=baseline,
+                config=cfg,
+                ranking_source=self._rotation_ranking,
+                protection_source=self._rotation_protection,
+                references=self.config.market_refs,
+                event_emitter=emitter,
+                state_path=state_path,
+                now_fn=self._now,
+                log_fn=self._log,
+            )
+            self._log("[market-scan] dynamic universe rotation ENABLED "
+                      f"(active_size={cfg.active_universe_size})")
+            return mgr
+        except Exception as exc:  # noqa: BLE001 - never block scanner startup
+            self._log(f"[market-scan] dynamic universe rotation disabled (init failed): {exc}")
+            return None
+
+    def _rotation_ranking(self):
+        """Opportunity ranking for the manager: this scanner's live scored map
+        (symbol -> (score, eligible, ts)) mapped to RankedSymbol."""
+        from cengine.dynamic_universe.rotation import RankedSymbol
+
+        return [RankedSymbol(s, v[0], v[1]) for s, v in self._scored.items()]
+
+    def _rotation_protection(self):
+        """Protected set for the manager: cached open positions + pending orders."""
+        positions, pending = self._open_symbols()
+        return list(positions) + list(pending)
 
     # ------------------------------------------------------------------ setup
     def _make_stream(self):
@@ -281,9 +349,29 @@ class MarketScanner:
         # candidates are listed.
         health["replacement_candidates"] = self._replacement_candidates(
             eligible, feats, market_ctx)
+
+        # Dynamic universe rotation: when the manager is active it is the SELECTION
+        # authority — the published universe.txt membership becomes its active
+        # window (baseline permanence + protection + opportunity rotation), while
+        # `eligible` still drives the entry-eligible gate. The manager reads this
+        # scanner's live _scored map and rotates at most every refresh interval;
+        # most ~3s ticks just re-publish the cached snapshot (heartbeat). A None /
+        # empty snapshot is fail-closed → fall back to the scanner's own top-N.
+        members = None
+        if self._universe_manager is not None:
+            try:
+                snap = self._universe_manager.maybe_rotate(now)
+                if snap is not None and snap.active:
+                    members = list(snap.active)
+                    if snap.generation != getattr(self, "_last_universe_gen", None):
+                        self._force_publish = True   # membership changed -> rewrite
+                        self._last_universe_gen = snap.generation
+            except Exception as exc:  # noqa: BLE001 - never break the publish path
+                self._errors.append(f"universe-rotation: {exc}")
+
         try:
             self.publisher.publish(eligible, now=now, force_rewrite=self._force_publish,
-                                   health=health)
+                                   health=health, members=members)
         except Exception as exc:  # noqa: BLE001
             self._errors.append(f"publish: {exc}")
         self._force_publish = False

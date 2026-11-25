@@ -57,6 +57,10 @@ _VIEWS = {
     "predictions": ("silver", "predictions"),
     "shadow_recommendations": ("silver", "shadow_recommendations"),
     "model_lifecycle": ("silver", "model_lifecycle"),
+    # dynamic universe management (§9)
+    "universe_selection_events": ("bronze", "universe_selection"),
+    "universe_selection_decisions": ("silver", "universe_selection"),
+    "universe_selection_training": ("gold", "universe_selection"),
 }
 
 

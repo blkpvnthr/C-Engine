@@ -1,0 +1,5 @@
+# baseline_universe.txt  (repo root)
+# Permanent baseline universe (operator-managed). 30 symbols.
+# The Opportunity Finder NEVER edits this file. UPRO is intentionally NOT here
+# (dynamic-only). universe.txt remains the mutable working/active universe.
+'ANT', 'GPN', 'DVA', 'HUM', 'UNH', 'HCA', 'UHS', 'GIS', 'WMT', 'COST', 'NVDA', 'AMD', 'AVGO', 'AAPL', 'MU', 'TSLA', 'SPY', 'QQQ', 'DIA', 'IWM', 'XLP', 'XLV', 'GLD', 'SQQQ', 'SOXS', 'SPXU', 'SDOW', 'TZA', 'TQQQ', 'SOXL'

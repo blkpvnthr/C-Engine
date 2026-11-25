@@ -59,6 +59,12 @@ class DecisionEventType(str, Enum):
     TRAINING_RESULT = "training_result"
     MODEL_PROMOTION = "model_promotion"
     MODEL_ROLLBACK = "model_rollback"
+    # --- dynamic universe management (§9) ---
+    UNIVERSE_ROTATION = "universe_rotation"       # per-cycle summary (active window)
+    UNIVERSE_SELECTION = "universe_selection"     # per-symbol selected into active window
+    UNIVERSE_PROMOTION = "universe_promotion"     # newly added to the active window
+    UNIVERSE_DEMOTION = "universe_demotion"       # rotated out of the active window
+    BASELINE_REVISIT = "baseline_revisit"         # baseline scheduled by revisit deadline
 
 
 @dataclass
@@ -238,6 +244,74 @@ class DecisionEventSink:
             payload={"correlation_id": correlation_id,
                      "realized_return": realized_return, "holding_ns": holding_ns,
                      "realized_pnl_ticks": realized_pnl_ticks}))
+
+    # -- dynamic universe emitters (§9) --------------------------------------
+    def record_universe_rotation(
+        self,
+        *,
+        now_ns: int,
+        generation: int,
+        active: "list[str]",
+        added: "list[str]",
+        removed: "list[str]",
+        active_baseline: "list[str]",
+        active_opportunity: "list[str]",
+        protected: "list[str]",
+        stale_baseline: "list[str]",
+        degraded: bool,
+        reasons: "dict[str, str]",
+        scores: "Optional[dict[str, float]]" = None,
+        baseline_set: "Optional[set]" = None,
+        regime_version: Optional[str] = None,
+        model_version: Optional[str] = None,
+    ) -> None:
+        """Persist one universe-rotation cycle (§9).
+
+        Emits a cycle summary plus per-symbol promotion/demotion/baseline-revisit
+        events, each carrying baseline membership, opportunity score, selection /
+        removal reason, regime, and model version. Takes primitive args only (no
+        dependency on the dynamic_universe package) so the decision contract stays
+        generic; a recorder adapter translates a RotationResult into this call.
+        Never fabricates outcomes — downstream performance is linked later via the
+        existing per-symbol REALIZED_OUTCOME events (joined in the gold layer).
+        """
+        scores = scores or {}
+        baseline_set = baseline_set or set()
+
+        def _is_base(sym: str) -> bool:
+            return sym in baseline_set
+
+        self.emit(DecisionEvent(
+            event_type=DecisionEventType.UNIVERSE_ROTATION, timestamp_ns=now_ns,
+            regime_version=regime_version,
+            payload={"generation": generation, "active": list(active),
+                     "active_size": len(active), "model_version": model_version,
+                     "active_baseline": list(active_baseline),
+                     "active_opportunity": list(active_opportunity),
+                     "protected": list(protected),
+                     "added": list(added), "removed": list(removed),
+                     "stale_baseline": list(stale_baseline), "degraded": degraded}))
+
+        for sym in added:
+            self.emit(DecisionEvent(
+                event_type=DecisionEventType.UNIVERSE_PROMOTION, timestamp_ns=now_ns,
+                symbol_id=sym, regime_version=regime_version,
+                payload={"generation": generation, "is_baseline": _is_base(sym),
+                         "opportunity_score": scores.get(sym), "model_version": model_version,
+                         "selection_reason": reasons.get(sym, "")}))
+        for sym in removed:
+            self.emit(DecisionEvent(
+                event_type=DecisionEventType.UNIVERSE_DEMOTION, timestamp_ns=now_ns,
+                symbol_id=sym, regime_version=regime_version,
+                payload={"generation": generation, "is_baseline": _is_base(sym),
+                         "opportunity_score": scores.get(sym), "model_version": model_version,
+                         "removal_reason": reasons.get(sym, "rotated_out")}))
+        for sym in stale_baseline:
+            self.emit(DecisionEvent(
+                event_type=DecisionEventType.BASELINE_REVISIT, timestamp_ns=now_ns,
+                symbol_id=sym, regime_version=regime_version,
+                payload={"generation": generation,
+                         "reason": "baseline revisit deadline exceeded (not placed)"}))
 
     # -- portfolio emitters (Milestone 3, §18) -------------------------------
     def record_portfolio_state(self, state, now_ns: int) -> None:
