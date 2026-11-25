@@ -1,0 +1,47 @@
+{
+  "cycles": [
+    {
+      "now_ns": 1700000000000000000,
+      "decisions": {
+        "accept": 0,
+        "reject": 6,
+        "defer": 2
+      },
+      "hypotheses": [
+        {
+          "hypothesis_id": "482f2b0178cc8a2c",
+          "from_finding": "high_protective_stop_frequency",
+          "evidence": "weighted stop-out rate 45.7% of trades are killed by the \u22120.5% stop",
+          "hypothesis": "require higher-timeframe trend confirmation and/or greater momentum separation at entry to reduce the share of trades that stop out",
+          "falsifiable_test": "evaluate the proposed entry/exit/selectivity change on a chronological TRAIN/VAL split and require positive OOS net expectancy that beats cash + the incumbent"
+        },
+        {
+          "hypothesis_id": "4424157491ed2cf3",
+          "from_finding": "stop_inside_normal_adverse_excursion",
+          "evidence": "mean max adverse excursion -0.69% exceeds the \u22120.5% stop; mean max favorable excursion is only 0.58% \u2014 a near-symmetric swing against a tight stop",
+          "hypothesis": "entries are taken into normal two-sided intrabar swings wider than the stop; selectivity (seller-exhaustion / displacement-from-VWAP / regime) that raises MFE relative to MAE should improve net expectancy",
+          "falsifiable_test": "evaluate the proposed entry/exit/selectivity change on a chronological TRAIN/VAL split and require positive OOS net expectancy that beats cash + the incumbent"
+        },
+        {
+          "hypothesis_id": "8e87fba0d108174b",
+          "from_finding": "adverse_exceeds_favorable_excursion",
+          "evidence": "adverse excursion -0.69% is larger in magnitude than favorable 0.58% \u2014 the entry edge is negative before the stop even acts",
+          "hypothesis": "the momentum entry has no directional edge over the hold window; entry-quality filters (not exit tuning) are the lever",
+          "falsifiable_test": "evaluate the proposed entry/exit/selectivity change on a chronological TRAIN/VAL split and require positive OOS net expectancy that beats cash + the incumbent"
+        }
+      ],
+      "accepted": []
+    }
+  ],
+  "optimization_memory_rows": 14,
+  "memory_effectiveness": {
+    "experiments_attempted": 14,
+    "experiments_completed": 14,
+    "improvements_identified": 0,
+    "improvements_retained": 0,
+    "compute_seconds_total": 24.58,
+    "compute_per_improvement_s": null,
+    "duplicate_configs_in_memory": 0,
+    "version": "optimization-memory-1.0.0"
+  }
+}

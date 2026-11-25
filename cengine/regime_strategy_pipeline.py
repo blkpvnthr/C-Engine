@@ -62,9 +62,16 @@ def screen_row_to_features(row: Any, daily: Optional[dict] = None,
         "previous_completed_1m_close": prev_1m,
         "atr_pct": (getattr(row, "atr", None) / price
                     if (getattr(row, "atr", None) and price) else None),
-        # merged daily/market stats where available (never fabricated)
+        # merged daily/market + confirmation stats where available (never fabricated;
+        # these are genuine indicators computed from the native bar window and passed
+        # in via daily_stats -- the family evaluators reference them but the feature
+        # pipeline previously never supplied them, so every confirmation gate failed).
         "rel_volume": daily.get("rel_volume"),
         "spread_bps": daily.get("spread_bps"),
+        "momentum_accel": daily.get("momentum_accel"),
+        "htf_direction": daily.get("htf_direction"),
+        "donchian_high": daily.get("donchian_high"),
+        "atr_expansion_ratio": daily.get("atr_expansion_ratio"),
         "observation_ns": now_ns,
     }
 

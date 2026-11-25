@@ -132,7 +132,10 @@ class MarketScanConfig:
             discovery_interval_seconds=_env_float(
                 "MARKET_SCAN_DISCOVERY_SECONDS", 300.0
             ),
-            target_universe_size=_env_int("MARKET_SCAN_TARGET_SIZE", 30),
+            # Feed-aware like max_subscriptions: Basic IEX keeps the conservative
+            # 30; SIP publishes the full hardware-bounded discovery breadth so
+            # market-wide SIP coverage is not silently capped at 30 (P0.2 / §10).
+            target_universe_size=_env_int("MARKET_SCAN_TARGET_SIZE", default_subs),
             universe_max_age_seconds=_env_float(
                 "MARKET_SCAN_UNIVERSE_MAX_AGE", 15.0
             ),

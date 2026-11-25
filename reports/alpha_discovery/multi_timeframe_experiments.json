@@ -1,0 +1,69 @@
+{
+  "version": "multi-timeframe-confirmation-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "symbols": [
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "SPY",
+    "QQQ"
+  ],
+  "by_gate": {
+    "baseline_all_entries": {
+      "entry_signals": 15000,
+      "signal_fraction": 1.0,
+      "trades_taken": 15000,
+      "net_expectancy_per_trade": -0.001075,
+      "total_return": -0.8023,
+      "max_drawdown": 0.8028,
+      "sharpe_annualized": -5.201,
+      "profit_factor": 0.6408
+    },
+    "htf15_up": {
+      "entry_signals": 13310,
+      "signal_fraction": 0.8873,
+      "trades_taken": 13310,
+      "net_expectancy_per_trade": -0.001111,
+      "total_return": -0.7738,
+      "max_drawdown": 0.7743,
+      "sharpe_annualized": -4.985,
+      "profit_factor": 0.63
+    },
+    "htf60_up": {
+      "entry_signals": 10276,
+      "signal_fraction": 0.6851,
+      "trades_taken": 10276,
+      "net_expectancy_per_trade": -0.001228,
+      "total_return": -0.7187,
+      "max_drawdown": 0.7188,
+      "sharpe_annualized": -4.636,
+      "profit_factor": 0.6002
+    },
+    "htf15_and_htf60_up": {
+      "entry_signals": 9478,
+      "signal_fraction": 0.6319,
+      "trades_taken": 9478,
+      "net_expectancy_per_trade": -0.001271,
+      "total_return": -0.702,
+      "max_drawdown": 0.7021,
+      "sharpe_annualized": -4.544,
+      "profit_factor": 0.5869
+    },
+    "aligned_up_not_extended": {
+      "entry_signals": 9449,
+      "signal_fraction": 0.6299,
+      "trades_taken": 9449,
+      "net_expectancy_per_trade": -0.001157,
+      "total_return": -0.6657,
+      "max_drawdown": 0.6658,
+      "sharpe_annualized": -6.149,
+      "profit_factor": 0.6031
+    }
+  },
+  "best_gate": "htf15_up",
+  "best_improves_expectancy": false,
+  "any_gate_positive_expectancy": false,
+  "conclusion": "higher-timeframe confirmation does not improve the executable portfolio (baseline -0.00108); negative result preserved",
+  "note": "portfolio-level (executable-equity) comparison on genuine bars; incremental value vs the 1m/5m momentum contract; simulated, not live"
+}

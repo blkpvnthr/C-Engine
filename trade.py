@@ -89,7 +89,7 @@ from cengine.execution_policy import ConfiguredExecutionPolicy, ExecutionPolicy
 from cengine.integrity import verify_source_integrity
 from cengine.journal import AuditJournal
 from cengine.metrics import PortfolioMetrics, PortfolioMetricsCollector
-from cengine.nosql_journal import MongoDailyJournalStore
+from cengine.parquet_journal import ParquetJournalStore
 from cengine.portfolio import AccountState, PositionBook
 from cengine.safety import (
     MarketGateConfig,
@@ -107,7 +107,7 @@ from market_data.alpaca_stream import (
     TradeEvent,
 )
 from market_data.feed import resolve_feed
-from market_data.market_data_store import DailyHDF5Writer
+from market_data.market_data_store import DailyHDF5Writer, MarketDataStoreError
 from order_manager import (
     TERMINAL_STATUSES,
     ExecutionUpdate,
@@ -300,10 +300,10 @@ class EngineConfig:
             self.session_close_minute,
             self.session_weekdays,
         )
-        if not self.mongodb_uri.strip() or not self.mongodb_database.strip():
-            raise EngineConfigurationError("MongoDB journal configuration is required")
-        if self.mongodb_timeout_ms <= 0:
-            raise EngineConfigurationError("MongoDB timeout must be positive")
+        # The audit journal now uses a local Parquet replica (cengine.parquet_journal),
+        # not MongoDB. The mongodb_* fields remain for backward-compatible env/args
+        # parsing but are no longer required or used (Mongo blocked engine startup on a
+        # synchronous w=majority write against a paused Atlas primary).
 
         # Strategy constructors perform the detailed mathematical validation.
         StrategySetConfig(
@@ -332,6 +332,10 @@ class EngineHealth:
     conflicting_batches: int = 0
     order_intents_submitted: int = 0
     order_failures: int = 0
+    # P0.1: analytical-persistence coverage gaps. Incremented when the HDF5
+    # archive sheds a raw observation under backpressure/failure so the market
+    # feed and live path stay alive. Exposed (not silent) for the dashboard.
+    archive_persistence_dropped: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -343,6 +347,24 @@ class DecisionReport:
     candidates: tuple[TradeCandidate, ...]
     submitted: int
     conflicted: bool
+
+
+def _dominant_execution_blocker(
+    *, bridge_active: bool, candidates: int, submitted: int
+) -> str:
+    """Classify the dominant blocker on the primary (strategy-bridge) order path.
+
+    Ordered most-fundamental first so the dashboard shows the single thing to fix:
+    no authorization -> no eligible candidates -> candidates present but none routed
+    (entry contract / native risk) -> orders flowing. P0.9.
+    """
+    if not bridge_active:
+        return "no_strategy_execution_authorization"
+    if candidates == 0:
+        return "no_strategy_candidates"
+    if submitted == 0:
+        return "candidates_blocked_by_entry_contract_or_risk"
+    return "orders_flowing"
 
 
 def load_native_adapters(
@@ -555,13 +577,14 @@ class MarketEngine:
         self._on_portfolio = on_portfolio
         self._last_portfolio_state = None
         self.state = EngineStateMachine()
-        self.nosql_journal = MongoDailyJournalStore(
-            config.mongodb_uri,
-            config.mongodb_database,
-            config.session_timezone,
-            config.mongodb_timeout_ms,
-        )
-        self.journal = AuditJournal(config.journal_path, sinks=(self.nosql_journal,))
+        # Local Parquet audit-journal replica (replaces the MongoDB sink, which blocked
+        # startup on a synchronous w=majority write against a paused Atlas primary). The
+        # append-only, checksummed JSONL file below remains the authoritative durable
+        # record; this is the DuckDB-queryable replica and never blocks/raises into the
+        # engine (reuses the lakehouse ParquetWriter: atomic, idempotent, non-fatal).
+        from cengine.lakehouse.config import LakehouseConfig
+        self.journal_replica = ParquetJournalStore(LakehouseConfig.from_env())
+        self.journal = AuditJournal(config.journal_path, sinks=(self.journal_replica,))
         self.market_gate = MarketSafetyGate(
             MarketGateConfig(config.max_feed_age_ns, config.max_bar_gap_ns)
         )
@@ -634,10 +657,20 @@ class MarketEngine:
         )
         self.strategies: StrategyCoordinator = build_strategy_coordinator(strategy_config)
 
-        self.archive = DailyHDF5Writer(
-            root=config.market_data_root,
-            provider=config.archive_provider_label,
-            feed=config.alpaca_feed,
+        # The HDF5 tick archive is an OPTIONAL analytical sink that is redundant with
+        # the Parquet/DuckDB lakehouse bronze tap (same quotes/trades/bars). It cannot
+        # keep up with live SIP tick rates (one-row-at-a-time compressed writes) and
+        # shed ~250k observations in 90s in testing, and its daily file can get locked
+        # by an uncleanly-terminated prior run. It is therefore OFF by default; set
+        # CENGINE_HDF5_ARCHIVE=1 to re-enable. Historical .h5 data is never deleted.
+        self.archive = (
+            DailyHDF5Writer(
+                root=config.market_data_root,
+                provider=config.archive_provider_label,
+                feed=config.alpaca_feed,
+            )
+            if _env_bool("CENGINE_HDF5_ARCHIVE", False)
+            else None
         )
         self.event_bus: MarketEventBus[MarketEvent] = MarketEventBus()
         self.strategy_events = self.event_bus.subscribe("strategies")
@@ -818,6 +851,8 @@ class MarketEngine:
             )
             if os.path.exists(universe_path):
                 try:
+                    from market_scan.config import MarketScanConfig
+
                     manager = CanonicalUniverseManager(
                         universe_path, source_feed=config.alpaca_feed
                     )
@@ -826,15 +861,17 @@ class MarketEngine:
                         if self._bridge_client is not None
                         else None
                     )
+                    # Feed-aware subscription budget (SIP 250 / IEX 30), honoring the
+                    # MARKET_SCAN_MAX_SUBSCRIPTIONS override via the single from_env
+                    # source of truth, instead of a hardcoded 30 literal that silently
+                    # capped market-wide SIP discovery at 30 symbols (P0.2 / §10).
                     self.universe_sync = UniverseSubscriptionSync(
                         stream=self.stream,
                         universe_manager=manager,
                         positions=self.portfolio,
                         open_orders_fn=self.order_manager.open_orders,
                         discovery_symbols_fn=discovery_fn,
-                        max_symbols=int(
-                            os.environ.get("MARKET_SCAN_MAX_SUBSCRIPTIONS", "30")
-                        ),
+                        max_symbols=MarketScanConfig.from_env().max_subscriptions,
                         interval_s=float(
                             os.environ.get("CENGINE_UNIVERSE_SYNC_SECONDS", "5")
                         ),
@@ -906,7 +943,7 @@ class MarketEngine:
         # CENGINE_HISTORICAL_WARMUP=0 disables.
         self._historical_warmup = None
         self._warmup_scheduler = None
-        if (self._gpu_discovery is not None and self._membership_registry is not None
+        if (self._gpu_discovery is not None
                 and feed in ("sip", "delayed_sip")
                 and os.environ.get("CENGINE_HISTORICAL_WARMUP", "1") != "0"):
             try:
@@ -925,17 +962,39 @@ class MarketEngine:
                     progress = os.path.join(
                         os.path.dirname(os.path.abspath(__file__)),
                         "data", "warmup_progress.json")
+                    if reg is not None:
+                        _warmup_universe_fn = reg.tradable_master_symbols
+                        _warmup_version = reg.snapshot_meta.membership_version
+                    else:
+                        # Pinned/diagnostic mode (CENGINE_SYMBOLS set — including the
+                        # universe.txt auto-seed in seed_engine_universe) disables
+                        # membership discovery, but the pinned SUBSCRIPTION universe still
+                        # needs native history warmed. Without it the 5m indicators only
+                        # warm slowly from the live stream (~1-2h) so no candidate can
+                        # ever qualify in a session. Warm the pinned set directly.
+                        _pinned_syms = [
+                            s.strip().upper()
+                            for s in os.environ.get("CENGINE_SYMBOLS", "").split(",")
+                            if s.strip()]
+
+                        def _warmup_universe_fn(_syms=_pinned_syms):
+                            return list(_syms)
+
+                        _warmup_version = 0
+                        if _pinned_syms:
+                            LOGGER.info("historical warm-up active for pinned universe "
+                                        "(%d symbols; membership discovery off)",
+                                        len(_pinned_syms))
                     self._warmup_scheduler = ContinuousWarmupScheduler(
                         self._historical_warmup,
-                        universe_fn=reg.tradable_master_symbols,
+                        universe_fn=_warmup_universe_fn,
                         priority_fn=self._warmup_priority_inputs,
                         batch_size=int(os.environ.get("CENGINE_WARMUP_BATCH", "100")),
                         state_path=progress,
                         max_attempts=int(os.environ.get("CENGINE_WARMUP_MAX_ATTEMPTS", "3")),
                         refresh_after_s=float(
                             os.environ.get("CENGINE_WARMUP_REFRESH_SECONDS", "21600")))
-                    self._warmup_scheduler.set_membership_version(
-                        reg.snapshot_meta.membership_version)
+                    self._warmup_scheduler.set_membership_version(_warmup_version)
             except Exception as exc:  # noqa: BLE001
                 LOGGER.warning("historical warm-up unavailable: %s", exc)
                 self._historical_warmup = None
@@ -1055,15 +1114,16 @@ class MarketEngine:
                     StrategyExecutionBridge,
                     make_decision_audit_handler,
                 )
-                from cengine.strategy_maturity import ExecutionAuthorization
+                from cengine.strategy_maturity import (
+                    ExecutionAuthorization,
+                    authorization_from_string,
+                )
 
-                auth_raw = os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH", "none").lower()
-                authorization = {
-                    "none": ExecutionAuthorization.NONE,
-                    "mock": ExecutionAuthorization.MOCK,
-                    "paper": ExecutionAuthorization.PAPER,
-                    "live": ExecutionAuthorization.LIVE,
-                }.get(auth_raw, ExecutionAuthorization.NONE)
+                # PAPER_RESEARCH (P0.3) authorizes paper execution of uncertified
+                # RESEARCH-maturity families; default NONE keeps execution opt-in
+                # ("expressly authorized"). Fail-safe: unknown values -> NONE.
+                authorization = authorization_from_string(
+                    os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH"))
                 runtime_state_for_bridge = getattr(self._adapter_module, "STATE", None)
                 if (authorization is not ExecutionAuthorization.NONE
                         and runtime_state_for_bridge is not None):
@@ -1079,7 +1139,8 @@ class MarketEngine:
                         self._regime_pipeline.sink, self._exec_bridge.correlation_index)
                     LOGGER.warning(
                         "strategy execution bridge ACTIVE authorization=%s (%s); "
-                        "families still gated by maturity (default RESEARCH)",
+                        "every entry still requires the technical entry contract + "
+                        "native RiskEngine approval (no gate bypassed)",
                         authorization.value, self._exec_bridge.describe())
             except Exception as exc:  # noqa: BLE001 — must never block startup
                 LOGGER.warning("strategy execution bridge unavailable: %s", exc)
@@ -1093,6 +1154,7 @@ class MarketEngine:
         # routes through the SAME OrderManager. Fail-safe; never blocks startup.
         self._portfolio_pipeline = None
         self._portfolio_returns: dict[str, dict[int, float]] = {}
+        self._portfolio_seeded = False  # P0.5: one-time warm-bar return seed done?
         self._portfolio_last_price: dict[str, int] = {}
         self._portfolio_state_builder = None
         self._portfolio_audit_handler = None
@@ -1108,13 +1170,13 @@ class MarketEngine:
                     PortfolioQuantityPolicy,
                 )
                 from cengine.portfolio_state import PortfolioStateBuilder
-                from cengine.strategy_maturity import ExecutionAuthorization
+                from cengine.strategy_maturity import (
+                    ExecutionAuthorization,
+                    authorization_from_string,
+                )
 
-                pf_auth = {
-                    "none": ExecutionAuthorization.NONE, "mock": ExecutionAuthorization.MOCK,
-                    "paper": ExecutionAuthorization.PAPER, "live": ExecutionAuthorization.LIVE,
-                }.get(os.environ.get("CENGINE_PORTFOLIO_EXECUTION_AUTH", "none").lower(),
-                      ExecutionAuthorization.NONE)
+                pf_auth = authorization_from_string(
+                    os.environ.get("CENGINE_PORTFOLIO_EXECUTION_AUTH"))
                 rstate = getattr(self._adapter_module, "STATE", None)
                 if rstate is not None:
                     exposure_info = (self._exposure_registry.get
@@ -1238,6 +1300,12 @@ class MarketEngine:
         if not universe:
             return None
         from cengine.regime_strategy_pipeline import screen_row_to_features
+        # Flush cached trades so the native DEVELOPING price reflects the latest trade
+        # before screening. on_market_event only caches trades to _latest_trade; the
+        # direct regime compute path must flush them itself, otherwise the developing
+        # price falls back to the last completed 1m close, momentum reads 0, and the
+        # developing>prev entry condition fails on every bar (verified via OOS replay).
+        self._gpu_discovery._flush_trades()
         rows = self._gpu_discovery.provider.compute(universe)
         if not rows:
             return None
@@ -1245,9 +1313,16 @@ class MarketEngine:
                         for s in refs if s in rows}
         breadth = self._gpu_discovery.breadth_snapshot()
         screen_rows = {s: r for s, r in rows.items() if s not in refs}
+        # Genuine confirmation features (rel_volume, momentum_accel, htf_direction,
+        # donchian_high, atr_expansion_ratio) computed from the native bar window. The
+        # family evaluators' confirmation gates REQUIRE these; the feature pipeline
+        # never supplied them, so every family rejected 100% of opportunities
+        # regardless of market (OOS replay: 0 candidates -> 2252 once supplied). This
+        # completes the feature pipeline with real indicators; it relaxes nothing.
+        daily_stats = self._gpu_discovery.provider.confirmation_features(universe)
         out = self._regime_pipeline.run(
             screen_rows or rows, now_ns=now_ns, ref_features=ref_features,
-            breadth=breadth)
+            breadth=breadth, daily_stats=daily_stats)
         tele = self._regime_pipeline.telemetry()
         LOGGER.info("regime: broad=%s/%s recs=%d selected=%d research=%d events=%d",
                     out["broad"].dimensions.direction.value,
@@ -1309,6 +1384,25 @@ class MarketEngine:
         self._regime_pipeline.sink.record_portfolio_state(state, now_ns)
         self._last_portfolio_state = state
 
+        # One-time seed of observed returns from the already-warmed native 1m bars so
+        # the optimizer reaches covariance readiness immediately after warm-up instead
+        # of after ~min_obs live ticks (the return map starts empty every restart).
+        # Real closes only (no fabrication); best-effort; never blocks the tick. P0.5.
+        if not self._portfolio_seeded and self._gpu_discovery is not None:
+            self._portfolio_seeded = True
+            try:
+                seeded = self._gpu_discovery.provider.export_returns(
+                    candidates, ref_ns=now_ns, window=window)
+                for sym, series in seeded.items():
+                    self._portfolio_returns.setdefault(sym, {}).update(series)
+                if seeded:
+                    LOGGER.info(
+                        "portfolio returns seeded from warmed native bars: symbols=%d "
+                        "(optimizer readiness no longer waits on live-tick warmup)",
+                        len(seeded))
+            except Exception:  # noqa: BLE001 — seeding is best-effort; never block
+                pass
+
         symbols = tuple(s for s in candidates
                         if len(self._portfolio_returns.get(s, {})) >= min_obs)
         # No immediate re-entry into a just-stopped-out symbol (M4 §16).
@@ -1317,7 +1411,9 @@ class MarketEngine:
                             if not self._replacement.in_cooldown(s, now_ns))
         if not symbols:
             if self._on_portfolio is not None:
-                self._on_portfolio(state, {"allocation_policy": "warming_up"})
+                self._on_portfolio(state, {
+                    "allocation_policy": "warming_up",
+                    "pipeline": self._pipeline_dashboard_stats()})
             return
         returns_by_symbol = {s: dict(self._portfolio_returns[s]) for s in symbols}
         authorized_fn = (self._exposure_registry.authorize_entry
@@ -1344,6 +1440,7 @@ class MarketEngine:
                 "covariance_source": res.covariance_source,
                 "binding_constraints": binding,
                 "reserved": res.reserved, "routed": res.routed,
+                "pipeline": self._pipeline_dashboard_stats(),
                 "execution": self._execution_dashboard_stats(symbols, now_ns),
                 "lakehouse": self._lakehouse_dashboard_stats(),
                 "learning": self._learning_dashboard_stats(),
@@ -1398,6 +1495,36 @@ class MarketEngine:
                 "quarantined": last.get("quarantined", 0),
                 "buffer": len(buf) if buf is not None else 0,
                 "feed": self._lakehouse.source_feed}
+
+    def _pipeline_dashboard_stats(self) -> dict:
+        """Execution-pipeline funnel + dominant blocker for the dashboard (P0.9).
+
+        Measured values only; never raises. Surfaces the execution environment
+        (authorization), whether the strategy-bridge order path is active, the
+        candidate->submitted funnel, archival coverage gaps, and the single
+        dominant blocker so the operator sees why orders do/do not flow.
+        """
+        try:
+            bridge_active = self._exec_bridge is not None
+            auth = os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH") or "none"
+            h = self.health
+            candidates = h.strategy_candidates
+            submitted = h.order_intents_submitted
+            return {
+                "authorization": auth,
+                "bridge_active": bridge_active,
+                "candidates": candidates,
+                "submitted": submitted,
+                "order_failures": h.order_failures,
+                "archive_dropped": h.archive_persistence_dropped,
+                "blocker": _dominant_execution_blocker(
+                    bridge_active=bridge_active,
+                    candidates=candidates,
+                    submitted=submitted,
+                ),
+            }
+        except Exception:  # noqa: BLE001 — dashboard stats must never raise
+            return {}
 
     def _execution_dashboard_stats(self, symbols: tuple, now_ns: int) -> dict:
         """Non-blocking execution analytics for the dashboard (M4 §22), derived from
@@ -1683,7 +1810,8 @@ class MarketEngine:
             self.kill_switch(f"startup reconciliation failed: {exc}")
             raise
         self.state.transition(EngineState.READY, "broker state agrees")
-        self.archive.start()
+        if self.archive is not None:
+            self.archive.start()
         self.state.transition(EngineState.RUNNING, "all startup gates passed")
 
         # Start the in-process scanner (own thread) fed by the single pipeline.
@@ -1835,7 +1963,8 @@ class MarketEngine:
                 return_exceptions=True,
             )
 
-            self.archive.close(drain=True)
+            if self.archive is not None:
+                self.archive.close(drain=True)
             self.journal.close()
 
             # Final out-of-band lakehouse flush so the session's last buffered
@@ -1920,7 +2049,28 @@ class MarketEngine:
         event: MarketEvent,
     ) -> None:
         # Persistence and every analytics consumer have independent streams.
-        self.archive.submit(event)
+        # The HDF5 archive is an ANALYTICAL sink (NOT the financial audit journal),
+        # and its bounded queue can saturate behind slow writes at live SIP tick
+        # rates. Archival backpressure must never propagate into the market-data
+        # dispatch callback — doing so escapes into AlpacaMarketDataStream.run_forever's
+        # broad reconnect handler and needlessly disconnects the feed (the observed
+        # `attempt=N` loop). Shed the raw observation with explicit coverage-gap
+        # accounting (NOT a silent drop) and keep the critical live path alive. The
+        # loss-intolerant financial audit journal (bars/orders/executions) is a
+        # separate sink below and is unaffected. P0.1.
+        if self.archive is not None:
+            try:
+                self.archive.submit(event)
+            except MarketDataStoreError:
+                self.health.archive_persistence_dropped += 1
+                dropped = self.health.archive_persistence_dropped
+                if dropped == 1 or dropped % 1000 == 0:
+                    LOGGER.warning(
+                        "archival persistence degraded: dropped=%d last_event=%s; "
+                        "market feed and live path preserved (coverage gap recorded)",
+                        dropped,
+                        type(event).__name__,
+                    )
         # The market-data feed (IEX by default, or SIP) multiplexes independent
         # channels; the gate enforces monotonicity per (symbol, channel), never
         # across channels (quotes and trades interleave with non-monotonic
@@ -2515,6 +2665,21 @@ class ConsoleDecisionStream:
             f"binding={','.join(extra.get('binding_constraints', [])) or 'none'} "
             f"reserved_n={extra.get('reserved', 0)} routed={extra.get('routed', 0)}",
         )
+        # Execution-pipeline funnel + dominant blocker (P0.9): shown prominently so the
+        # operator sees why orders do/do not flow (authorization, candidate->submitted,
+        # archival coverage gaps). Measured values only.
+        if extra.get("pipeline"):
+            pl = extra["pipeline"]
+            self._emit(
+                "PIPELINE",
+                f"env={pl.get('authorization', 'n/a')} "
+                f"bridge={'ACTIVE' if pl.get('bridge_active') else 'inactive'} "
+                f"candidates={pl.get('candidates', 0)} "
+                f"submitted={pl.get('submitted', 0)} "
+                f"order_failures={pl.get('order_failures', 0)} "
+                f"archive_dropped={pl.get('archive_dropped', 0)} "
+                f">> BLOCKER={pl.get('blocker', 'n/a')}",
+            )
         # Execution analytics (M4 §22): non-blocking; unavailable metrics -> n/a.
         if extra.get("execution") is not None:
             ex = extra["execution"]
@@ -2936,11 +3101,9 @@ def _engine_composition_root() -> None:
             + ". Copy .env.example to .env and fill it, or export them. "
             "(APCA_API_KEY_ID / APCA_API_SECRET_KEY are accepted equivalently.)"
         )
-    if not config.mongodb_uri.strip():
-        raise EngineConfigurationError(
-            "MongoDB journaling is required: set CENGINE_MONGODB_URI, or provide "
-            "MONGODB_URI via atlas-credentials.env."
-        )
+    # MongoDB journaling requirement removed: the engine uses a local Parquet journal
+    # replica (cengine.parquet_journal) under the lakehouse root. No network journal
+    # dependency gates startup.
 
     # Validate the native authority boundary and obtain authoritative state.
     load_native_adapters(config.native_adapter_module)
@@ -3358,11 +3521,35 @@ def _start_scanner(host: ScannerHost):
         return None
 
 
+def _default_strategy_auth_for_mode(mode: str, current: str | None) -> str | None:
+    """Return the strategy-execution authorization to default for ``mode``.
+
+    Paper mode authorizes PAPER_RESEARCH out-of-the-box so ``python3 trade.py``
+    submits paper orders without extra flags (live stays hard-disabled). Returns
+    ``None`` to leave the environment untouched when the operator has set the var
+    explicitly (any value, including empty/disabling) or for non-paper modes.
+    """
+    if mode == "paper" and current is None:
+        return "paper_research"
+    return None
+
+
 def run_autonomous(mode: str) -> int:
     """paper | live | shadow autonomous run."""
     from canonical_universe import CanonicalUniverseManager
 
     paper = mode != "live"
+    # P0.3: paper mode is the zero-arg default; authorize PAPER_RESEARCH execution of
+    # uncertified strategies so orders flow out-of-the-box. The technical entry
+    # contract + native RiskEngine still gate every order and live stays disabled.
+    _default_auth = _default_strategy_auth_for_mode(
+        mode, os.environ.get("CENGINE_STRATEGY_EXECUTION_AUTH"))
+    if _default_auth is not None:
+        os.environ["CENGINE_STRATEGY_EXECUTION_AUTH"] = _default_auth
+        logger.warning(
+            "paper mode: CENGINE_STRATEGY_EXECUTION_AUTH defaulted to 'paper_research' "
+            "(uncertified RESEARCH strategies are paper-routable; set the var "
+            "explicitly, e.g. =none, to override)")
     key, secret = resolve_credentials()
     if not (key and secret):
         print("ERROR: Alpaca credentials missing from .env "

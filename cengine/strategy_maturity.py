@@ -52,7 +52,8 @@ class ExecutionAuthorization(str, Enum):
 
     NONE = "none"      # default — advisory only, routes nothing
     MOCK = "mock"      # isolated mock-broker certification
-    PAPER = "paper"    # paper execution
+    PAPER_RESEARCH = "paper_research"  # paper execution of uncertified RESEARCH families
+    PAPER = "paper"    # paper execution of CERTIFIED (paper-eligible) families
     LIVE = "live"      # authorized live execution
 
 
@@ -63,6 +64,18 @@ _PERMITTED: dict[ExecutionAuthorization, frozenset[MaturityState]] = {
     ExecutionAuthorization.MOCK: frozenset(
         {MaturityState.MOCK_EXECUTION, MaturityState.PAPER_ELIGIBLE,
          MaturityState.LIVE_ELIGIBLE}
+    ),
+    # PAPER_RESEARCH: expressly-authorized paper execution of UNCERTIFIED research
+    # strategies (directive P0.3/P0.8/§5). It permits the default RESEARCH rung and
+    # the already-validated rungs, so evidence can be collected before economic
+    # certification — WITHOUT widening live. It deliberately EXCLUDES:
+    #   * SHADOW          — explicitly observe-only ("surfaced, never routed").
+    #   * MOCK_EXECUTION  — mock-isolation contract: a mock-only family must never
+    #                       become paper-routable as a side effect.
+    #   * DISABLED/BLOCKED — administratively off / hard stop.
+    ExecutionAuthorization.PAPER_RESEARCH: frozenset(
+        {MaturityState.RESEARCH, MaturityState.REPLAY_VALIDATED,
+         MaturityState.PAPER_ELIGIBLE, MaturityState.LIVE_ELIGIBLE}
     ),
     ExecutionAuthorization.PAPER: frozenset(
         {MaturityState.PAPER_ELIGIBLE, MaturityState.LIVE_ELIGIBLE}
@@ -83,6 +96,24 @@ def authorization_permits(maturity: MaturityState,
     return maturity in _PERMITTED.get(authorization, frozenset())
 
 
+def authorization_from_string(raw: str | None) -> ExecutionAuthorization:
+    """Resolve an operator-provided authorization name to the enum (fail-safe).
+
+    Case-insensitive and whitespace-trimmed. Any unknown/empty value resolves to
+    ``NONE`` (advisory only) so a typo or stray env value can never silently widen
+    execution. This is the single resolver the composition root uses for both the
+    strategy-bridge and portfolio-pipeline authorization env vars.
+    """
+    key = (raw or "").strip().lower()
+    return {
+        "none": ExecutionAuthorization.NONE,
+        "mock": ExecutionAuthorization.MOCK,
+        "paper_research": ExecutionAuthorization.PAPER_RESEARCH,
+        "paper": ExecutionAuthorization.PAPER,
+        "live": ExecutionAuthorization.LIVE,
+    }.get(key, ExecutionAuthorization.NONE)
+
+
 def describe_authorization(authorization: ExecutionAuthorization) -> str:
     """Human-readable summary of what an authorization permits (for logs/evidence)."""
     permitted = sorted(m.value for m in _PERMITTED[authorization])
@@ -92,6 +123,7 @@ def describe_authorization(authorization: ExecutionAuthorization) -> str:
 __all__ = [
     "ExecutionAuthorization",
     "MaturityState",
+    "authorization_from_string",
     "authorization_permits",
     "describe_authorization",
 ]

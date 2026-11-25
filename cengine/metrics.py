@@ -52,7 +52,13 @@ class PortfolioMetricsCollector:
         net = 0
         positions = self.positions.positions()
         for position in positions:
-            value = position.quantity * self.prices.price_ticks(position.symbol)
+            try:
+                value = position.quantity * self.prices.price_ticks(position.symbol)
+            except Exception:  # noqa: BLE001 — a held position without a fresh quote
+                # (at startup before its first quote arrives, or a quiet symbol) must
+                # NOT crash the telemetry/reconciliation loop. Mark it at cost basis
+                # (signed cumulative cost) until a quote is available again.
+                value = int(getattr(position, "cost_ticks", 0) or 0)
             gross += abs(value)
             net += value
         with self._lock:

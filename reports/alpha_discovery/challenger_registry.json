@@ -1,0 +1,172 @@
+{
+  "version": "alpha-economic-objective-1.0.0",
+  "gate_fingerprint": "19b52641f3e837e7",
+  "summary": {
+    "total": 8,
+    "by_decision": {
+      "accept": 0,
+      "reject": 6,
+      "defer": 2
+    },
+    "accepted": []
+  },
+  "challengers": [
+    {
+      "name": "incumbent_momentum",
+      "decision": "reject",
+      "objective_J": -0.803875,
+      "failures": [
+        "net_expectancy_not_positive",
+        "profit_factor_below:0.641<1.3",
+        "sharpe_below:-5.201<1.25",
+        "sortino_below",
+        "drawdown_exceeds:0.803>0.1",
+        "does_not_beat_cash",
+        "does_not_beat_incumbent",
+        "does_not_beat_simple_baselines"
+      ],
+      "metrics": {
+        "net_expectancy": -0.001075,
+        "profit_factor": 0.6408,
+        "sharpe_annualized": -5.201,
+        "sortino_annualized": -5.201,
+        "max_drawdown": 0.8028
+      },
+      "provenance": "family_research/replay",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "family_volatility_breakout",
+      "decision": "reject",
+      "objective_J": -0.834088,
+      "failures": [
+        "net_expectancy_not_positive",
+        "profit_factor_below:0.581<1.3",
+        "sharpe_below:-5.856<1.25",
+        "sortino_below",
+        "drawdown_exceeds:0.833>0.1",
+        "does_not_beat_cash",
+        "does_not_beat_incumbent",
+        "does_not_beat_simple_baselines"
+      ],
+      "metrics": {
+        "net_expectancy": -0.001188,
+        "profit_factor": 0.5806,
+        "sharpe_annualized": -5.856,
+        "sortino_annualized": -5.856,
+        "max_drawdown": 0.8329
+      },
+      "provenance": "family_research/replay",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "family_trend_pullback",
+      "decision": "reject",
+      "objective_J": -0.787219,
+      "failures": [
+        "net_expectancy_not_positive",
+        "profit_factor_below:0.599<1.3",
+        "sharpe_below:-4.132<1.25",
+        "sortino_below",
+        "drawdown_exceeds:0.786>0.1",
+        "does_not_beat_cash"
+      ],
+      "metrics": {
+        "net_expectancy": -0.001019,
+        "profit_factor": 0.5988,
+        "sharpe_annualized": -4.132,
+        "sortino_annualized": -4.132,
+        "max_drawdown": 0.7862
+      },
+      "provenance": "family_research/replay",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "family_mean_reversion",
+      "decision": "reject",
+      "objective_J": -0.732373,
+      "failures": [
+        "net_expectancy_not_positive",
+        "profit_factor_below:0.666<1.3",
+        "sharpe_below:-5.877<1.25",
+        "sortino_below",
+        "drawdown_exceeds:0.732>0.1",
+        "does_not_beat_cash"
+      ],
+      "metrics": {
+        "net_expectancy": -0.000873,
+        "profit_factor": 0.6658,
+        "sharpe_annualized": -5.877,
+        "sortino_annualized": -5.877,
+        "max_drawdown": 0.7315
+      },
+      "provenance": "family_research/replay",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "family_multi_day_swing",
+      "decision": "reject",
+      "objective_J": -0.352905,
+      "failures": [
+        "net_expectancy_not_positive",
+        "profit_factor_below:0.608<1.3",
+        "sharpe_below:-3.165<1.25",
+        "sortino_below",
+        "drawdown_exceeds:0.352>0.1",
+        "does_not_beat_cash"
+      ],
+      "metrics": {
+        "net_expectancy": -0.000905,
+        "profit_factor": 0.6076,
+        "sharpe_annualized": -3.165,
+        "sortino_annualized": -3.165,
+        "max_drawdown": 0.352
+      },
+      "provenance": "family_research/replay",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "supervised_linear_ridge",
+      "decision": "reject",
+      "objective_J": -1.000705,
+      "failures": [
+        "net_expectancy_not_positive",
+        "profit_factor_below:0.000<1.3",
+        "sharpe_below:0.000<1.25",
+        "sortino_below",
+        "drawdown_exceeds:1.000>0.1"
+      ],
+      "metrics": {
+        "net_expectancy": -0.000705,
+        "profit_factor": 0.0,
+        "sharpe_annualized": 0.0,
+        "sortino_annualized": 0.0,
+        "max_drawdown": 1.0
+      },
+      "provenance": "supervised_filter/top_decile",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "contextual_bandit_family_selection",
+      "decision": "defer",
+      "objective_J": null,
+      "failures": [
+        "insufficient_data"
+      ],
+      "metrics": {},
+      "provenance": "bandit_rl/insufficient",
+      "gate_fingerprint": "19b52641f3e837e7"
+    },
+    {
+      "name": "offline_rl_sequential_policy",
+      "decision": "defer",
+      "objective_J": null,
+      "failures": [
+        "insufficient_data"
+      ],
+      "metrics": {},
+      "provenance": "bandit_rl/insufficient",
+      "gate_fingerprint": "19b52641f3e837e7"
+    }
+  ]
+}

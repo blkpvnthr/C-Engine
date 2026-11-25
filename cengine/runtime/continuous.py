@@ -141,5 +141,31 @@ class ContinuousGovernanceService:
                 "domains": suite.domains}
 
 
+@dataclass
+class AlphaDiscoveryService:
+    """Off-session autonomous alpha-discovery cycles (M8 §4/§22), shadow-only.
+
+    Runs one governed alpha-discovery cycle per invocation (attribution -> hypotheses ->
+    challengers -> frozen-gate accept/reject/defer -> persist to optimization memory). Research
+    priority (P9) so it is suspended under GPU pressure and bounded in-session by the supervisor's
+    GPU-admission ladder; it never touches the order path or financial protection."""
+
+    symbols: list = field(default_factory=lambda: ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"])
+    priority: Priority = Priority.P9_RESEARCH
+    _cycle: int = 0
+
+    def run_once(self, *, now_ns: int | None = None, config=None, memory=None) -> dict:
+        from cengine.alpha.lifecycle import run_alpha_cycle
+        self._cycle += 1
+        try:
+            cyc = run_alpha_cycle(self.symbols, now_ns=now_ns, config=config, memory=memory)
+            return {"service": "alpha_discovery", "cycle": self._cycle, "ok": True,
+                    "decisions": cyc["decisions"], "accepted": cyc["accepted"]}
+        except Exception as exc:  # noqa: BLE001 - research faults never crash the runtime
+            return {"service": "alpha_discovery", "cycle": self._cycle, "ok": False,
+                    "error": str(exc)}
+
+
 __all__ = ["CONTINUOUS_VERSION", "ContinuousOptimizationService",
-           "ContinuousAcquisitionService", "ContinuousGovernanceService"]
+           "ContinuousAcquisitionService", "ContinuousGovernanceService",
+           "AlphaDiscoveryService"]

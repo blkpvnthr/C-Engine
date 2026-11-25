@@ -18,6 +18,7 @@ from cengine.runtime.calendar import (
 )
 from cengine.runtime.continuous import (
     CONTINUOUS_VERSION,
+    AlphaDiscoveryService,
     ContinuousAcquisitionService,
     ContinuousGovernanceService,
     ContinuousOptimizationService,
@@ -52,6 +53,7 @@ __all__ = [
     "SERVICE_VERSION",
     "STATE_MACHINE_VERSION",
     "SUPERVISOR_VERSION",
+    "AlphaDiscoveryService",
     "CalendarSummary",
     "ContinuousAcquisitionService",
     "ContinuousGovernanceService",

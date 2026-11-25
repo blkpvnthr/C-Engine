@@ -1,0 +1,50 @@
+{
+  "version": "bandit-rl-research-1.0.0",
+  "method": "direct_method (research-only)",
+  "data_label": "historical_replay",
+  "ips_or_dr_possible": false,
+  "ips_refused_reason": "no logged behavior-policy propensities (never fabricated)",
+  "regime_arm_policy": {
+    "down_highvol": {
+      "arm": "MOMENTUM_CONTINUATION",
+      "train_expectancy": -0.000782
+    },
+    "down_lowvol": {
+      "arm": "MULTI_DAY_SWING",
+      "train_expectancy": -0.000766
+    },
+    "down_midvol": {
+      "arm": "MOMENTUM_CONTINUATION",
+      "train_expectancy": 0.000394
+    },
+    "range_highvol": {
+      "arm": "MEAN_REVERSION",
+      "train_expectancy": -0.000747
+    },
+    "range_lowvol": {
+      "arm": "MEAN_REVERSION",
+      "train_expectancy": -0.000547
+    },
+    "range_midvol": {
+      "arm": "MULTI_DAY_SWING",
+      "train_expectancy": -0.000697
+    },
+    "up_highvol": {
+      "arm": "TREND_PULLBACK",
+      "train_expectancy": -0.001145
+    },
+    "up_lowvol": {
+      "arm": "MEAN_REVERSION",
+      "train_expectancy": -0.00033
+    },
+    "up_midvol": {
+      "arm": "MEAN_REVERSION",
+      "train_expectancy": -0.000788
+    }
+  },
+  "policy_val_expectancy": -0.000953,
+  "uniform_random_val_expectancy": -0.001087,
+  "policy_positive": false,
+  "certification_status": "INSUFFICIENT_DATA",
+  "conclusion": "Direct-method contextual-bandit research (best family per regime) reaches -0.00095 VAL vs uniform -0.00109; off-policy (IPS/DR) certification is not possible without logged propensities. Research-only; certification INSUFFICIENT_DATA."
+}

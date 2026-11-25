@@ -1,0 +1,15 @@
+{
+  "version": "bandit-rl-research-1.0.0",
+  "data_label": "historical_replay",
+  "genuine_execution_transitions": 0,
+  "historical_replay_single_step_transitions": 15000,
+  "sequential_transition_data_available": false,
+  "methods_available_unit_tested": [
+    "behavior_cloning",
+    "CQL",
+    "IQL",
+    "FQE"
+  ],
+  "certification_status": "INSUFFICIENT_DATA",
+  "conclusion": "Offline RL (BC/CQL/IQL/FQE) requires genuine state\u2192action\u2192reward\u2192next-state transitions from executed experience. Historical replay yields single-step bandit-like transitions only (15000 available) and zero genuine EXECUTION transitions, so sequential-policy certification is INSUFFICIENT_DATA and is deferred until paper/live transition data accrues. No unrestricted live RL; no fabricated rewards."
+}

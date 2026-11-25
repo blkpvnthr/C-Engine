@@ -1,0 +1,76 @@
+{
+  "version": "supervised-opportunity-filter-1.0.0",
+  "available": true,
+  "data_label": "historical_replay",
+  "n_train": 10500,
+  "n_val": 4500,
+  "baseline_val_expectancy": -0.001159,
+  "select_top_fraction": 0.1,
+  "models": {
+    "mlx_regressor": {
+      "selected_n": 450,
+      "selected_val_expectancy": -0.001398,
+      "selected_positive": false,
+      "rank_ic": 0.0626,
+      "improves_vs_base": -0.00023937732442468398,
+      "device": "gpu"
+    },
+    "sklearn_hgbr_tree": {
+      "selected_n": 450,
+      "selected_val_expectancy": -0.00097,
+      "selected_positive": false,
+      "rank_ic": 0.0713,
+      "improves_vs_base": 0.0001886226755753159
+    },
+    "linear_ridge": {
+      "selected_n": 450,
+      "selected_val_expectancy": -0.000705,
+      "selected_positive": false,
+      "rank_ic": 0.0903,
+      "improves_vs_base": 0.00045362267557531595
+    },
+    "constant_baseline": {
+      "selected_n": 450,
+      "selected_val_expectancy": -0.000992,
+      "selected_positive": false,
+      "rank_ic": -0.0813,
+      "improves_vs_base": 0.0001666226755753159
+    }
+  },
+  "models_with_positive_selection": [],
+  "best_model": "linear_ridge",
+  "conclusion": "No model's top-decile selection produced positive out-of-sample net expectancy (baseline -0.00116; best 'linear_ridge' -0.00071 if measurable). Supervised opportunity filtering does not create an edge the entries do not contain. Negative result preserved.",
+  "per_symbol": {
+    "AAPL": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "MSFT": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "NVDA": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "SPY": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    },
+    "QQQ": {
+      "available": true,
+      "n": 3000,
+      "train": 2100,
+      "val": 900
+    }
+  },
+  "note": "MLX/Metal primary + sklearn tree/linear/constant baselines; scored on ECONOMICS (top-decile OOS net expectancy), not accuracy/AUC; simulated historical-replay, not live, no profitability claim"
+}

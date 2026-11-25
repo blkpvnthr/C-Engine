@@ -1,0 +1,26 @@
+{
+  "version": "alpha-metal-benchmarks-1.0.0",
+  "gpu_available": true,
+  "benchmarks": [
+    {
+      "workload": "batched_linear_inference",
+      "n_rows": 200000,
+      "n_features": 16,
+      "cpu_seconds": 0.00032,
+      "gpu_seconds": 0.00057,
+      "gpu_speedup_x": 0.57,
+      "device": "Device(gpu, 0)",
+      "faster": "cpu"
+    },
+    {
+      "workload": "feature_standardization",
+      "n_rows": 500000,
+      "cpu_seconds": 0.01532,
+      "gpu_seconds": 0.00169,
+      "gpu_speedup_x": 9.06,
+      "device": "Device(gpu, 0)",
+      "faster": "gpu"
+    }
+  ],
+  "honesty_note": "GPU timings force completion with mx.eval (not dispatch time); CPU wins are reported where measured \u2014 small/medium workloads often favor the CPU; the GPU pays off at large batch sizes. Research workloads never interfere with financial protection."
+}
