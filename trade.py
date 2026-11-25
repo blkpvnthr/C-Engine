@@ -336,6 +336,13 @@ class EngineHealth:
     # archive sheds a raw observation under backpressure/failure so the market
     # feed and live path stay alive. Exposed (not silent) for the dashboard.
     archive_persistence_dropped: int = 0
+    # B1: elective order routing skipped for an ordinary nonfatal reason (closed
+    # session / engine not RUNNING). Market-data + research still ran; no crash.
+    session_blocked: int = 0
+    routing_blocked: int = 0
+    # §8: recoverable per-event market-data errors isolated by the consumer so a
+    # single bad event can never terminate the engine (protection stays alive).
+    market_data_errors: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -2279,13 +2286,24 @@ class MarketEngine:
                 # Quotes/trades/factors remain available to other live
                 # analytics through future fan-out subscribers. Strategy
                 # definitions in strategies.py are bar-based.
+            except Exception:  # noqa: BLE001 — isolate recoverable per-event failures
+                # A single malformed / stale / out-of-order event (or any unexpected
+                # per-bar error) must NEVER terminate the consumer — doing so would tear
+                # down the engine and, with it, the protective-exit and reconciliation
+                # tasks. Log loudly + count (visible, not silently suppressed) and move
+                # on; the protective exit and native RiskEngine retain their own
+                # independent fail-closed authority (§8).
+                self.health.market_data_errors += 1
+                LOGGER.exception("market event processing isolated and skipped")
             finally:
                 self.strategy_events.queue.task_done()
 
     async def _process_bar(self, event: BarEvent) -> None:
-        self.state.require_ordering_enabled()
+        # Market-data processing (bar construction, telemetry, strategy evaluation,
+        # feature/discovery) runs UNCONDITIONALLY. A closed session or a paused engine
+        # must NEVER drop data or terminate the consumer — the engine runs 24/7 and only
+        # ELECTIVE order routing is session-gated, as a nonfatal decision below (B1).
         self.market_gate.require_fresh(event.symbol, event.received_ns)
-        self.session_gate.require_open(event.timestamp_ns)
         bar = Bar(
             symbol=event.symbol,
             timestamp_ns=event.timestamp_ns,
@@ -2309,16 +2327,31 @@ class MarketEngine:
         if not batch.candidates:
             return
 
+        # Elective order-authorization boundary (nonfatal). An ordinary closed session
+        # or a non-RUNNING engine is a research-only condition, NOT an error: record the
+        # reason and skip routing instead of raising (which previously escaped the
+        # consumer and tore down the whole engine, including protection, outside RTH).
+        if not self.state.ordering_enabled:
+            self.health.routing_blocked += 1
+            return
+        if not self.session_gate.is_open(event.timestamp_ns):
+            self.health.session_blocked += 1
+            return
+
         try:
             submitted, conflicted = await self.router.route(batch.candidates)
         except Exception:
+            # A per-bar routing failure (a risk rejection or transient broker error) is
+            # recoverable — the next bar retries and the independent protective exit is
+            # unaffected. Log + count; do NOT tear down the engine. The native RiskEngine
+            # retains its own fail-closed authority over what it approves.
             self.health.order_failures += 1
             LOGGER.exception(
                 "candidate routing failed symbol=%s timestamp_ns=%d",
                 batch.symbol,
                 batch.timestamp_ns,
             )
-            raise
+            return
 
         self.health.order_intents_submitted += submitted
         if conflicted:

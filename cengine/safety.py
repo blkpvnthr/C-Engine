@@ -9,6 +9,12 @@ from zoneinfo import ZoneInfo
 BAR_CHANNEL = "bar"
 
 
+class MarketClosedError(RuntimeError):
+    """Raised by MarketSessionGate.require_open when the session is closed. A subclass
+    of RuntimeError so existing fail-closed callers still catch it, but typed so the
+    market-data path can treat an ordinary closed session as nonfatal."""
+
+
 @dataclass(frozen=True, slots=True)
 class MarketGateConfig:
     max_feed_age_ns: int
@@ -82,11 +88,27 @@ class MarketSessionGate:
         self.config = config
         self._zone = ZoneInfo(config.timezone_name)
 
-    def require_open(self, timestamp_ns: int) -> None:
+    def session_reason(self, timestamp_ns: int) -> str:
+        """Return '' if the configured session is open at ``timestamp_ns``, else a
+        human-readable closed reason. Nonfatal — never raises for an ordinary closed
+        session, so market-data ingestion/research can continue 24/7."""
         local = datetime.fromtimestamp(timestamp_ns / 1_000_000_000, tz=timezone.utc)
         local = local.astimezone(self._zone)
         minute = local.hour * 60 + local.minute
         if local.weekday() not in self.config.weekdays:
-            raise RuntimeError("market session is closed for configured weekday")
+            return "market session is closed for configured weekday"
         if not self.config.open_minute <= minute < self.config.close_minute:
-            raise RuntimeError("market session is outside configured hours")
+            return "market session is outside configured hours"
+        return ""
+
+    def is_open(self, timestamp_ns: int) -> bool:
+        """Nonfatal session check for the elective order-authorization boundary."""
+        return self.session_reason(timestamp_ns) == ""
+
+    def require_open(self, timestamp_ns: int) -> None:
+        """Fatal session gate (retained for callers that must fail closed). Raises the
+        typed :class:`MarketClosedError` so callers can distinguish an ordinary closed
+        session from a genuine fault."""
+        reason = self.session_reason(timestamp_ns)
+        if reason:
+            raise MarketClosedError(reason)
