@@ -122,18 +122,14 @@ class UniverseRotationScheduler:
 
         # ---- Step 4b: hysteresis / minimum residence — retain incumbents that
         # entered the active window too recently to demote (anti-churn, spec §8).
-        # An incumbent that is no longer eligible is NOT held (do not trap an
-        # invalid/deteriorated symbol); emergency demotion uses the tracker's
-        # force path upstream.
-        eligible_now = {
-            norm(r.symbol)
-            for r in list(baseline) + list(opportunities)
-            if r.eligible
-        }
+        # Residence holds UNCONDITIONALLY: only an emergency bypasses it (via the
+        # tracker's ``force`` path upstream), because deterioration alone must not
+        # cause churn inside the minimum-residence window. A genuinely invalid
+        # symbol ages out once residence elapses.
         for sym in (norm(x) for x in previous_active):
             if len(active) >= cap:
                 break
-            if sym in seen or sym not in eligible_now:
+            if sym in seen:
                 continue
             if not tracker.can_demote(sym, now_s):
                 _add(sym, "residence_hold")
