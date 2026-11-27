@@ -336,6 +336,13 @@ class EngineHealth:
     # archive sheds a raw observation under backpressure/failure so the market
     # feed and live path stay alive. Exposed (not silent) for the dashboard.
     archive_persistence_dropped: int = 0
+    # B1: elective order routing skipped for an ordinary nonfatal reason (closed
+    # session / engine not RUNNING). Market-data + research still ran; no crash.
+    session_blocked: int = 0
+    routing_blocked: int = 0
+    # §8: recoverable per-event market-data errors isolated by the consumer so a
+    # single bad event can never terminate the engine (protection stays alive).
+    market_data_errors: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -588,14 +595,40 @@ class MarketEngine:
         self.market_gate = MarketSafetyGate(
             MarketGateConfig(config.max_feed_age_ns, config.max_bar_gap_ns)
         )
-        self.session_gate = MarketSessionGate(
-            SessionConfig(
-                config.session_timezone,
-                config.session_open_minute,
-                config.session_close_minute,
-                config.session_weekdays,
+        # Overlay the authoritative NYSE holiday / early-close calendar onto the
+        # session gate so order routing is skipped on full closures and after the
+        # 13:00 ET half-day close. A naive weekday 09:30-16:00 window otherwise
+        # reports the session open on holidays and half-days, routing market
+        # orders the broker accepts but can never fill (the 2026-11-27
+        # post-Thanksgiving half-day is exactly this failure). Span year-1..year+1
+        # so a long run survives the new-year boundary. Never block init on a
+        # calendar error — degrade to the prior static window.
+        try:
+            from cengine.runtime.calendar import session_gate_overlays
+            _year = time.gmtime().tm_year
+            _holidays, _early_closes = session_gate_overlays(range(_year - 1, _year + 2))
+            self.session_gate = MarketSessionGate(
+                SessionConfig(
+                    config.session_timezone,
+                    config.session_open_minute,
+                    config.session_close_minute,
+                    config.session_weekdays,
+                    holidays=_holidays,
+                    early_closes=_early_closes,
+                )
             )
-        )
+        except Exception:  # noqa: BLE001 — degrade to the static window, never crash init
+            LOGGER.exception(
+                "session calendar overlay unavailable; using static weekday window"
+            )
+            self.session_gate = MarketSessionGate(
+                SessionConfig(
+                    config.session_timezone,
+                    config.session_open_minute,
+                    config.session_close_minute,
+                    config.session_weekdays,
+                )
+            )
         self.strategy_state = StrategyStateBook()
 
         risk_engine, venue = load_native_adapters(config.native_adapter_module)
@@ -2279,13 +2312,24 @@ class MarketEngine:
                 # Quotes/trades/factors remain available to other live
                 # analytics through future fan-out subscribers. Strategy
                 # definitions in strategies.py are bar-based.
+            except Exception:  # noqa: BLE001 — isolate recoverable per-event failures
+                # A single malformed / stale / out-of-order event (or any unexpected
+                # per-bar error) must NEVER terminate the consumer — doing so would tear
+                # down the engine and, with it, the protective-exit and reconciliation
+                # tasks. Log loudly + count (visible, not silently suppressed) and move
+                # on; the protective exit and native RiskEngine retain their own
+                # independent fail-closed authority (§8).
+                self.health.market_data_errors += 1
+                LOGGER.exception("market event processing isolated and skipped")
             finally:
                 self.strategy_events.queue.task_done()
 
     async def _process_bar(self, event: BarEvent) -> None:
-        self.state.require_ordering_enabled()
+        # Market-data processing (bar construction, telemetry, strategy evaluation,
+        # feature/discovery) runs UNCONDITIONALLY. A closed session or a paused engine
+        # must NEVER drop data or terminate the consumer — the engine runs 24/7 and only
+        # ELECTIVE order routing is session-gated, as a nonfatal decision below (B1).
         self.market_gate.require_fresh(event.symbol, event.received_ns)
-        self.session_gate.require_open(event.timestamp_ns)
         bar = Bar(
             symbol=event.symbol,
             timestamp_ns=event.timestamp_ns,
@@ -2309,16 +2353,31 @@ class MarketEngine:
         if not batch.candidates:
             return
 
+        # Elective order-authorization boundary (nonfatal). An ordinary closed session
+        # or a non-RUNNING engine is a research-only condition, NOT an error: record the
+        # reason and skip routing instead of raising (which previously escaped the
+        # consumer and tore down the whole engine, including protection, outside RTH).
+        if not self.state.ordering_enabled:
+            self.health.routing_blocked += 1
+            return
+        if not self.session_gate.is_open(event.timestamp_ns):
+            self.health.session_blocked += 1
+            return
+
         try:
             submitted, conflicted = await self.router.route(batch.candidates)
         except Exception:
+            # A per-bar routing failure (a risk rejection or transient broker error) is
+            # recoverable — the next bar retries and the independent protective exit is
+            # unaffected. Log + count; do NOT tear down the engine. The native RiskEngine
+            # retains its own fail-closed authority over what it approves.
             self.health.order_failures += 1
             LOGGER.exception(
                 "candidate routing failed symbol=%s timestamp_ns=%d",
                 batch.symbol,
                 batch.timestamp_ns,
             )
-            raise
+            return
 
         self.health.order_intents_submitted += submitted
         if conflicted:

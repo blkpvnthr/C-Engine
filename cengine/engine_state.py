@@ -60,6 +60,11 @@ class EngineStateMachine:
             if self._state is not EngineState.STOPPED:
                 self._state, self._reason = EngineState.KILLED, reason
 
+    @property
+    def ordering_enabled(self) -> bool:
+        """Nonfatal order-authorization check for the elective routing boundary."""
+        return self.state is EngineState.RUNNING
+
     def require_ordering_enabled(self) -> None:
         if self.state is not EngineState.RUNNING:
             raise RuntimeError(f"order submission blocked while engine is {self.state.value}")
