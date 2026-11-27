@@ -74,6 +74,13 @@ class SessionConfig:
     open_minute: int
     close_minute: int
     weekdays: tuple[int, ...]
+    # Exchange calendar overlays on top of the static weekday/hours window. A
+    # naive weekday 09:30-16:00 clock is wrong on exchange holidays (fully
+    # closed on a weekday) and half-days (early close), where the broker accepts
+    # orders it can never fill. ``holidays`` are ISO ``YYYY-MM-DD`` full closures;
+    # ``early_closes`` map an ISO date to its early close minute-of-day.
+    holidays: frozenset[str] = frozenset()
+    early_closes: tuple[tuple[str, int], ...] = ()
 
     def __post_init__(self) -> None:
         ZoneInfo(self.timezone_name)
@@ -81,23 +88,37 @@ class SessionConfig:
             raise ValueError("invalid session open/close minutes")
         if not self.weekdays or any(day < 0 or day > 6 for day in self.weekdays):
             raise ValueError("weekdays must use datetime weekday values 0..6")
+        for day_iso, close_min in self.early_closes:
+            if not self.open_minute < close_min <= self.close_minute:
+                raise ValueError(
+                    f"early close for {day_iso} must fall within the regular session"
+                )
 
 
 class MarketSessionGate:
     def __init__(self, config: SessionConfig) -> None:
         self.config = config
         self._zone = ZoneInfo(config.timezone_name)
+        self._early_closes = dict(config.early_closes)
 
     def session_reason(self, timestamp_ns: int) -> str:
         """Return '' if the configured session is open at ``timestamp_ns``, else a
         human-readable closed reason. Nonfatal — never raises for an ordinary closed
-        session, so market-data ingestion/research can continue 24/7."""
+        session, so market-data ingestion/research can continue 24/7.
+
+        Honors the exchange calendar overlays: a date in ``holidays`` is fully
+        closed, and a date in ``early_closes`` uses its earlier close minute in
+        place of the regular close."""
         local = datetime.fromtimestamp(timestamp_ns / 1_000_000_000, tz=timezone.utc)
         local = local.astimezone(self._zone)
         minute = local.hour * 60 + local.minute
         if local.weekday() not in self.config.weekdays:
             return "market session is closed for configured weekday"
-        if not self.config.open_minute <= minute < self.config.close_minute:
+        day_iso = local.date().isoformat()
+        if day_iso in self.config.holidays:
+            return "market session is closed for exchange holiday"
+        close_minute = self._early_closes.get(day_iso, self.config.close_minute)
+        if not self.config.open_minute <= minute < close_minute:
             return "market session is outside configured hours"
         return ""
 

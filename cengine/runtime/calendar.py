@@ -100,6 +100,28 @@ def is_trading_day(d: _dt.date) -> bool:
     return d.weekday() < 5 and d not in holidays(d.year)
 
 
+# Early-close days close 13:00 ET (minute-of-day 780); see module docstring.
+EARLY_CLOSE_MINUTE = 13 * 60
+
+
+def session_gate_overlays(years):
+    """Exchange-calendar overlays for :class:`cengine.safety.SessionConfig`.
+
+    Converts this module's authoritative holiday/early-close knowledge into the
+    plain ``(holidays, early_closes)`` shape the pure session gate consumes, so
+    the gate honors full closures and half-days instead of a naive weekday
+    09:30–16:00 window. Returns ISO ``YYYY-MM-DD`` strings; ``early_closes`` are
+    ``(date, close_minute)`` pairs. Intentionally free of any ``cengine.safety``
+    import so the dependency runs calendar -> safety, never the reverse.
+    """
+    hol: set[str] = set()
+    early: list[tuple[str, int]] = []
+    for year in years:
+        hol.update(d.isoformat() for d in holidays(year))
+        early.extend((d.isoformat(), EARLY_CLOSE_MINUTE) for d in early_closes(year))
+    return frozenset(hol), tuple(sorted(early))
+
+
 def _et(ts_ns: int) -> _dt.datetime:
     return _dt.datetime.fromtimestamp(ts_ns / 1e9, tz=_ET)
 

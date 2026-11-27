@@ -595,14 +595,40 @@ class MarketEngine:
         self.market_gate = MarketSafetyGate(
             MarketGateConfig(config.max_feed_age_ns, config.max_bar_gap_ns)
         )
-        self.session_gate = MarketSessionGate(
-            SessionConfig(
-                config.session_timezone,
-                config.session_open_minute,
-                config.session_close_minute,
-                config.session_weekdays,
+        # Overlay the authoritative NYSE holiday / early-close calendar onto the
+        # session gate so order routing is skipped on full closures and after the
+        # 13:00 ET half-day close. A naive weekday 09:30-16:00 window otherwise
+        # reports the session open on holidays and half-days, routing market
+        # orders the broker accepts but can never fill (the 2026-11-27
+        # post-Thanksgiving half-day is exactly this failure). Span year-1..year+1
+        # so a long run survives the new-year boundary. Never block init on a
+        # calendar error — degrade to the prior static window.
+        try:
+            from cengine.runtime.calendar import session_gate_overlays
+            _year = time.gmtime().tm_year
+            _holidays, _early_closes = session_gate_overlays(range(_year - 1, _year + 2))
+            self.session_gate = MarketSessionGate(
+                SessionConfig(
+                    config.session_timezone,
+                    config.session_open_minute,
+                    config.session_close_minute,
+                    config.session_weekdays,
+                    holidays=_holidays,
+                    early_closes=_early_closes,
+                )
             )
-        )
+        except Exception:  # noqa: BLE001 — degrade to the static window, never crash init
+            LOGGER.exception(
+                "session calendar overlay unavailable; using static weekday window"
+            )
+            self.session_gate = MarketSessionGate(
+                SessionConfig(
+                    config.session_timezone,
+                    config.session_open_minute,
+                    config.session_close_minute,
+                    config.session_weekdays,
+                )
+            )
         self.strategy_state = StrategyStateBook()
 
         risk_engine, venue = load_native_adapters(config.native_adapter_module)
